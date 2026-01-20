@@ -1,4 +1,10 @@
-.PHONY: help terraform-fmt terraform-upgrade provision-management provision-regional apply-infra-management apply-infra-regional destroy-management destroy-regional test test-e2e
+.PHONY: help terraform-fmt terraform-upgrade provision-management provision-regional apply-infra-management apply-infra-regional destroy-management destroy-regional test test-e2e container-build container-push container-test
+
+# Container image configuration
+IMAGE_REGISTRY ?= quay.io
+IMAGE_REPOSITORY ?= $(IMAGE_REGISTRY)/openshift-online/rosa-regional-platform
+IMAGE_TAG ?= latest
+TERRAFORM_VERSION ?= 1.14.3
 
 # Default target
 help:
@@ -15,6 +21,11 @@ help:
 	@echo "🛠️  Terraform Utilities:"
 	@echo "  terraform-fmt                    - Format all Terraform files"
 	@echo "  terraform-upgrade                - Upgrade provider versions"
+	@echo ""
+	@echo "🐳 Container:"
+	@echo "  container-build                  - Build container image (use TERRAFORM_VERSION=x.y.z to override)"
+	@echo "  container-push                   - Push container image to registry"
+	@echo "  container-test                   - Run terraform fmt inside container"
 	@echo ""
 	@echo "🧪 Testing:"
 	@echo "  test                             - Run tests"
@@ -164,4 +175,38 @@ test:
 test-e2e:
 	@echo "🧪 Running end-to-end tests..."
 	@echo "✅ End-to-end tests complete"
+
+# =============================================================================
+# Container Build Targets
+# =============================================================================
+
+# Build container image with Terraform
+container-build:
+	@echo "🐳 Building container image..."
+	@echo "   Registry: $(IMAGE_REPOSITORY)"
+	@echo "   Tag: $(IMAGE_TAG)"
+	@echo "   Go Version: pre-installed from UBI9 go-toolset (1.24.x)"
+	@echo "   Terraform Version: $(TERRAFORM_VERSION)"
+	@docker build \
+		--build-arg TERRAFORM_VERSION=$(TERRAFORM_VERSION) \
+		-t $(IMAGE_REPOSITORY):$(IMAGE_TAG) .
+	@echo "✅ Container build complete: $(IMAGE_REPOSITORY):$(IMAGE_TAG)"
+
+# Push container image to registry
+container-push:
+	@echo "🚀 Pushing container image..."
+	@echo "   Image: $(IMAGE_REPOSITORY):$(IMAGE_TAG)"
+	@docker push $(IMAGE_REPOSITORY):$(IMAGE_TAG)
+	@echo "✅ Container push complete"
+
+# Run terraform fmt inside container
+container-test: container-build
+	@echo "🔧 Running terraform-fmt in container..."
+	@echo "   Image: $(IMAGE_REPOSITORY):$(IMAGE_TAG)"
+	@docker run --rm \
+		-v $(PWD):/workspace \
+		-w /workspace \
+		$(IMAGE_REPOSITORY):$(IMAGE_TAG) \
+		make terraform-fmt
+	@echo "✅ Terraform formatting complete"
 

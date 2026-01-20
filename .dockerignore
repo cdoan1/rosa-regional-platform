@@ -1,0 +1,30 @@
+# Git
+.git
+.gitignore
+
+# Terraform
+**/.terraform
+**/.terraform.lock.hcl
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/terraform.tfvars
+**/.terraform.tfstate.lock.info
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation (build-time unnecessary)
+*.md
+!README.md
+
+# Test outputs
+test/output
+*.log
