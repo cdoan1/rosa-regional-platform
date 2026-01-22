@@ -135,13 +135,15 @@ spec:
           enabled: false                           # Workaround for https://github.com/argoproj/argo-helm/issues/2887
   syncPolicy:
     automated:
-      prune: false                                 # Safety: no auto-deletion
+      prune: true                                  # Automated resource cleanup
       selfHeal: true                               # Auto drift correction
+      allowEmpty: false                            # Safety: prevents catastrophic sync
 ```
 
 ### Key Aspects for Self-Management
 
-- **prune: false**: Prevents accidental resource deletion
+- **prune: true**: Automatically removes 'zombie' resources and old configurations deleted from Git
+- **allowEmpty: false**: Prevents deletion of existing resources if Git repository becomes empty or unreachable
 - **redisSecretInit: false**: Workaround for [known upstream bug](https://github.com/argoproj/argo-helm/issues/2887) to prevent init beyond first helm provision
 - **ignoreDifferences**: Ignores helm annotations to prevent warnings and additional reconciliation loops
 - **Retry logic**: Exponential backoff for failed sync attempts
