@@ -40,6 +40,13 @@ LOG_GROUP=$(echo "$OUTPUTS" | jq -r '.bootstrap_log_group_name.value')
 REPOSITORY_URL=$(echo "$OUTPUTS" | jq -r '.repository_url.value')
 REPOSITORY_BRANCH=$(echo "$OUTPUTS" | jq -r '.repository_branch.value')
 
+# Extract cluster-type specific outputs
+if [[ "$CLUSTER_TYPE" == "regional" ]]; then
+    API_TARGET_GROUP_ARN=$(echo "$OUTPUTS" | jq -r '.api_target_group_arn.value // ""')
+else
+    API_TARGET_GROUP_ARN=""
+fi
+
 echo "Bootstrapping ArgoCD on cluster: $CLUSTER_NAME"
 
 # Run ECS task
@@ -54,10 +61,12 @@ RUN_TASK_OUTPUT=$(aws ecs run-task \
       \"name\": \"bootstrap\",
       \"environment\": [
         {\"name\": \"CLUSTER_NAME\", \"value\": \"$CLUSTER_NAME\"},
+        {\"name\": \"CLUSTER_TYPE\", \"value\": \"$CLUSTER_TYPE\"},
         {\"name\": \"ARGOCD_VERSION\", \"value\": \"9.3.4\"},
         {\"name\": \"REPOSITORY_URL\", \"value\": \"$REPOSITORY_URL\"},
         {\"name\": \"REPOSITORY_PATH\", \"value\": \"$REPOSITORY_PATH\"},
-        {\"name\": \"REPOSITORY_BRANCH\", \"value\": \"$REPOSITORY_BRANCH\"}
+        {\"name\": \"REPOSITORY_BRANCH\", \"value\": \"$REPOSITORY_BRANCH\"},
+        {\"name\": \"API_TARGET_GROUP_ARN\", \"value\": \"$API_TARGET_GROUP_ARN\"}
       ]
     }]
   }" 2>&1)

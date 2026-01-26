@@ -70,6 +70,30 @@ resource "aws_ecs_task_definition" "bootstrap" {
           # Configure kubectl for EKS
           aws eks update-kubeconfig --name $CLUSTER_NAME
 
+          # Create bootstrap-output ConfigMap for regional clusters only
+          if [[ "$${CLUSTER_TYPE:-}" == "regional" ]]; then
+            echo "Creating bootstrap-output ConfigMap..."
+
+            cat <<-CM_EOF | kubectl apply -f -
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: bootstrap-output
+            namespace: kube-system
+            labels:
+              app.kubernetes.io/managed-by: terraform
+              app.kubernetes.io/component: bootstrap
+          data:
+            cluster_name: "$CLUSTER_NAME"
+            cluster_type: "$${CLUSTER_TYPE}"
+            api_target_group_arn: "$${API_TARGET_GROUP_ARN}"
+          CM_EOF
+
+            echo "✓ bootstrap-output ConfigMap created in kube-system namespace"
+          else
+            echo "Skipping bootstrap-output ConfigMap (not needed for management cluster)"
+          fi
+
           # Check if ArgoCD already exists
           if kubectl get namespace argocd 2>/dev/null; then
             echo "ArgoCD namespace already exists, checking installation..."
