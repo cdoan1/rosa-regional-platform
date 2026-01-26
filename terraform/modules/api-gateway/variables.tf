@@ -22,13 +22,13 @@ variable "resource_name_base" {
   type        = string
 }
 
-variable "region_name" {
-  description = "AWS region name for constructing API URLs (e.g., 'us-west-2')"
+variable "node_security_group_id" {
+  description = "EKS node/pod security group ID - ALB needs to send traffic to pods via this SG. For EKS Auto Mode, use the cluster_primary_security_group_id."
   type        = string
 }
 
-variable "node_security_group_id" {
-  description = "EKS node/pod security group ID - ALB needs to send traffic to pods via this SG. For EKS Auto Mode, use the cluster_primary_security_group_id."
+variable "cluster_name" {
+  description = "EKS cluster name - required for tagging target group with eks:eks-cluster-name tag for Auto Mode IAM permissions"
   type        = string
 }
 

@@ -40,7 +40,7 @@ module "eks" {
 
   # VPC and networking
   vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnets  # Auto Mode nodes use private subnets with NAT gateway
+  subnet_ids = module.vpc.private_subnets # Auto Mode nodes use private subnets with NAT gateway
 
   # EKS Auto Mode - Automatic compute provisioning and scaling
   # https://docs.aws.amazon.com/eks/latest/userguide/create-node-pool.html

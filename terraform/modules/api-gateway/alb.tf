@@ -27,8 +27,12 @@ resource "aws_lb" "frontend" {
 # Target Group
 #
 # Uses IP target type for TargetGroupBinding compatibility.
-# The AWS Load Balancer Controller will register pod IPs when the
-# TargetGroupBinding resource is created in Kubernetes.
+# EKS Auto Mode will register pod IPs when the TargetGroupBinding resource
+# is created in Kubernetes.
+#
+# IMPORTANT: The eks:eks-cluster-name tag is REQUIRED for EKS Auto Mode.
+# The AmazonEKSLoadBalancingPolicy has a condition that only allows
+# RegisterTargets on target groups tagged with the cluster name.
 # -----------------------------------------------------------------------------
 
 resource "aws_lb_target_group" "frontend" {
@@ -51,7 +55,8 @@ resource "aws_lb_target_group" "frontend" {
   }
 
   tags = {
-    Name = "${var.resource_name_base}-api"
+    Name                   = "${var.resource_name_base}-api"
+    "eks:eks-cluster-name" = var.cluster_name
   }
 }
 
