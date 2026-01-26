@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: maestro-server
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"  # Deploy after External Secrets Operator (wave 1)
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/cdoan1/rosa-regional-platform
+    path: charts/maestro-server-eso
+    targetRevision: cdoan-working-maestro  # Change to your branch name during development
+    helm:
+      releaseName: maestro-server-eso
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: maestro
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  ignoreDifferences:
+    - group: batch
+      kind: Job
+      jsonPointers:
+        - /status
+    - group: ""
+      kind: Secret
+      jsonPointers:
+        - /data

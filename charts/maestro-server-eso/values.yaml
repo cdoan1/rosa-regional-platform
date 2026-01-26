@@ -1,0 +1,85 @@
+# Maestro Server Helm Chart Values (ESO Version)
+# Adapted from: https://github.com/Azure/ARO-HCP/tree/main/maestro/server/deploy
+#
+# This version uses a standardized naming pattern for AWS Secrets Manager secrets:
+# - {clusterName}/maestro/server-mqtt-cert
+# - {clusterName}/maestro/db-credentials
+
+# Container image configuration
+image:
+  registry: "quay.io"
+  repository: "redhat-user-workloads/maestro-rhtap-tenant/maestro/maestro"
+  tag: "latest"
+  # digest: "sha256:..." # Use digest instead of tag for production
+  pullPolicy: IfNotPresent
+# Deployment configuration
+deployment:
+  replicas: 2
+  zoneCount: 3 # Number of availability zones
+  requests:
+    cpu: "200m"
+    memory: "512Mi"
+  limits:
+    cpu: "1000m"
+    memory: "1Gi"
+# Maestro server configuration
+maestro:
+  serviceAccount: "maestro-server"
+  httpBindPort: 8080
+  grpcBindPort: 8090
+  healthCheckBindPort: 8083
+  httpReadTimeout: 300
+  httpWriteTimeout: 600
+  labelMetricsInclusionDuration: "168h" # 7 days
+  glog_v: 10 # Verbose logging level
+# Database configuration (RDS)
+database:
+  # RDS connection (credentials from ExternalSecret)
+  sslMode: "require"
+  maxOpenConnections: 50
+  debug: false
+  # Note: AWS RDS uses standard password auth, not Azure Entra
+  usePasswordAuth: true
+# Cluster Configuration
+# Cluster name is automatically looked up from ConfigMap kube-system/bootstrap-output
+# You can override it here if needed (e.g., for local testing or non-standard deployments)
+clusterName: ""  # Optional: Override cluster name (auto-detected from kube-system/bootstrap-output)
+# MQTT Broker configuration (AWS IoT Core)
+broker:
+  # REQUIRED: AWS IoT Core MQTT endpoint (from Terraform output)
+  endpoint: ""  # e.g., xxxxx.iot.us-east-1.amazonaws.com
+  type: "mqtt"
+  configFile: "/config/config.yaml"
+  topicPrefix: "maestro/consumers"
+# AWS Region configuration
+aws:
+  region: "us-east-1"
+  podIdentity:
+    enabled: true
+# Tracing configuration
+tracing:
+  enabled: false
+  address: ""
+  exporter: "none"
+# Metrics configuration
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: false # Enable when Prometheus Operator is deployed
+# Service configuration
+service:
+  http:
+    type: ClusterIP
+    port: 8080
+  grpc:
+    type: ClusterIP
+    port: 8090
+  health:
+    type: ClusterIP
+    port: 8083
+  metrics:
+    type: ClusterIP
+    port: 8080
+# Network policy
+networkPolicy:
+  enabled: false

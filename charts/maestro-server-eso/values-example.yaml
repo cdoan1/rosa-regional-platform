@@ -1,0 +1,87 @@
+# Example values file for maestro-server-eso
+# Copy this file and customize for your environment
+
+# Cluster Configuration
+# Cluster name is automatically detected from kube-system/bootstrap-output ConfigMap
+# Uncomment to override (useful for local testing or ArgoCD)
+# clusterName: "regional-xyz"
+
+# Container image configuration
+image:
+  registry: "quay.io"
+  repository: "redhat-user-workloads/maestro-rhtap-tenant/maestro/maestro"
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+# Deployment configuration
+deployment:
+  replicas: 2
+  zoneCount: 3
+  requests:
+    cpu: "200m"
+    memory: "512Mi"
+  limits:
+    cpu: "1000m"
+    memory: "1Gi"
+
+# AWS Region configuration
+aws:
+  region: "us-east-1"
+  podIdentity:
+    enabled: true
+
+# Maestro server configuration
+maestro:
+  serviceAccount: "maestro-server"
+  httpBindPort: 8080
+  grpcBindPort: 8090
+  healthCheckBindPort: 8083
+  httpReadTimeout: 300
+  httpWriteTimeout: 600
+  labelMetricsInclusionDuration: "168h"
+  glog_v: 10
+
+# Database configuration
+database:
+  sslMode: "require"
+  maxOpenConnections: 50
+  debug: false
+  usePasswordAuth: true
+
+# MQTT Broker configuration (REQUIRED)
+broker:
+  endpoint: "xxxxx.iot.us-east-1.amazonaws.com"  # Replace with your IoT endpoint from Terraform
+  type: "mqtt"
+  configFile: "/config/config.yaml"
+  topicPrefix: "maestro/consumers"
+
+# Tracing configuration (optional)
+tracing:
+  enabled: false
+  address: ""
+  exporter: "none"
+
+# Metrics configuration
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: false  # Enable if Prometheus Operator is deployed
+
+# Service configuration
+service:
+  http:
+    type: ClusterIP
+    port: 8080
+  grpc:
+    type: ClusterIP
+    port: 8090
+  health:
+    type: ClusterIP
+    port: 8083
+  metrics:
+    type: ClusterIP
+    port: 8080
+
+# Network policy
+networkPolicy:
+  enabled: false

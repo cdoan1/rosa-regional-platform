@@ -1,0 +1,18 @@
+apiVersion: v2
+name: maestro-server-eso
+description: Maestro Server with auto-detected cluster name and standardized AWS Secrets Manager naming
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/openshift-online/rosa-regional-platform
+sources:
+  - https://github.com/Azure/ARO-HCP/tree/main/maestro
+maintainers:
+  - name: ROSA Regional Platform Team
+keywords:
+  - maestro
+  - mqtt
+  - orchestration
+  - rosa
+  - eks
+  - lookup

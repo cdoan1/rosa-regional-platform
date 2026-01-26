@@ -1,4 +1,4 @@
-.PHONY: help terraform-fmt terraform-upgrade provision-management provision-regional apply-infra-management apply-infra-regional destroy-management destroy-regional test test-e2e
+.PHONY: help terraform-fmt terraform-upgrade provision-management provision-regional apply-infra-management apply-infra-regional destroy-management destroy-regional extract-maestro-cert test test-e2e
 
 # Default target
 help:
@@ -15,6 +15,9 @@ help:
 	@echo "🛠️  Terraform Utilities:"
 	@echo "  terraform-fmt                    - Format all Terraform files"
 	@echo "  terraform-upgrade                - Upgrade provider versions"
+	@echo ""
+	@echo "🎺 Maestro Utilities:"
+	@echo "  extract-maestro-cert             - Extract management-01 Maestro certificate to JSON file"
 	@echo ""
 	@echo "🧪 Testing:"
 	@echo "  test                             - Run tests"
@@ -149,6 +152,17 @@ apply-infra-regional:
 	@echo ""
 	@cd terraform/config/regional-cluster && \
 		terraform init && terraform apply
+
+# =============================================================================
+# Maestro Utilities
+# =============================================================================
+
+# Extract Maestro agent certificate for management-01
+extract-maestro-cert:
+	@echo "📜 Extracting Maestro certificate for management-01..."
+	@cd terraform/config/regional-cluster && \
+		terraform output -json maestro_agent_certificates | jq '.["management-01"]' > ../../../management-01-maestro-cert.json
+	@echo "✅ Certificate saved to management-01-maestro-cert.json"
 
 # =============================================================================
 # Testing Targets
