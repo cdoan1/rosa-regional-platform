@@ -32,7 +32,7 @@ spec:
   source:
     repoURL: https://github.com/openshift-online/rosa-regional-frontend-api.git
     targetRevision: main
-    path: deployment/helm/rosa-regional-frontend-api 
+    path: deployment/helm/rosa-regional-frontend
 
     helm:
       releaseName: rosa-regional-frontend
