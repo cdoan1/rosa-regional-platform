@@ -1,4 +1,4 @@
-.PHONY: help terraform-fmt terraform-upgrade provision-management provision-regional apply-infra-management apply-infra-regional destroy-management destroy-regional test test-e2e
+.PHONY: help terraform-fmt terraform-upgrade provision-management provision-regional apply-infra-management apply-infra-regional destroy-management destroy-regional bastion-helm-maestro-server test test-e2e
 
 # Default target
 help:
@@ -15,6 +15,9 @@ help:
 	@echo "🛠️  Terraform Utilities:"
 	@echo "  terraform-fmt                    - Format all Terraform files"
 	@echo "  terraform-upgrade                - Upgrade provider versions"
+	@echo ""
+	@echo "📦 Bastion/Helm Deployment:"
+	@echo "  bastion-helm-maestro-server      - Deploy Maestro Server via Helm (from bastion)"
 	@echo ""
 	@echo "🧪 Testing:"
 	@echo "  test                             - Run tests"
@@ -149,6 +152,26 @@ apply-infra-regional:
 	@echo ""
 	@cd terraform/config/regional-cluster && \
 		terraform init && terraform apply
+
+# =============================================================================
+# Bastion/Helm Deployment Targets
+# =============================================================================
+
+# Deploy Maestro Server via Helm (run from bastion with kubectl access)
+bastion-helm-maestro-server:
+	@echo "📦 Deploying Maestro Server via Helm..."
+	@echo ""
+	@helm upgrade --install maestro-server ./charts/maestro-server \
+		--namespace maestro \
+		--create-namespace \
+		-f charts/maestro-server/values.yaml \
+		-f charts/maestro-server/values-override.yaml
+	@echo ""
+	@echo "✅ Maestro Server deployed"
+	@echo ""
+	@echo "🔍 Verify deployment:"
+	@echo "  kubectl get pods -n maestro"
+	@echo "  kubectl logs -n maestro deployment/maestro -c service"
 
 # =============================================================================
 # Testing Targets
