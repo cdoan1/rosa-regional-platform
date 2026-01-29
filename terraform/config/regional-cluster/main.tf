@@ -2,13 +2,8 @@
 # Regional Cluster Infrastructure Configuration
 # =============================================================================
 
-# Get current AWS region for auto-detection
-data "aws_region" "current" {}
-
 # Configure AWS provider
 provider "aws" {
-  region = var.region_name
-
   default_tags {
     tags = {
       app-code      = var.app_code

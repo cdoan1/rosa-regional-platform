@@ -94,11 +94,6 @@ output "repository_branch" {
   value       = module.ecs_bootstrap.repository_branch
 }
 
-output "region" {
-  description = "AWS region (auto-detected from provider)"
-  value       = data.aws_region.current.id
-}
-
 # =============================================================================
 # Bastion Outputs (only available when enable_bastion = true)
 # =============================================================================
