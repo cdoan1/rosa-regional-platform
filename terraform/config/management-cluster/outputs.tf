@@ -84,14 +84,14 @@ output "repository_url" {
   value       = module.ecs_bootstrap.repository_url
 }
 
-output "repository_path" {
-  description = "Path within repository containing ArgoCD applications"
-  value       = module.ecs_bootstrap.repository_path
-}
-
 output "repository_branch" {
   description = "Git branch for cluster configuration"
   value       = module.ecs_bootstrap.repository_branch
+}
+
+output "region" {
+  description = "AWS region (auto-detected from provider)"
+  value       = data.aws_region.current.id
 }
 
 # =============================================================================

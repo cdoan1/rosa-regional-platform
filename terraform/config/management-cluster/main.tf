@@ -2,6 +2,9 @@
 # Management Cluster Infrastructure Configuration
 # =============================================================================
 
+# Get current AWS region for auto-detection
+data "aws_region" "current" {}
+
 # Configure AWS provider
 provider "aws" {
   default_tags {
@@ -18,7 +21,7 @@ module "management_cluster" {
   source = "../../modules/eks-cluster"
 
   # Required variables
-  cluster_type = "management"
+  cluster_type = "management-cluster"
 
   # Management cluster sizing
   node_group_min_size     = 1
@@ -39,7 +42,6 @@ module "ecs_bootstrap" {
 
   # ArgoCD bootstrap configuration
   repository_url    = var.repository_url
-  repository_path   = var.repository_path
   repository_branch = var.repository_branch
 }
 

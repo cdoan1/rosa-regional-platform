@@ -23,9 +23,6 @@ cost_center   = "123"
 # Git repository URL containing cluster configuration
 repository_url    = "https://github.com/openshift-online/rosa-regional-platform"
 
-# Path within repository containing ArgoCD applications for management cluster
-repository_path   = "argocd/management-cluster"
-
 # Git branch to use for cluster configuration (defaults to "main" if not specified)
 repository_branch = "main"
 

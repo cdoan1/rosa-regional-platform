@@ -52,7 +52,6 @@ module "management_cluster" {
   # Bootstrap configuration for management cluster
   bootstrap_enabled           = true
   bootstrap_repository_url    = "https://github.com/openshift-online/rosa-regional-platform"
-  bootstrap_repository_path   = "argocd/management-cluster"
   bootstrap_repository_branch = "main"
 
   # Optional cluster configuration
@@ -75,7 +74,6 @@ module "regional_cluster" {
   # Bootstrap configuration for regional cluster
   bootstrap_enabled           = true
   bootstrap_repository_url    = "https://github.com/openshift-online/rosa-regional-platform"
-  bootstrap_repository_path   = "argocd/regional-cluster"
   bootstrap_repository_branch = "main"
 
   # Optional cluster configuration
@@ -108,7 +106,6 @@ module "regional_cluster" {
 | `argocd_chart_version` | ArgoCD Helm chart version | `string` | `"9.3.0"` | no |
 | `bootstrap_repository_url` | Git repository URL for ArgoCD configuration | `string` | `"https://github.com/openshift-online/rosa-regional-platform"` | no |
 | `bootstrap_repository_branch` | Git branch to track | `string` | `"main"` | no |
-| `bootstrap_repository_path` | Path within repository for ArgoCD config | `string` | `"argocd/applications"` | no |
 
 ## Outputs
 

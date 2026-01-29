@@ -51,6 +51,8 @@ terraform-upgrade:
 provision-management:
 	@echo "🚀 Provisioning management cluster..."
 	@echo ""
+	@scripts/validate-argocd-config.sh management-cluster
+	@echo ""
 	@echo "📍 Terraform Directory: terraform/config/management-cluster"
 	@echo "🔑 AWS Caller Identity:" && aws sts get-caller-identity
 	@echo ""
@@ -64,11 +66,13 @@ provision-management:
 		terraform init && terraform apply
 	@echo ""
 	@echo "Bootstrapping argocd..."
-	scripts/bootstrap-argocd.sh management
+	scripts/bootstrap-argocd.sh management-cluster
 
 # Provision complete regional cluster (infrastructure + ArgoCD)
 provision-regional:
 	@echo "🚀 Provisioning regional cluster..."
+	@echo ""
+	@scripts/validate-argocd-config.sh regional-cluster
 	@echo ""
 	@echo "📍 Terraform Directory: terraform/config/regional-cluster"
 	@echo "🔑 AWS Caller Identity:" && aws sts get-caller-identity
@@ -83,7 +87,7 @@ provision-regional:
 		terraform init && terraform apply
 	@echo ""
 	@echo "Bootstrapping argocd..."
-	@scripts/bootstrap-argocd.sh regional
+	@scripts/bootstrap-argocd.sh regional-cluster
 
 # Destroy management cluster and all resources
 destroy-management:
