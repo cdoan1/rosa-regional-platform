@@ -69,7 +69,7 @@ resource "aws_ecs_task_definition" "bootstrap" {
           aws eks update-kubeconfig --name $CLUSTER_NAME
 
           # Create bootstrap-output ConfigMap for regional clusters only
-          if [[ "$${CLUSTER_TYPE:-}" == "regional" ]]; then
+          if [[ "$${CLUSTER_TYPE:-}" == *regional* ]]; then
             echo "Creating bootstrap-output ConfigMap..."
 
             cat <<-CM_EOF | kubectl apply -f -
