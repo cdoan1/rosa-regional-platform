@@ -2,6 +2,9 @@
 # Regional Cluster Infrastructure Configuration
 # =============================================================================
 
+# Get current AWS region for auto-detection
+data "aws_region" "current" {}
+
 # Configure AWS provider
 provider "aws" {
   region = var.region_name
@@ -20,7 +23,7 @@ module "regional_cluster" {
   source = "../../modules/eks-cluster"
 
   # Required variables
-  cluster_type = "regional"
+  cluster_type = "regional-cluster"
 }
 
 # Call the ECS bootstrap module for external bootstrap execution
@@ -36,7 +39,6 @@ module "ecs_bootstrap" {
 
   # ArgoCD bootstrap configuration
   repository_url    = var.repository_url
-  repository_path   = var.repository_path
   repository_branch = var.repository_branch
 }
 

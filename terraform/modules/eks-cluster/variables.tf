@@ -3,12 +3,12 @@
 # =============================================================================
 
 variable "cluster_type" {
-  description = "Type of cluster: 'regional' for workload clusters or 'management' for control plane clusters"
+  description = "Type of cluster: 'regional-cluster' for workload clusters or 'management-cluster' for control plane clusters"
   type        = string
 
   validation {
-    condition     = contains(["regional", "management"], var.cluster_type)
-    error_message = "Cluster type must be either 'regional' or 'management'."
+    condition     = contains(["regional-cluster", "management-cluster"], var.cluster_type)
+    error_message = "Cluster type must be either 'regional-cluster' or 'management-cluster'."
   }
 }
 

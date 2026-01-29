@@ -36,11 +36,6 @@ variable "repository_url" {
   default     = "https://github.com/openshift-online/rosa-regional-platform"
 }
 
-variable "repository_path" {
-  description = "Path within repository containing ArgoCD applications"
-  type        = string
-}
-
 variable "repository_branch" {
   description = "Git branch to use for cluster configuration"
   type        = string

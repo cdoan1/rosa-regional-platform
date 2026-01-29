@@ -3,28 +3,70 @@
 set -euo pipefail
 
 CLUSTER_TYPE="${1:-}"
+ENVIRONMENT="${2:-integration}"
+REGION="${3:-$(aws configure get region)}"  # default to AWS CLI configured region
 
 if [[ -z "$CLUSTER_TYPE" ]]; then
-    echo "Usage: $0 <cluster-type>"
-    echo "       cluster-type: management or regional"
+    echo "Usage: $0 <cluster-type> [environment] [region]"
+    echo "       cluster-type: management-cluster or regional-cluster"
+    echo "       environment: dev, staging, prod, etc. (default: integration)"
+    echo "       region: AWS region (default: current AWS CLI region)"
     echo ""
     echo "This script automatically reads terraform.tfvars to extract AWS profile"
     echo "and calls bootstrap-argocd.sh with the correct parameters."
     exit 1
 fi
 
-TERRAFORM_DIR="terraform/config/${CLUSTER_TYPE}-cluster"
+RENDERED_DIR="argocd/rendered/${ENVIRONMENT}/${REGION}/"
+REQUIRED_FILES=(
+    "${RENDERED_DIR}${CLUSTER_TYPE}-values.yaml"
+    "${RENDERED_DIR}${CLUSTER_TYPE}-manifests/applicationset.yaml"
+)
 
-# Determine repository path based on cluster type
-case "$CLUSTER_TYPE" in
-    "management")
-        REPOSITORY_PATH="argocd/management-cluster"
-        ;;
-    "regional")
-        REPOSITORY_PATH="argocd/regional-cluster"
-        ;;
-esac
+# Check if rendered configuration exists
+missing_files=()
+for file in "${REQUIRED_FILES[@]}"; do
+    if [[ ! -f "$file" ]]; then
+        missing_files+=("$file")
+    fi
+done
 
+if [[ ${#missing_files[@]} -gt 0 ]]; then
+    echo "❌ ERROR: Missing rendered ArgoCD configuration for environment '${ENVIRONMENT}' in region '${REGION}'"
+    echo ""
+    echo "Missing files:"
+    for file in "${missing_files[@]}"; do
+        echo "  - $file"
+    done
+    echo ""
+    echo "Required steps to fix:"
+    echo "  1. Add your environment/region to 'argocd/config.yaml'"
+    echo "     Example entry:"
+    echo "     shards:"
+    echo "       - region: \"${REGION}\""
+    echo "         environment: \"${ENVIRONMENT}\""
+    echo "         # Add config_revision for production/staging or leave empty for integration"
+    echo "         values:"
+    echo "           ${CLUSTER_TYPE}:"
+    echo "             # Your region-specific values here"
+    echo ""
+    echo "  2. Generate the rendered configuration:"
+    echo "     cd argocd/"
+    echo "     ./scripts/render.py"
+    echo ""
+    echo "  3. Commit and push the generated files to your repository URL/branch:"
+    echo "     git add argocd/rendered/"
+    echo "     git commit -m 'Add rendered config for ${ENVIRONMENT}/${REGION}'"
+    echo "     git push origin <your-branch>"
+    echo ""
+    echo "     NOTE: ArgoCD will pull from the remote repository, so the files must be pushed!"
+    echo ""
+    exit 1
+fi
+
+echo "✓ Found rendered ArgoCD configuration for ${ENVIRONMENT}/${REGION}"
+
+TERRAFORM_DIR="terraform/config/${CLUSTER_TYPE}"
 
 # Read terraform outputs
 cd ${TERRAFORM_DIR}/
@@ -39,9 +81,13 @@ BOOTSTRAP_SECURITY_GROUP=$(echo "$OUTPUTS" | jq -r '.bootstrap_security_group_id
 LOG_GROUP=$(echo "$OUTPUTS" | jq -r '.bootstrap_log_group_name.value')
 REPOSITORY_URL=$(echo "$OUTPUTS" | jq -r '.repository_url.value')
 REPOSITORY_BRANCH=$(echo "$OUTPUTS" | jq -r '.repository_branch.value')
+REGION=$(echo "$OUTPUTS" | jq -r '.region.value')
+
+# Static values
+APPLICATIONSET_PATH="argocd/rendered/$ENVIRONMENT/$REGION/${CLUSTER_TYPE}-manifests"
 
 # Extract cluster-type specific outputs
-if [[ "$CLUSTER_TYPE" == "regional" ]]; then
+if [[ "$CLUSTER_TYPE" == "regional-cluster" ]]; then
     API_TARGET_GROUP_ARN=$(echo "$OUTPUTS" | jq -r '.api_target_group_arn.value // ""')
 else
     API_TARGET_GROUP_ARN=""
@@ -62,10 +108,12 @@ RUN_TASK_OUTPUT=$(aws ecs run-task \
       \"environment\": [
         {\"name\": \"CLUSTER_NAME\", \"value\": \"$CLUSTER_NAME\"},
         {\"name\": \"CLUSTER_TYPE\", \"value\": \"$CLUSTER_TYPE\"},
-        {\"name\": \"ARGOCD_VERSION\", \"value\": \"9.3.4\"},
         {\"name\": \"REPOSITORY_URL\", \"value\": \"$REPOSITORY_URL\"},
-        {\"name\": \"REPOSITORY_PATH\", \"value\": \"$REPOSITORY_PATH\"},
+        {\"name\": \"REPOSITORY_PATH\", \"value\": \"$APPLICATIONSET_PATH\"},
         {\"name\": \"REPOSITORY_BRANCH\", \"value\": \"$REPOSITORY_BRANCH\"},
+        {\"name\": \"ENVIRONMENT\", \"value\": \"$ENVIRONMENT\"},
+        {\"name\": \"REGION\", \"value\": \"$REGION\"},
+        {\"name\": \"CLUSTER_TYPE\", \"value\": \"$CLUSTER_TYPE\"},
         {\"name\": \"API_TARGET_GROUP_ARN\", \"value\": \"$API_TARGET_GROUP_ARN\"}
       ]
     }]

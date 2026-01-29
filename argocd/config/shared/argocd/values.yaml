@@ -1,0 +1,44 @@
+# Direct ArgoCD configuration
+# This section will be passed to the upstream ArgoCD chart
+argo-cd:
+  # High Availability configuration
+  ha:
+    enabled: true
+
+  # Server configuration
+  server:
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+  # Controller configuration
+  controller:
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+
+  # Repo Server configuration
+  repoServer:
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+
+  # Redis Secret Init configuration
+  redisSecretInit:
+    enabled: false # Ref: https://github.com/argoproj/argo-helm/issues/2887
+
+  # Configuration parameters
+  configs:
+    params:
+      server.insecure: false

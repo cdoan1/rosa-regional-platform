@@ -69,8 +69,13 @@ terraform/
 └── config/                    # Cluster configuration templates
 
 argocd/
-├── management-cluster/        # MC ArgoCD applications
-└── regional-cluster/         # RC ArgoCD applications
+├── config/                   # Live Helm chart configurations
+│   ├── management-cluster/   # MC application templates
+│   ├── regional-cluster/     # RC application templates
+│   └── shared/              # Shared configurations
+├── applicationset/          # ApplicationSet templates
+├── rendered/                # Generated values and manifests
+└── scripts/                 # Rendering and utility scripts
 
 docs/
 ├── README.md                 # Architecture overview
@@ -113,7 +118,7 @@ docs/
 ### Important Files and Patterns
 - `Makefile` - Standardized provisioning commands
 - `bootstrap-argocd.sh` - ECS Fargate bootstrap script
-- `argocd-self-management.yaml` - ArgoCD self-upgrade pattern
+- `argocd/config/shared/argocd/` - ArgoCD self-management Helm chart
 - Design decisions follow ADR format in `docs/design-decisions/`
 
 Include AGENTS.md

@@ -55,11 +55,6 @@ output "repository_url" {
   value       = var.repository_url
 }
 
-output "repository_path" {
-  description = "Path within repository containing ArgoCD applications"
-  value       = var.repository_path
-}
-
 output "repository_branch" {
   description = "Git branch for cluster configuration"
   value       = var.repository_branch

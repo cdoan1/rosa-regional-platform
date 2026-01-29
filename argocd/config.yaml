@@ -1,0 +1,38 @@
+# ROSA Regional Platform - Cluster Registry
+# This file defines all shards (regions) to deploy
+#
+# CONFIGURATION WORKFLOW:
+# 1. Default values come from values.yaml files in helm charts (e.g., argocd/management-cluster/*/values.yaml)
+# 2. Override values here in config.yaml for region-specific customizations
+# 3. Run render script to generate final values files in rendered/ directory
+# 4. DO NOT manually edit files in rendered/ - they are generated outputs
+#
+# TO UPDATE VALUES:
+# - For default changes: Edit values.yaml files in the helm charts directly
+# - For region-specific changes: Edit this config.yaml file
+
+shards:
+  - region: "eu-west-1"
+    environment: "integration"
+    values:
+      management-cluster:
+        hypershift:
+          oidcStorageS3Bucket:
+            name: "hypershift-mc-eu-west-1"
+            region: "eu-west-1"
+          externalDns:
+            domain: "dev.eu-west-1.rosa.example.com"
+
+  - region: "eu-west-1"
+    environment: "staging"
+    config_revision:
+      management-cluster: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"
+      regional-cluster: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"
+    values:
+      management-cluster:
+        hypershift:
+          oidcStorageS3Bucket:
+            name: "hypershift-mc-eu-west-1"
+            region: "eu-west-1"
+          externalDns:
+            domain: "dev.eu-west-1.rosa.example.com"

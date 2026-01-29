@@ -26,11 +26,6 @@ variable "repository_url" {
   type        = string
 }
 
-variable "repository_path" {
-  description = "Path within repository containing ArgoCD applications"
-  type        = string
-}
-
 variable "repository_branch" {
   description = "Git branch to use for cluster configuration"
   type        = string

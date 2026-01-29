@@ -11,8 +11,13 @@ rosa-regional-platform/
 │       ├── management-cluster/       # Management cluster configuration template
 │       └── regional-cluster/         # Regional cluster configuration template
 ├── argocd/
-│   ├── management-cluster/           # ArgoCD configuration for management clusters
-│   └── regional-cluster/             # ArgoCD configuration for regional clusters
+│   ├── config/                       # Live Helm chart configurations
+│   │   ├── management-cluster/       # Management cluster application templates
+│   │   ├── regional-cluster/         # Regional cluster application templates
+│   │   └── shared/                   # Shared configurations (ArgoCD, etc.)
+│   ├── applicationset/               # ApplicationSet templates
+│   ├── rendered/                     # Generated values and manifests
+│   └── scripts/                      # Rendering and utility scripts
 ├── docs/
 │   └── design-decisions/             # Design decision records
 └── scripts/                          # Deployment and validation scripts

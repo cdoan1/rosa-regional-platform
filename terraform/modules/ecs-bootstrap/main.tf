@@ -65,8 +65,6 @@ resource "aws_ecs_task_definition" "bootstrap" {
           kubectl version --client
           helm version
 
-          echo "=== Starting ArgoCD bootstrap ==="
-
           # Configure kubectl for EKS
           aws eks update-kubeconfig --name $CLUSTER_NAME
 
@@ -95,46 +93,75 @@ resource "aws_ecs_task_definition" "bootstrap" {
           fi
 
           # Check if ArgoCD already exists
-          if kubectl get namespace argocd 2>/dev/null; then
-            echo "ArgoCD namespace already exists, checking installation..."
-            if kubectl get deployment argocd-server -n argocd 2>/dev/null; then
-              echo "✓ ArgoCD is already installed and running"
-              exit 0
-            fi
+          if ! kubectl get deployment argocd-server -n argocd 2>/dev/null; then
+            echo "Installing ArgoCD via Helm..."
+
+            # Add ArgoCD Helm repository
+            helm repo add argo https://argoproj.github.io/argo-helm
+            helm repo update
+
+            # Create argocd namespace
+            kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+
+            ARGOCD_VERSION="9.3.4"
+            # Install ArgoCD with adoption annotations for self-management handoff
+            helm upgrade --install argocd argo/argo-cd \
+              --namespace argocd \
+              --version $ARGOCD_VERSION \
+              --set-string 'controller.annotations.argocd\.argoproj\.io/tracking-id=argocd-self-management:argoproj.io/Application:argocd/argocd-self-management' \
+              --set-string 'server.annotations.argocd\.argoproj\.io/tracking-id=argocd-self-management:argoproj.io/Application:argocd/argocd-self-management' \
+              --set-string 'repoServer.annotations.argocd\.argoproj\.io/tracking-id=argocd-self-management:argoproj.io/Application:argocd/argocd-self-management' \
+              --wait --timeout=5m
+
+            echo "✓ ArgoCD installation complete"
+
+            # Wait for ArgoCD to be ready
+            kubectl wait --for=condition=available --timeout=600s deployment/argocd-server -n argocd
+            kubectl wait --for=condition=available --timeout=600s deployment/argocd-repo-server -n argocd
+            kubectl wait --for=condition=available --timeout=600s deployment/argocd-applicationset-controller -n argocd
+
+            echo "✓ ArgoCD is running and ready"
+          else
+            echo "✓ ArgoCD is already installed and running, skipping installation"
           fi
 
-          echo "Installing ArgoCD via Helm..."
+          echo "Creating/updating cluster identity secret with values:"
+          echo "  ENVIRONMENT: $ENVIRONMENT"
+          echo "  REGION: $REGION"
+          echo "  CLUSTER_TYPE: $CLUSTER_TYPE"
+          echo "  REPOSITORY_URL: $REPOSITORY_URL"
+          echo "  REPOSITORY_BRANCH: $REPOSITORY_BRANCH"
+          
+          cat <<-SECRET_EOF | kubectl apply -f -
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: local-cluster-identity
+            namespace: argocd
+            labels:
+              argocd.argoproj.io/secret-type: cluster
+              environment: "$ENVIRONMENT"
+              region: "$REGION"
+              cluster_type: "$CLUSTER_TYPE"
+            annotations:
+              git_repo: "$REPOSITORY_URL"
+              git_revision: "$REPOSITORY_BRANCH"
+          type: Opaque
+          stringData:
+            name: in-cluster
+            server: https://kubernetes.default.svc
+            config: |
+              {
+                "tlsClientConfig": { "insecure": false }
+              }
+          SECRET_EOF
 
-          # Add ArgoCD Helm repository
-          helm repo add argo https://argoproj.github.io/argo-helm
-          helm repo update
-
-          # Create argocd namespace
-          kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
-
-          # Install ArgoCD with adoption annotations for self-management handoff
-          helm upgrade --install argocd argo/argo-cd \
-            --namespace argocd \
-            --version $ARGOCD_VERSION \
-            --set-string 'controller.annotations.argocd\.argoproj\.io/tracking-id=argocd-self-management:argoproj.io/Application:argocd/argocd-self-management' \
-            --set-string 'server.annotations.argocd\.argoproj\.io/tracking-id=argocd-self-management:argoproj.io/Application:argocd/argocd-self-management' \
-            --set-string 'repoServer.annotations.argocd\.argoproj\.io/tracking-id=argocd-self-management:argoproj.io/Application:argocd/argocd-self-management' \
-            --wait --timeout=5m
-
-          echo "✓ ArgoCD installation complete"
-
-          # Wait for ArgoCD to be ready
-          kubectl wait --for=condition=available --timeout=600s deployment/argocd-server -n argocd
-          kubectl wait --for=condition=available --timeout=600s deployment/argocd-repo-server -n argocd
-          kubectl wait --for=condition=available --timeout=600s deployment/argocd-applicationset-controller -n argocd
-
-          echo "✓ ArgoCD is running and ready"
-
-          # Create initial Application if repository details are provided
-          if [[ -n "$${REPOSITORY_URL:-}" ]] && [[ -n "$${REPOSITORY_PATH:-}" ]]; then
-            echo "Creating initial ArgoCD Application..."
-
-            cat <<-APP_EOF | kubectl apply -f -
+          echo "Creating/updating ArgoCD Root Application..."
+          echo "  Repository URL: $REPOSITORY_URL"
+          echo "  Target Revision: $REPOSITORY_BRANCH"
+          echo "  Target Path: $REPOSITORY_PATH"
+          
+          cat <<-APP_EOF | kubectl apply -f -
           apiVersion: argoproj.io/v1alpha1
           kind: Application
           metadata:
@@ -146,9 +173,9 @@ resource "aws_ecs_task_definition" "bootstrap" {
               server: https://kubernetes.default.svc
             project: default
             source:
-              path: $REPOSITORY_PATH/
               repoURL: $REPOSITORY_URL
               targetRevision: $REPOSITORY_BRANCH
+              path: $REPOSITORY_PATH
             syncPolicy:
               automated:
                 prune: false
@@ -156,11 +183,6 @@ resource "aws_ecs_task_definition" "bootstrap" {
               syncOptions:
                 - CreateNamespace=true
           APP_EOF
-
-            echo "✓ Initial ArgoCD Root Application created: root"
-          else
-            echo "! No repository configuration provided, skipping Application creation"
-          fi
 
           echo "=== Bootstrap completed successfully ==="
         EOF
