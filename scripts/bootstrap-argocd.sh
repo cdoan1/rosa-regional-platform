@@ -17,20 +17,6 @@ if [[ -z "$CLUSTER_TYPE" ]]; then
     exit 1
 fi
 
-RENDERED_DIR="argocd/rendered/${ENVIRONMENT}/${REGION}/"
-REQUIRED_FILES=(
-    "${RENDERED_DIR}${CLUSTER_TYPE}-values.yaml"
-    "${RENDERED_DIR}${CLUSTER_TYPE}-manifests/applicationset.yaml"
-)
-
-# Check if rendered configuration exists
-missing_files=()
-for file in "${REQUIRED_FILES[@]}"; do
-    if [[ ! -f "$file" ]]; then
-        missing_files+=("$file")
-    fi
-done
-
 TERRAFORM_DIR="terraform/config/${CLUSTER_TYPE}"
 
 # Read terraform outputs
