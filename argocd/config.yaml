@@ -22,6 +22,16 @@ shards:
             region: "eu-west-1"
           externalDns:
             domain: "dev.eu-west-1.rosa.example.com"
+  - region: "us-east-1"
+    environment: "integration"
+    values:
+      management-cluster:
+        hypershift:
+          oidcStorageS3Bucket:
+            name: "hypershift-mc-us-east-1"
+            region: "us-east-1"
+          externalDns:
+            domain: "dev.us-east-1.rosa.example.com"
 
   - region: "eu-west-1"
     environment: "staging"

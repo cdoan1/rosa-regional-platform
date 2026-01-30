@@ -80,9 +80,20 @@ module "eks" {
     aws-ebs-csi-driver = {}
 
     metrics-server = {}
+
+    # AWS Secrets Store CSI Driver Provider for Maestro agent secret mounting
+    aws-secrets-store-csi-driver-provider = {
+      configuration_values = jsonencode({
+        secrets-store-csi-driver = {
+          syncSecret = {
+            enabled = true
+          }
+        }
+      })
+    }
   }
 
-  # IAM configuration - using newer Pod Identity instead of IRSA
+  # IAM configuration
   enable_irsa = false
 }
 

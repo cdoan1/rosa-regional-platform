@@ -12,6 +12,11 @@ variable "cluster_type" {
   }
 }
 
+variable "cluster_name_override" {
+  description = "Optional override for cluster name. If not set, uses auto-generated name (cluster_type-random). Use this to specify a deterministic cluster name."
+  type        = string
+  default     = null
+}
 
 # =============================================================================
 # Kubernetes configuration
@@ -157,7 +162,6 @@ variable "enable_pod_security_standards" {
   type        = bool
   default     = true
 }
-
 
 # =============================================================================
 # Validation Rules

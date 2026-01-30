@@ -12,3 +12,6 @@ bastion_task.json
 # Helm
 charts/
 Chart.lock
+
+# Maestro agent certificates (sensitive - never commit)
+.maestro-certs/

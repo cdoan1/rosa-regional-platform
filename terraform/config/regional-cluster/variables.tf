@@ -42,11 +42,29 @@ variable "enable_bastion" {
   default     = false
 }
 
-# =============================================================================
-# API Gateway Configuration Variables
+# Maestro Configuration Variables
 # =============================================================================
 
-variable "region_name" {
-  description = "AWS region name for API Gateway URL construction (e.g., 'us-west-2')"
+variable "maestro_db_instance_class" {
+  description = "RDS instance class for Maestro PostgreSQL database"
   type        = string
+  default     = "db.t4g.micro"
+}
+
+variable "maestro_db_multi_az" {
+  description = "Enable Multi-AZ deployment for Maestro RDS (recommended for production)"
+  type        = bool
+  default     = false
+}
+
+variable "maestro_db_deletion_protection" {
+  description = "Enable deletion protection for Maestro RDS instance (recommended for production)"
+  type        = bool
+  default     = false
+}
+
+variable "maestro_mqtt_topic_prefix" {
+  description = "Prefix for MQTT topics used by Maestro"
+  type        = string
+  default     = "maestro/consumers"
 }

@@ -156,3 +156,57 @@ output "api_test_command" {
   description = "awscurl command to test the API"
   value       = module.api_gateway.test_command
 }
+
+# Maestro Infrastructure Outputs
+# =============================================================================
+
+# AWS IoT Core
+output "maestro_iot_mqtt_endpoint" {
+  description = "AWS IoT Core MQTT endpoint for Maestro broker connection"
+  value       = module.maestro_infrastructure.iot_mqtt_endpoint
+}
+
+# RDS Database
+output "maestro_rds_endpoint" {
+  description = "Maestro RDS PostgreSQL endpoint (hostname:port)"
+  value       = module.maestro_infrastructure.rds_endpoint
+}
+
+output "maestro_rds_address" {
+  description = "Maestro RDS PostgreSQL hostname"
+  value       = module.maestro_infrastructure.rds_address
+}
+
+output "maestro_rds_port" {
+  description = "Maestro RDS PostgreSQL port"
+  value       = module.maestro_infrastructure.rds_port
+}
+
+# Secrets Manager
+output "maestro_server_cert_secret_name" {
+  description = "Secrets Manager secret name for Maestro Server certificate material"
+  value       = module.maestro_infrastructure.maestro_server_cert_secret_name
+}
+
+output "maestro_server_config_secret_name" {
+  description = "Secrets Manager secret name for Maestro Server MQTT configuration"
+  value       = module.maestro_infrastructure.maestro_server_config_secret_name
+}
+
+output "maestro_db_credentials_secret_name" {
+  description = "Secrets Manager secret name for Maestro database credentials"
+  value       = module.maestro_infrastructure.maestro_db_credentials_secret_name
+}
+
+# IAM Roles
+output "maestro_server_role_arn" {
+  description = "IAM role ARN for Maestro Server (Pod Identity)"
+  value       = module.maestro_infrastructure.maestro_server_role_arn
+}
+
+# Configuration Summary
+output "maestro_configuration_summary" {
+  description = "Complete Maestro configuration for use in Helm values"
+  value       = module.maestro_infrastructure.maestro_configuration_summary
+  sensitive   = false
+}

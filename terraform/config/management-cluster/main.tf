@@ -18,7 +18,8 @@ module "management_cluster" {
   source = "../../modules/eks-cluster"
 
   # Required variables
-  cluster_type = "management-cluster"
+  cluster_type          = "management-cluster"
+  cluster_name_override = var.cluster_id
 
   # Management cluster sizing
   node_group_min_size     = 1
@@ -56,4 +57,12 @@ module "bastion" {
   cluster_security_group_id = module.management_cluster.cluster_security_group_id
   vpc_id                    = module.management_cluster.vpc_id
   private_subnet_ids        = module.management_cluster.private_subnets
+}
+
+module "maestro_agent" {
+  source = "../../modules/maestro-agent"
+
+  cluster_id              = var.cluster_id
+  regional_aws_account_id = var.regional_aws_account_id
+  eks_cluster_name        = module.management_cluster.cluster_name
 }
