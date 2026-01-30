@@ -5,8 +5,8 @@
 # - Edit argocd/config.yaml for config_revision references
 # - Then run: argocd/scripts/render.py
 #
-# Cluster Type: management-cluster
-# Shard: us-east-1 (integration)
+# Cluster Type: regional-cluster
+# Shard: us-east-2 (integration)
 # Config Revision: metadata.annotations.git_revision
 # Generated: render.py
 #
