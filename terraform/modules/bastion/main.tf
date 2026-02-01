@@ -152,6 +152,7 @@ resource "aws_ecs_task_definition" "bastion" {
             procps-ng \
             bind-utils \
             postgresql15 \
+            tmux \
             2>/dev/null
 
           # Install AWS CLI v2

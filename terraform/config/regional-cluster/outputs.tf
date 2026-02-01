@@ -94,6 +94,11 @@ output "repository_branch" {
   value       = module.ecs_bootstrap.repository_branch
 }
 
+output "api_allowed_accounts" {
+  description = "Frontend API allowed accounts (comma-separated account IDs)"
+  value       = var.api_allowed_accounts
+}
+
 # =============================================================================
 # Bastion Outputs (only available when enable_bastion = true)
 # =============================================================================

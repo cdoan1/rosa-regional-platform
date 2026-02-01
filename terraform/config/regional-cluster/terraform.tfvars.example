@@ -44,8 +44,12 @@ repository_branch = "main"
 # AWS region name (required for API Gateway URL construction)
 region_name = "test"
 
-# Maestro Infrastructure Configuration
+# Frontend API configuration
+# list the aws account ids that will have priveliged access
+api_allowed_accounts = ""
 
+# =============================================================================
+# Maestro Infrastructure Configuration
 # =============================================================================
 # Configuration for Maestro MQTT-based orchestration between regional and
 # management clusters

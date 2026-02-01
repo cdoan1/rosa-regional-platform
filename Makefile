@@ -1,4 +1,4 @@
-.PHONY: help terraform-fmt terraform-upgrade provision-management provision-regional apply-infra-management apply-infra-regional provision-maestro-agent-iot-regional provision-maestro-agent-iot-management cleanup-maestro-agent-iot destroy-management destroy-regional test test-e2e
+.PHONY: help terraform-fmt terraform-upgrade provision-management provision-regional apply-infra-management apply-infra-regional provision-maestro-agent-iot-regional provision-maestro-agent-iot-management cleanup-maestro-agent-iot destroy-management destroy-regional output-regional output-management test test-e2e
 
 # Default target
 help:
@@ -20,6 +20,8 @@ help:
 	@echo "🛠️  Terraform Utilities:"
 	@echo "  terraform-fmt                    - Format all Terraform files"
 	@echo "  terraform-upgrade                - Upgrade provider versions"
+	@echo "  output-regional                  - Display regional cluster terraform outputs"
+	@echo "  output-management                - Display management cluster terraform outputs"
 	@echo ""
 	@echo "🧪 Testing:"
 	@echo "  test                             - Run tests"
@@ -203,6 +205,24 @@ cleanup-maestro-agent-iot:
 		exit 1; \
 	fi
 	@./scripts/cleanup-maestro-agent-iot.sh $(MGMT_TFVARS)
+
+# =============================================================================
+# Terraform Output Targets
+# =============================================================================
+
+# Display regional cluster terraform outputs
+output-regional:
+	@echo "📊 Regional Cluster Terraform Outputs"
+	@echo "📍 Terraform Directory: terraform/config/regional-cluster"
+	@echo ""
+	@cd terraform/config/regional-cluster && terraform output
+
+# Display management cluster terraform outputs
+output-management:
+	@echo "📊 Management Cluster Terraform Outputs"
+	@echo "📍 Terraform Directory: terraform/config/management-cluster"
+	@echo ""
+	@cd terraform/config/management-cluster && terraform output
 
 # =============================================================================
 # Testing Targets

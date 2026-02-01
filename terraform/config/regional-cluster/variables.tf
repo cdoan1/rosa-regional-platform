@@ -42,6 +42,12 @@ variable "enable_bastion" {
   default     = false
 }
 
+
+variable "api_allowed_accounts" {
+  description = "Frontend API allowed accounts, comma list of account ids"
+  type        = string
+}
+
 # Maestro Configuration Variables
 # =============================================================================
 
@@ -49,6 +55,12 @@ variable "maestro_db_instance_class" {
   description = "RDS instance class for Maestro PostgreSQL database"
   type        = string
   default     = "db.t4g.micro"
+}
+
+variable "maestro_db_engine_version" {
+  description = "PostgreSQL engine version for Maestro database"
+  type        = string
+  default     = "16"
 }
 
 variable "maestro_db_multi_az" {

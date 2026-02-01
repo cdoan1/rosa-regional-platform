@@ -87,6 +87,7 @@ module "maestro_infrastructure" {
 
   # Database configuration (adjust for production)
   db_instance_class      = var.maestro_db_instance_class
+  db_engine_version      = var.maestro_db_engine_version
   db_multi_az            = var.maestro_db_multi_az
   db_deletion_protection = var.maestro_db_deletion_protection
 

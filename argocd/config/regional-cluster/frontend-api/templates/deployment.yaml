@@ -25,8 +25,9 @@ spec:
             - --log-level={{ .Values.frontendApi.app.args.logLevel }}
             - --log-format={{ .Values.frontendApi.app.args.logFormat }}
             - --maestro-url={{ .Values.frontendApi.app.args.maestroUrl }}
-            - --dynamodb-region={{ .Values.frontendApi.app.args.dynamodbRegion }}
-            - --dynamodb-table={{ .Values.frontendApi.app.args.dynamodbTable }}
+            # - --dynamodb-region={{ .Values.frontendApi.app.args.dynamodbRegion }}
+            # - --dynamodb-table={{ .Values.frontendApi.app.args.dynamodbTable }}
+            - --allowed-accounts={{ .Values.frontendApi.app.args.allowedAccounts }}
             - --api-port={{ .Values.frontendApi.app.args.apiPort }}
             - --health-port={{ .Values.frontendApi.app.args.healthPort }}
             - --metrics-port={{ .Values.frontendApi.app.args.metricsPort }}
