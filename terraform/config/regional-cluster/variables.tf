@@ -43,7 +43,7 @@ variable "enable_bastion" {
 }
 
 # =============================================================================
-# Frontend APi Variables
+# Frontend API Variables
 # =============================================================================
 
 variable "api_allowed_accounts" {
