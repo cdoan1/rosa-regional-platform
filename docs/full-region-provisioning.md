@@ -264,35 +264,7 @@ awscurl --service execute-api --region us-east-2 https://z0l5l43or4.execute-api.
 
 This comprehensive test validates end-to-end Maestro payload distribution from Regional to Management Cluster via AWS IoT Core MQTT using the proper gRPC client interface:
 
-**Step 1: Setup Test Environment in Bastion**
-
-```bash
-# Connect to Regional Cluster bastion
-./scripts/dev/bastion-connect.sh regional
-
-# Install Go in the bastion to run the maestro-cli
-echo "Installing Go in bastion..."
-curl -L https://go.dev/dl/go1.21.6.linux-amd64.tar.gz | tar -xzf - -C /tmp
-export PATH=/tmp/go/bin:$PATH
-export GOPATH=/tmp/gopath
-export GOCACHE=/tmp/gocache
-
-# Clone Maestro repository in bastion
-git clone https://github.com/openshift-online/maestro.git /tmp/maestro
-cd /tmp/maestro
-
-# Replace with your actual MC cluster name
-MC_CLUSTER_NAME="management-01"
-
-# Set up port forwarding for gRPC and HTTP
-kubectl port-forward -n maestro-server svc/maestro-grpc 8090:8090 --address 0.0.0.0 &
-kubectl port-forward -n maestro-server svc/maestro-http 8080:8080 --address 0.0.0.0 &
-sleep 5
-
-echo "Go installed and port forwarding established in bastion"
-```
-
-**Step 2: Create Test ManifestWork File**
+**Step 1: Create Test ManifestWork File**
 
 ```bash
 # Create a test ManifestWork JSON file
@@ -369,11 +341,15 @@ cat > payload.json << EOF
   "data": $(cat /tmp/maestro-test-manifestwork.json )
 }
 EOF
-
-awscurl -X POST https://$API_GATEWAY_URL/prod/api/v0/work --service execute-api --region $REGION -d @payload.json"
 ```
 
-**Step 4: Monitor Distribution Status**
+**Step 2: Post the payload**
+
+```bash
+awscurl -X POST https://$API_GATEWAY_URL/prod/api/v0/work --service execute-api --region $REGION -d @payload.json
+```
+
+**Step 3: Monitor Distribution Status**
 
 ```bash
 # List the current management_clusters
