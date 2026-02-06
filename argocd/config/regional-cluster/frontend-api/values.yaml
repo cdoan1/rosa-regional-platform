@@ -15,7 +15,7 @@ frontendApi:
     name: frontend-api
     image:
       repository: quay.io/cdoan0/rosa-regional-frontend-api
-      tag: latest
+      tag: cedar-poc
       pullPolicy: Always
 
     # Application arguments
