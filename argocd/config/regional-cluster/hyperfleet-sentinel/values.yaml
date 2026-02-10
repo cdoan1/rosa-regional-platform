@@ -1,4 +1,4 @@
-sentinel:
+hyperfleet-sentinel:
   # Default values for sentinel.
   # This is a YAML-formatted file.
   # Declare variables to be passed into your templates.
