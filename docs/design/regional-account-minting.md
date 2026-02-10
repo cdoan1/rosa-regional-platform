@@ -171,9 +171,9 @@ sequenceDiagram
 ### Cost
 
 - Cost depends on the pipeline runner chosen (which is out of scope for this document). The expected run volumes are:
-  - **Account Minting Pipeline**: 40 regions × ~6-7 accounts per region = ~240-280 pipeline runs. Changes are infrequent.
-  - **Account Bootstrapping Pipeline**: 1:1 with Account Minting, so ~240-280 pipeline runs. Changes are infrequent.
-  - **Account Provisioning Pipeline**: 1 run per region for the RC, plus 1 per MC. Estimating ~10 MCs per region with ~1 weekly configuration change, this amounts to ~400 weekly runs (10 MCs × 40 regions).
+  - **Account Minting Pipeline**: One run per day per "central account" environment - all static accounts are managed by a single terraform so we run once per day to reconcile and ensure there's no configuration drift. Additional runs when new regions are added or when account-level tags are updated will also be done, but these will be infrequent.
+  - **Account Bootstrapping Pipeline**: 1:1 with all managed Accounts, so ~40 Prod AWS regions, ~4 stage AWS regions, 1-2 int regions, and a handful of dev regions * 6 accounts = ~80-120 pipeline runs per day. Potentially more in the future as we scale regions if this pipeline is reused. Changes are infrequent.
+  - **Account Provisioning Pipeline**: 1:1 with all managed Accounts. Estimating ~10 MCs per region with ~1 weekly configuration change, this amounts to ~400 weekly runs (10 MCs × 40 regions). Additional daily reconcile on all other accounts (RC, DR, Log Storage, etc) where changes are much less frequent.
 
 ### Operability
 
