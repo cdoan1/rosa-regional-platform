@@ -3,7 +3,7 @@ hyperfleet-api:
     registry: quay.io/cdoan0
     repository: hyperfleet-api
     pullPolicy: Always
-    tag: "cdoan"
+    tag: "latest"
 
 
   # Authentication configuration
