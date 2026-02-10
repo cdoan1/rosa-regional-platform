@@ -99,3 +99,28 @@ module "maestro_infrastructure" {
   # MQTT topic prefix
   mqtt_topic_prefix = var.maestro_mqtt_topic_prefix
 }
+
+# =============================================================================
+# Authorization Module
+# =============================================================================
+
+# Call the Authz module for Cedar/AVP-based authorization
+module "authz" {
+  source = "../../modules/authz"
+
+  resource_name_base = module.regional_cluster.resource_name_base
+  eks_cluster_name   = module.regional_cluster.cluster_name
+
+  # DynamoDB configuration
+  billing_mode                  = var.authz_billing_mode
+  enable_point_in_time_recovery = var.authz_enable_pitr
+  enable_deletion_protection    = var.authz_deletion_protection
+
+  # Pod Identity configuration
+  frontend_api_namespace       = var.authz_frontend_api_namespace
+  frontend_api_service_account = var.authz_frontend_api_service_account
+
+  # Bootstrap privileged accounts (current account + any additional allowed accounts)
+  # Use distinct() to remove any duplicate account IDs
+  bootstrap_accounts = distinct(compact(split(",", var.api_additional_allowed_accounts != "" ? "${data.aws_caller_identity.current.account_id},${var.api_additional_allowed_accounts}" : data.aws_caller_identity.current.account_id)))
+}

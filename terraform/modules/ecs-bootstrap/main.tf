@@ -123,7 +123,8 @@ resource "aws_ecs_task_definition" "bootstrap" {
               git_repo: "$REPOSITORY_URL"
               git_revision: "$REPOSITORY_BRANCH"
               api_target_group_arn: "$API_TARGET_GROUP_ARN"
-              api_allowed_accounts: "$API_ALLOWED_ACCOUNTS"
+              dynamodb_prefix: "$CLUSTER_NAME"
+              dynamodb_region: "$REGION"
           type: Opaque
           stringData:
             name: in-cluster
