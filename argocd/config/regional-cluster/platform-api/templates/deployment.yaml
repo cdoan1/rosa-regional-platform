@@ -29,6 +29,8 @@ spec:
             - --api-port={{ .Values.platformApi.app.args.apiPort }}
             - --health-port={{ .Values.platformApi.app.args.healthPort }}
             - --metrics-port={{ .Values.platformApi.app.args.metricsPort }}
+            - --dynamodb-region={{ .Values.platformApi.app.args.dynamodbRegion }}
+            - --dynamodb-prefix={{ .Values.platformApi.app.args.dynamodbPrefix }}
           ports:
             - name: api
               containerPort: {{ .Values.platformApi.app.args.apiPort }}

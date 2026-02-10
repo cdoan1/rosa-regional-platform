@@ -52,7 +52,8 @@ spec:
                   arn: '{{ .metadata.annotations.api_target_group_arn }}'
                 app:
                   args:
-                    allowedAccounts: '{{ .metadata.annotations.api_allowed_accounts }}'
+                    dynamodbRegion: '{{ .metadata.annotations.dynamodb_region }}'
+                    dynamodbPrefix: '{{ .metadata.annotations.dynamodb_prefix }}'
           path: '{{ .path.path }}'
           repoURL: '{{ .metadata.annotations.git_repo }}'
           targetRevision: '{{ .metadata.annotations.git_revision }}'

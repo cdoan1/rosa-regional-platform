@@ -24,6 +24,8 @@ platformApi:
       logFormat: json
       maestroUrl: http://maestro-http.maestro-server:8080
       allowedAccounts: "123456789012"
+      dynamodbRegion: us-east-2
+      dynamodbPrefix: rosa
       apiPort: 8000
       healthPort: 8081
       metricsPort: 9090
