@@ -40,27 +40,3 @@ output "deployment_region" {
   description = "AWS Region where pipelines are deployed"
   value       = data.aws_region.current.id
 }
-
-output "next_steps" {
-  description = "Next steps after bootstrap"
-  value       = <<-EOT
-    ✅ Bootstrap Complete!
-
-    Next Steps:
-    1. Authorize GitHub Connection in AWS Console:
-       - Connection ARN: ${module.pipeline_provisioner.github_connection_arn}
-       - Navigate to: AWS Console > Developer Tools > Connections
-       - Click "Update pending connection" and authorize with GitHub
-
-    2. The Pipeline Provisioner is now active:
-       - Pipeline: ${module.pipeline_provisioner.provisioner_pipeline_name}
-       - Watches: deploy/**
-
-    3. To create pipelines, commit YAML files to your repository:
-       - Regional clusters: deploy/<region-name>/regional.yaml
-       - Management clusters: deploy/<region-name>/management/<cluster-name>.yaml
-       - Example files available in: deploy/fedramp-us-east-1/
-
-    4. See deploy/README.md for detailed configuration instructions
-  EOT
-}
