@@ -37,33 +37,15 @@ resource "aws_ecs_task_definition" "bootstrap" {
   container_definitions = jsonencode([
     {
       name  = local.bootstrap_container_name
-      image = "public.ecr.aws/aws-cli/aws-cli:latest"
+      image = var.container_image
 
-      # Override default entrypoint to install tools and run bootstrap
       entryPoint = ["/bin/bash", "-c"]
       command = [
         <<-EOF
           set -euo pipefail
 
-          echo "=== Installing bootstrap tools ==="
-          yum update -y
-          yum install -y tar gzip jq
-
-          # Install kubectl
-          KUBECTL_VERSION="v1.34.0"
-          curl -L "https://dl.k8s.io/release/$KUBECTL_VERSION/bin/linux/amd64/kubectl" -o /usr/local/bin/kubectl
-          chmod +x /usr/local/bin/kubectl
-
-          # Install helm
-          HELM_VERSION="v3.12.0"
-          curl -L "https://get.helm.sh/helm-$HELM_VERSION-linux-amd64.tar.gz" -o helm.tar.gz
-          tar -zxvf helm.tar.gz
-          mv linux-amd64/helm /usr/local/bin/helm
-          chmod +x /usr/local/bin/helm
-
-          echo "=== Tool installation complete ==="
-          kubectl version --client
-          helm version
+          echo "=== ArgoCD Bootstrap ==="
+          echo "Tools: aws=$(aws --version 2>&1 | head -1), kubectl=$(kubectl version --client -o json 2>/dev/null | jq -r '.clientVersion.gitVersion'), helm=$(helm version --short)"
 
           # Configure kubectl for EKS
           aws eks update-kubeconfig --name $CLUSTER_NAME

@@ -71,16 +71,6 @@ echo "{\"cluster_type\":\"$CLUSTER_TYPE\",\"cluster\":\"$CLUSTER\",\"task_id\":\
 
 cd $CURRENT_DIR
 
-# Wait for tools to install in the container
-echo ""
-echo "==> Waiting for container tools to install (60 seconds)..."
-WAIT_SECONDS=60
-for i in $(seq $WAIT_SECONDS -1 1); do
-  printf "\r    [%-60s] %2ds remaining" $(printf '#%.0s' $(seq 1 $((60 - i + 1)))) $i
-  sleep 1
-done
-printf "\r    [%-60s] Complete!   \n" $(printf '#%.0s' $(seq 1 60))
-
 echo ""
 echo "==> Bastion task ready for $CLUSTER_TYPE cluster"
 echo "    Cluster: $CLUSTER"

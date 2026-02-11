@@ -30,6 +30,11 @@ variable "eks_cluster_security_group_id" {
   type        = string
 }
 
+variable "container_image" {
+  description = "Container image for the bootstrap task (must have aws, kubectl, helm, jq pre-installed)"
+  type        = string
+}
+
 variable "repository_url" {
   description = "Git repository URL for cluster configuration"
   type        = string

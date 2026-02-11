@@ -5,6 +5,8 @@
 *.tfvars
 *.tfvars.json
 *.terraform.lock.hcl
+*_override.tf
+override.tf
 *.zip
 bastion_task*.json
 .venv

@@ -118,6 +118,11 @@ output "bastion_ssm_port_forward_template" {
   value       = var.enable_bastion ? module.bastion[0].ssm_port_forward_template : null
 }
 
+output "platform_ecr_repository_url" {
+  description = "ECR repository URL for the platform container image"
+  value       = module.platform_image.ecr_repository_url
+}
+
 output "maestro_agent_cert_secret_name" {
   description = "Secret name for Maestro Agent MQTT certificate"
   value       = module.maestro_agent.maestro_agent_cert_secret_name

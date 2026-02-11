@@ -123,6 +123,11 @@ output "bastion_ssm_port_forward_template" {
   value       = var.enable_bastion ? module.bastion[0].ssm_port_forward_template : null
 }
 
+output "platform_ecr_repository_url" {
+  description = "ECR repository URL for the platform container image"
+  value       = module.platform_image.ecr_repository_url
+}
+
 # =============================================================================
 # API Gateway Outputs
 # =============================================================================

@@ -46,6 +46,11 @@ variable "memory" {
   default     = "1024"
 }
 
+variable "container_image" {
+  description = "Container image for the bastion task (from platform-image module)"
+  type        = string
+}
+
 variable "tags" {
   description = "Additional tags to apply to all resources"
   type        = map(string)

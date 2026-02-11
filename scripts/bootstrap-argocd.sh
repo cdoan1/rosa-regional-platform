@@ -165,10 +165,10 @@ while true; do
     # Print new log events
     echo "$LOG_EVENTS" | jq -r '.events[] | .message' 2>/dev/null || true
 
-    # Update last event timestamp
+    # Update last event timestamp (add 1 to exclude already-seen events on next poll)
     NEW_LAST_TIME=$(echo "$LOG_EVENTS" | jq -r '[.events[].timestamp] | max // 0' 2>/dev/null || echo "0")
     if [[ "$NEW_LAST_TIME" != "null" && "$NEW_LAST_TIME" != "0" ]]; then
-        LAST_EVENT_TIME=$NEW_LAST_TIME
+        LAST_EVENT_TIME=$((NEW_LAST_TIME + 1))
     fi
 
     TASK_STATUS=$(aws ecs describe-tasks --cluster "$ECS_CLUSTER_ARN" --tasks "$TASK_ARN" --query 'tasks[0].lastStatus' --output text)
