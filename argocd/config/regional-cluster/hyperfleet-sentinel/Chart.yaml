@@ -1,0 +1,10 @@
+apiVersion: v2
+name: hyperfleet-sentinel
+description: hyperfleet-sentinel deployment from external GitHub repository
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: sentinel
+    version: "0.1.0"
+    repository: https://cdoan1.github.io/regional-charts
