@@ -116,27 +116,12 @@ echo "✅ Authenticated as:"
 aws sts get-caller-identity
 echo ""
 
-# Parse command-line arguments or use environment variables with interactive fallback
+# Parse command-line arguments or use environment variables (no interactive prompts)
 if [ $# -ge 1 ]; then
     # Command-line arguments provided
     GITHUB_REPO_OWNER="$1"
     GITHUB_REPO_NAME="${2:-}"
     GITHUB_BRANCH="${3:-main}"
-else
-    # Check environment variables first, then prompt
-    if [ -z "${GITHUB_REPO_OWNER:-}" ]; then
-        read -p "GitHub Repository Owner [openshift-online]: " input_owner
-        GITHUB_REPO_OWNER="${input_owner:-openshift-online}"
-    fi
-
-    if [ -z "${GITHUB_REPO_NAME:-}" ]; then
-        read -p "GitHub Repository Name (e.g., rosa-regional-platform): " GITHUB_REPO_NAME
-    fi
-
-    if [ -z "${GITHUB_BRANCH:-}" ]; then
-        read -p "GitHub Branch [main]: " input_branch
-        GITHUB_BRANCH="${input_branch:-main}"
-    fi
 fi
 
 # Set defaults for optional parameters
