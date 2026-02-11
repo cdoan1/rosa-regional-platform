@@ -3,6 +3,7 @@
 # requires-python = ">=3.13"
 # dependencies = [
 #     "PyYAML>=6.0",
+#     "Jinja2>=3.1",
 # ]
 # ///
 """
@@ -22,6 +23,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import yaml
+from jinja2 import Template
 
 
 def load_yaml(file_path: Path) -> Dict[str, Any]:
@@ -140,6 +142,71 @@ def deep_merge(base: Dict[str, Any], overlay: Dict[str, Any]) -> Dict[str, Any]:
             result[key] = value
 
     return result
+
+
+def resolve_templates(value: Any, context: Dict[str, Any]) -> Any:
+    """Recursively resolve Jinja2 template placeholders in all string values.
+
+    Args:
+        value: Value to process (string, dict, list, or other)
+        context: Dictionary of template variables (e.g. region, environment)
+
+    Returns:
+        Value with all template placeholders resolved
+    """
+    if isinstance(value, str):
+        return Template(value).render(context)
+    elif isinstance(value, dict):
+        return {k: resolve_templates(v, context) for k, v in value.items()}
+    elif isinstance(value, list):
+        return [resolve_templates(item, context) for item in value]
+    return value
+
+
+def resolve_shards(config: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Resolve shards by merging sector defaults and processing templates.
+
+    Each shard's "sector" field links to a sector by name. The sector's
+    values, terraform_vars, and environment are inherited by the shard.
+    Shard-level settings override sector defaults via deep merge. All
+    string values are then template-processed using shard fields as context.
+
+    Args:
+        config: Full parsed config.yaml
+
+    Returns:
+        List of fully resolved shard configurations
+    """
+    sectors = config.get('sectors', [])
+    sectors_by_name = {s['name']: s for s in sectors}
+    shards = config.get('shards', [])
+
+    resolved = []
+    for shard in shards:
+        shard = dict(shard)  # shallow copy to avoid mutating original
+        sector_name = shard.get('sector')
+        sector = sectors_by_name.get(sector_name, {})
+
+        # Inherit environment from sector
+        shard['environment'] = sector.get('environment', sector_name)
+
+        # Deep merge: sector values are defaults, shard values override
+        sector_values = sector.get('values', {})
+        shard_values = shard.get('values', {})
+        shard['values'] = deep_merge(sector_values, shard_values)
+
+        # Deep merge terraform_vars
+        sector_tf_vars = sector.get('terraform_vars', {})
+        shard_tf_vars = shard.get('terraform_vars', {})
+        shard['terraform_vars'] = deep_merge(sector_tf_vars, shard_tf_vars)
+
+        # Template-process values and terraform_vars using shard fields as context
+        shard['values'] = resolve_templates(shard['values'], shard)
+        shard['terraform_vars'] = resolve_templates(shard['terraform_vars'], shard)
+
+        resolved.append(shard)
+
+    return resolved
 
 
 def get_cluster_types(base_dir: Path) -> List[str]:
@@ -325,8 +392,8 @@ def main() -> int:
     # Load config
     config = load_yaml(config_file)
 
-    # Get shards from config
-    shards = config.get('shards', [])
+    # Resolve shards from config (merge sector defaults + template processing)
+    shards = resolve_shards(config)
     if not shards:
         print("Error: No shards found in config.yaml", file=sys.stderr)
         return 1

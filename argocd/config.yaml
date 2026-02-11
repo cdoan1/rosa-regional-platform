@@ -1,20 +1,11 @@
-# ROSA Regional Platform - Cluster Registry
-# This file defines all shards (regions) to deploy
-#
-# CONFIGURATION WORKFLOW:
-# 1. Default values come from values.yaml files in helm charts (e.g., argocd/management-cluster/*/values.yaml)
-# 2. Override values here in config.yaml for region-specific customizations
-# 3. Run render script to generate final values files in rendered/ directory
-# 4. DO NOT manually edit files in rendered/ - they are generated outputs
-#
-# TO UPDATE VALUES:
-# - For default changes: Edit values.yaml files in the helm charts directly
-# - For region-specific changes: Edit this config.yaml file
+# sectors:  shared defaults (values, terraform_vars); each has a name and environment
+# shards:   region deployments; reference a sector, inherit its config
+# Inheritance: sector `values` & `terraform_vars` deep-merged into shard (shard wins)
+# Templating:  Jinja2 on all strings, resolved after merge. e.g. "{{ region }}"
 
-shards:
-  - region: "eu-west-1"
+sectors:
+  - name: "integration"
     environment: "integration"
-    # Infrastructure metadata for Terraform
     terraform_vars:
       app_code: "infra"
       service_phase: "dev"
@@ -23,60 +14,44 @@ shards:
       management-cluster:
         hypershift:
           oidcStorageS3Bucket:
-            name: "hypershift-mc-eu-west-1"
-            region: "eu-west-1"
+            name: "hypershift-mc-{{ region }}"
+            region: "{{ region }}"
           externalDns:
-            domain: "dev.eu-west-1.rosa.example.com"
-  - region: "us-east-1"
-    environment: "integration"
-    # Infrastructure metadata for Terraform
-    terraform_vars:
-      app_code: "infra"
-      service_phase: "dev"
-      cost_center: "000"
-    values:
-      management-cluster:
-        hypershift:
-          oidcStorageS3Bucket:
-            name: "hypershift-mc-us-east-1"
-            region: "us-east-1"
-          externalDns:
-            domain: "dev.us-east-1.rosa.example.com"
-  - region: "us-east-2"
-    environment: "integration"
-    # Infrastructure metadata for Terraform
-    terraform_vars:
-      app_code: "infra"
-      service_phase: "dev"
-      cost_center: "000"
-    values:
-      regional-cluster:
-        maestro:
-          mqttEndpoint: "xxx.iot.us-east-2.amazonaws.com"
-        someOtherSetting: "value"
-      management-cluster:
-        hypershift:
-          oidcStorageS3Bucket:
-            name: "hypershift-mc-us-east-2"
-            region: "us-east-2"
-          externalDns:
-            domain: "dev.us-east-2.rosa.example.com"
+            domain: "dev.{{ region }}.rosa.example.com"
 
-  - region: "eu-west-1"
+
+  - name: "staging"
     environment: "staging"
-    # Infrastructure metadata for Terraform
     terraform_vars:
       app_code: "infra"
       service_phase: "staging"
       cost_center: "000"
-    config_revision:
-      management-cluster: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"
-      regional-cluster: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"
     values:
       management-cluster:
         hypershift:
           oidcStorageS3Bucket:
-            name: "hypershift-mc-eu-west-1"
-            region: "eu-west-1"
+            name: "hypershift-mc-{{ region }}"
+            region: "{{ region }}"
           externalDns:
-            domain: "dev.eu-west-1.rosa.example.com"
+            domain: "dev.{{ region }}.rosa.example.com"
+
+shards:
+  - region: "eu-west-1"
+    sector: "integration"
+
+  - region: "us-east-1"
+    sector: "integration"
+
+  - region: "us-east-2"
+    sector: "integration"
+    values:
+      regional-cluster:
+        maestro:
+          mqttEndpoint: "xxx.iot.{{ region }}.amazonaws.com"
+        someOtherSetting: "value"
+
+  - region: "eu-west-1"
+    sector: "staging"
+    config_revision:
+      management-cluster: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"
+      regional-cluster: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"
