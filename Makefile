@@ -60,6 +60,20 @@ terraform-output-regional:
 	@cd terraform/config/regional-cluster && terraform output -json
 
 # =============================================================================
+# Central Account Bootstrap
+# =============================================================================
+
+# Bootstrap central AWS account with Terraform state and pipeline infrastructure
+# Usage: make bootstrap-central-account GITHUB_REPO_NAME=repo-name [GITHUB_REPO_OWNER=owner] [GITHUB_BRANCH=branch]
+# Or: make bootstrap-central-account (interactive mode)
+bootstrap-central-account:
+	@if [ -n "$(GITHUB_REPO_NAME)" ]; then \
+		scripts/bootstrap-central-account.sh $(GITHUB_REPO_OWNER) $(GITHUB_REPO_NAME) $(GITHUB_BRANCH); \
+	else \
+		scripts/bootstrap-central-account.sh; \
+	fi
+
+# =============================================================================
 # Cluster Provisioning/Deprovisioning Targets
 # =============================================================================
 
