@@ -1,17 +1,3 @@
-# =============================================================================
-# Maestro Agent IoT Provisioning - Standalone Configuration
-#
-# This configuration wraps the maestro-agent-iot-provisioning module and
-# provides a standalone entrypoint for pipeline-based IoT provisioning.
-#
-# Usage:
-#   1. Generate terraform.tfvars with cluster-specific values
-#   2. Run: terraform init && terraform apply
-#   3. Extract certificate data: terraform output -json certificate_data
-#   4. Transfer to management account Secrets Manager
-# =============================================================================
-
-# Configure AWS provider - region is automatically detected from AWS profile
 provider "aws" {
   default_tags {
     tags = {

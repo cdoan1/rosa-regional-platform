@@ -1,8 +1,3 @@
-# =============================================================================
-# Management Cluster Infrastructure Configuration
-# =============================================================================
-
-# Configure AWS provider
 provider "aws" {
   default_tags {
     tags = {
