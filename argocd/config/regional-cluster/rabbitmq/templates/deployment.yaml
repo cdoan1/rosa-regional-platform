@@ -1,0 +1,63 @@
+{{- if .Values.rabbitmq.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rabbitmq.fullname" . }}
+  namespace: {{ .Values.rabbitmq.namespace }}
+  labels:
+    {{- include "rabbitmq.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "rabbitmq.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "rabbitmq.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - name: rabbitmq
+        image: {{ .Values.rabbitmq.image.repository }}:{{ .Values.rabbitmq.image.tag }}
+        imagePullPolicy: {{ .Values.rabbitmq.image.pullPolicy }}
+        ports:
+        - name: amqp
+          containerPort: 5672
+          protocol: TCP
+        - name: management
+          containerPort: 15672
+          protocol: TCP
+        env:
+        - name: RABBITMQ_DEFAULT_USER
+          value: {{ .Values.rabbitmq.auth.username }}
+        - name: RABBITMQ_DEFAULT_PASS
+          value: {{ .Values.rabbitmq.auth.password }}
+        resources:
+          {{- toYaml .Values.rabbitmq.resources | nindent 10 }}
+        readinessProbe:
+          tcpSocket:
+            port: amqp
+          initialDelaySeconds: {{ .Values.rabbitmq.probes.readiness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.rabbitmq.probes.readiness.periodSeconds }}
+          timeoutSeconds: {{ .Values.rabbitmq.probes.readiness.timeoutSeconds }}
+          failureThreshold: {{ .Values.rabbitmq.probes.readiness.failureThreshold }}
+        livenessProbe:
+          tcpSocket:
+            port: amqp
+          initialDelaySeconds: {{ .Values.rabbitmq.probes.liveness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.rabbitmq.probes.liveness.periodSeconds }}
+          timeoutSeconds: {{ .Values.rabbitmq.probes.liveness.timeoutSeconds }}
+          failureThreshold: {{ .Values.rabbitmq.probes.liveness.failureThreshold }}
+      {{- with .Values.rabbitmq.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.rabbitmq.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.rabbitmq.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

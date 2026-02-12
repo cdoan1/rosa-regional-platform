@@ -1,0 +1,8 @@
+{{- if .Values.rabbitmq.enabled }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.rabbitmq.namespace }}
+  labels:
+    {{- include "rabbitmq.labels" . | nindent 4 }}
+{{- end }}
