@@ -68,6 +68,21 @@ spec:
                 args:
                   dynamodbRegion: '{{ .metadata.annotations.dynamodb_region }}'
                   dynamodbPrefix: '{{ .metadata.annotations.dynamodb_prefix }}'
+            hyperfleetApi:
+              database:
+                postgresql:
+                  password: '{{ .metadata.annotations.dynamodb_prefix }}'
+            rabbitmq:
+              auth:
+                password: '{{ .metadata.annotations.dynamodb_prefix }}'
+            hyperfleetSentinel:
+              broker:
+                rabbitmq:
+                  url: amqp://hyperfleet:{{ .metadata.annotations.dynamodb_prefix }}@rabbitmq.rabbitmq.svc.cluster.local:5672/
+            hyperfleetAdapter:
+              broker:
+                rabbitmq:
+                  url: amqp://hyperfleet:{{ .metadata.annotations.dynamodb_prefix }}@rabbitmq.rabbitmq.svc.cluster.local:5672/
         path: '{{ .path.path }}'
         repoURL: '{{ .metadata.annotations.git_repo }}'
         targetRevision: 826fa76d08fc2ce87c863196e52d5a4fa9259a82
