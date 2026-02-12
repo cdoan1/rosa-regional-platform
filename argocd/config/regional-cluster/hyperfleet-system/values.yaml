@@ -1,0 +1,252 @@
+# Shared namespace for all HyperFleet components
+hyperfleetSystem:
+  namespace: hyperfleet-system
+
+  serviceAccount:
+    create: true
+    name: hyperfleet-sa
+
+  # RabbitMQ Configuration
+  rabbitmq:
+    enabled: true
+    image:
+      repository: rabbitmq
+      tag: 3.13-management
+      pullPolicy: IfNotPresent
+
+    replicas: 1
+
+    persistence:
+      enabled: false  # Disabled - using emptyDir for development
+      storageClass: gp2
+      size: 10Gi
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+    service:
+      amqpPort: 5672
+      managementPort: 15672
+
+    # Credentials
+    auth:
+      username: hyperfleet
+      password: ""  # Auto-generated if empty
+      erlangCookie: ""  # Auto-generated if empty
+
+    # Exchange configuration
+    exchange:
+      name: hyperfleet-cluster-events
+      type: topic
+
+  # PostgreSQL Configuration
+  postgresql:
+    enabled: true
+    image:
+      repository: postgres
+      tag: "16"
+      pullPolicy: IfNotPresent
+
+    replicas: 1
+
+    persistence:
+      enabled: false  # Disabled - using emptyDir for development
+      storageClass: gp2
+      size: 20Gi
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+    service:
+      port: 5432
+
+    # Database configuration
+    database:
+      name: hyperfleet
+      username: hyperfleet
+      password: ""  # Auto-generated if empty
+
+  # HyperFleet API Configuration
+  api:
+    enabled: true
+    image:
+      repository: quay.io/cdoan0/hyperfleet-api
+      tag: latest
+      pullPolicy: Always
+
+    replicas: 2
+
+    args:
+      bindAddress: ":8000"
+      healthBindAddress: ":8080"
+      metricsBindAddress: ":9090"
+      clusterAdapters: "hypershift"
+      nodepoolAdapters: "hypershift"
+      enableJwt: false  # Start simple
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+    service:
+      type: ClusterIP
+      ports:
+        api: 8000
+        health: 8080
+        metrics: 9090
+
+    database:
+      # Connection to in-cluster PostgreSQL
+      host: postgresql.hyperfleet-system.svc.cluster.local
+      port: 5432
+      sslMode: disable  # In-cluster, no SSL needed
+      maxOpenConnections: 50
+
+    probes:
+      liveness:
+        initialDelaySeconds: 15
+        periodSeconds: 10
+      readiness:
+        initialDelaySeconds: 10
+        periodSeconds: 5
+
+  # HyperFleet Sentinel Configuration
+  sentinel:
+    enabled: true
+    image:
+      repository: quay.io/cdoan0/sentinel
+      tag: latest
+      pullPolicy: Always
+
+    replicas: 1  # Single instance
+
+    config:
+      resourceType: clusters
+      pollInterval: 5s
+      maxAgeNotReady: 10s
+      maxAgeReady: 30m
+
+      hyperfleetApi:
+        # Same-namespace service discovery
+        endpoint: http://hyperfleet-api.hyperfleet-system.svc.cluster.local:8000
+        timeout: 5s
+
+      messageData:
+        resource_id: .id
+        resource_type: .kind
+        href: .href
+        generation: .generation
+
+    broker:
+      type: rabbitmq
+      topic: hyperfleet-cluster-events
+      rabbitmq:
+        # Same-namespace service discovery
+        host: rabbitmq.hyperfleet-system.svc.cluster.local
+        port: 5672
+        exchangeType: topic
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+    probes:
+      liveness:
+        initialDelaySeconds: 10
+        periodSeconds: 10
+      readiness:
+        initialDelaySeconds: 5
+        periodSeconds: 5
+
+  # HyperFleet Adapter Configuration
+  adapter:
+    enabled: true
+    image:
+      repository: quay.io/cdoan0/hyperfleet-adapter
+      tag: latest
+      pullPolicy: Always
+
+    replicas: 2
+
+    config:
+      hyperfleetApi:
+        baseUrl: http://hyperfleet-api.hyperfleet-system.svc.cluster.local:8000
+        version: v1
+        timeout: 30s
+
+      maestro:
+        grpcServerAddress: maestro-grpc.maestro-server.svc.cluster.local:8090
+        httpServerAddress: http://maestro-http.maestro-server.svc.cluster.local:8080
+        sourceId: hyperfleet-adapter
+
+      log:
+        level: info
+
+    broker:
+      type: rabbitmq
+      rabbitmq:
+        host: rabbitmq.hyperfleet-system.svc.cluster.local
+        port: 5672
+        exchangeType: topic
+        queue: hyperfleet-adapter-queue
+        exchange: hyperfleet-cluster-events
+        routingKey: "cluster.*"
+        prefetchCount: 10
+
+    # Task configuration for cluster creation
+    taskConfig:
+      enabled: true
+      tasks:
+        cluster:
+          create:
+            description: "Create a new HyperShift cluster"
+            # Task steps defined in adapter-task-configmap.yaml
+          status:
+            description: "Check and sync cluster status"
+            # Task steps defined in adapter-task-configmap.yaml
+          delete:
+            description: "Delete a HyperShift cluster"
+            # Task steps defined in adapter-task-configmap.yaml
+
+    # RBAC permissions
+    rbac:
+      create: true
+      resources:
+        - namespaces
+        - configmaps
+        - secrets
+        - serviceaccounts
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+    probes:
+      liveness:
+        initialDelaySeconds: 10
+        periodSeconds: 10
+      readiness:
+        initialDelaySeconds: 5
+        periodSeconds: 5

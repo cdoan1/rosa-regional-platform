@@ -1,0 +1,6 @@
+apiVersion: v2
+name: hyperfleet-system
+description: HyperFleet cluster lifecycle management system
+type: application
+version: 0.1.0
+appVersion: "1.0"

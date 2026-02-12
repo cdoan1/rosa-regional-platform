@@ -1,0 +1,34 @@
+{{- if .Values.hyperfleetSystem.sentinel.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sentinel-config
+  namespace: {{ .Values.hyperfleetSystem.namespace }}
+  labels:
+    {{- include "hyperfleet-system.labels" . | nindent 4 }}
+    app.kubernetes.io/component: sentinel
+data:
+  config.yaml: |
+    resource-type: {{ .Values.hyperfleetSystem.sentinel.config.resourceType }}
+    poll-interval: {{ .Values.hyperfleetSystem.sentinel.config.pollInterval }}
+    max-age-not-ready: {{ .Values.hyperfleetSystem.sentinel.config.maxAgeNotReady }}
+    max-age-ready: {{ .Values.hyperfleetSystem.sentinel.config.maxAgeReady }}
+
+    hyperfleet-api:
+      endpoint: {{ .Values.hyperfleetSystem.sentinel.config.hyperfleetApi.endpoint }}
+      timeout: {{ .Values.hyperfleetSystem.sentinel.config.hyperfleetApi.timeout }}
+
+    message-data:
+      resource_id: {{ .Values.hyperfleetSystem.sentinel.config.messageData.resource_id }}
+      resource_type: {{ .Values.hyperfleetSystem.sentinel.config.messageData.resource_type }}
+      href: {{ .Values.hyperfleetSystem.sentinel.config.messageData.href }}
+      generation: {{ .Values.hyperfleetSystem.sentinel.config.messageData.generation }}
+
+    broker:
+      type: {{ .Values.hyperfleetSystem.sentinel.broker.type }}
+      topic: {{ .Values.hyperfleetSystem.sentinel.broker.topic }}
+      rabbitmq:
+        host: {{ .Values.hyperfleetSystem.sentinel.broker.rabbitmq.host }}
+        port: {{ .Values.hyperfleetSystem.sentinel.broker.rabbitmq.port }}
+        exchange-type: {{ .Values.hyperfleetSystem.sentinel.broker.rabbitmq.exchangeType }}
+{{- end }}

@@ -1,0 +1,25 @@
+{{- if .Values.hyperfleetSystem.rabbitmq.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: {{ .Values.hyperfleetSystem.namespace }}
+  labels:
+    {{- include "hyperfleet-system.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rabbitmq
+spec:
+  type: ClusterIP
+  clusterIP: None  # Headless service for StatefulSet
+  ports:
+  - name: amqp
+    port: {{ .Values.hyperfleetSystem.rabbitmq.service.amqpPort }}
+    targetPort: amqp
+    protocol: TCP
+  - name: management
+    port: {{ .Values.hyperfleetSystem.rabbitmq.service.managementPort }}
+    targetPort: management
+    protocol: TCP
+  selector:
+    {{- include "hyperfleet-system.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: rabbitmq
+{{- end }}

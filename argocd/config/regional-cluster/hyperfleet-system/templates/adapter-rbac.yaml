@@ -1,0 +1,43 @@
+{{- if and .Values.hyperfleetSystem.adapter.enabled .Values.hyperfleetSystem.adapter.rbac.create -}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: hyperfleet-adapter
+  labels:
+    {{- include "hyperfleet-system.labels" . | nindent 4 }}
+    app.kubernetes.io/component: adapter
+rules:
+- apiGroups: [""]
+  resources:
+  {{- range .Values.hyperfleetSystem.adapter.rbac.resources }}
+  - {{ . }}
+  {{- end }}
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["hypershift.openshift.io"]
+  resources:
+  - hostedclusters
+  - nodepools
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["maestro.redhat.com"]
+  resources:
+  - resources
+  - resourcebundles
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: hyperfleet-adapter
+  labels:
+    {{- include "hyperfleet-system.labels" . | nindent 4 }}
+    app.kubernetes.io/component: adapter
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: hyperfleet-adapter
+subjects:
+- kind: ServiceAccount
+  name: {{ include "hyperfleet-system.serviceAccountName" . }}
+  namespace: {{ .Values.hyperfleetSystem.namespace }}
+{{- end }}

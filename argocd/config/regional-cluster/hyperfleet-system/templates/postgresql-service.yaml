@@ -1,0 +1,21 @@
+{{- if .Values.hyperfleetSystem.postgresql.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql
+  namespace: {{ .Values.hyperfleetSystem.namespace }}
+  labels:
+    {{- include "hyperfleet-system.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+spec:
+  type: ClusterIP
+  clusterIP: None  # Headless service for StatefulSet
+  ports:
+  - name: postgresql
+    port: {{ .Values.hyperfleetSystem.postgresql.service.port }}
+    targetPort: postgresql
+    protocol: TCP
+  selector:
+    {{- include "hyperfleet-system.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+{{- end }}

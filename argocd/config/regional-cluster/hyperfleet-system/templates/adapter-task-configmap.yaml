@@ -1,0 +1,103 @@
+{{- if and .Values.hyperfleetSystem.adapter.enabled .Values.hyperfleetSystem.adapter.taskConfig.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: adapter-task-config
+  namespace: {{ .Values.hyperfleetSystem.namespace }}
+  labels:
+    {{- include "hyperfleet-system.labels" . | nindent 4 }}
+    app.kubernetes.io/component: adapter
+data:
+  task-config.yaml: |
+    apiVersion: hyperfleet.redhat.com/v1alpha1
+    kind: AdapterTaskConfig
+    metadata:
+      name: hyperfleet-adapter-tasks
+    spec:
+      tasks:
+        cluster.create:
+          description: {{ .Values.hyperfleetSystem.adapter.taskConfig.tasks.cluster.create.description | quote }}
+          steps:
+            - name: validate-request
+              description: "Validate cluster creation request"
+              type: precondition
+              action: validate
+              parameters:
+                required_fields:
+                  - name
+                  - region
+                  - version
+
+            - name: provision-cluster
+              description: "Provision cluster via Maestro"
+              type: resource
+              adapter: maestro
+              action: create
+              parameters:
+                resource_type: hypershift_cluster
+                manifest_template: |
+                  apiVersion: hypershift.openshift.io/v1beta1
+                  kind: HostedCluster
+                  metadata:
+                    name: {{ `{{ .cluster.name }}` }}
+                    namespace: clusters
+                  spec:
+                    release:
+                      image: {{ `{{ .cluster.version }}` }}
+                    platform:
+                      type: AWS
+                      aws:
+                        region: {{ `{{ .cluster.region }}` }}
+
+            - name: update-status
+              description: "Update cluster status to provisioning"
+              type: post-action
+              action: update_status
+              parameters:
+                status: provisioning
+                message: "Cluster creation initiated"
+
+        cluster.status:
+          description: {{ .Values.hyperfleetSystem.adapter.taskConfig.tasks.cluster.status.description | quote }}
+          steps:
+            - name: check-status
+              description: "Check cluster status from Maestro"
+              type: precondition
+              adapter: maestro
+              action: get_status
+              parameters:
+                resource_type: hypershift_cluster
+
+            - name: update-api
+              description: "Sync status back to HyperFleet API"
+              type: post-action
+              action: update_status
+              parameters:
+                sync_from_maestro: true
+
+        cluster.delete:
+          description: "Delete a HyperShift cluster"
+          steps:
+            - name: validate-deletion
+              description: "Validate cluster can be deleted"
+              type: precondition
+              action: validate
+              parameters:
+                check_dependencies: true
+
+            - name: delete-cluster
+              description: "Delete cluster via Maestro"
+              type: resource
+              adapter: maestro
+              action: delete
+              parameters:
+                resource_type: hypershift_cluster
+
+            - name: update-status
+              description: "Update cluster status to deleting"
+              type: post-action
+              action: update_status
+              parameters:
+                status: deleting
+                message: "Cluster deletion initiated"
+{{- end }}

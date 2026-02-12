@@ -1,0 +1,28 @@
+{{- if .Values.hyperfleetSystem.api.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: hyperfleet-api
+  namespace: {{ .Values.hyperfleetSystem.namespace }}
+  labels:
+    {{- include "hyperfleet-system.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  type: {{ .Values.hyperfleetSystem.api.service.type }}
+  ports:
+  - name: api
+    port: {{ .Values.hyperfleetSystem.api.service.ports.api }}
+    targetPort: api
+    protocol: TCP
+  - name: health
+    port: {{ .Values.hyperfleetSystem.api.service.ports.health }}
+    targetPort: health
+    protocol: TCP
+  - name: metrics
+    port: {{ .Values.hyperfleetSystem.api.service.ports.metrics }}
+    targetPort: metrics
+    protocol: TCP
+  selector:
+    {{- include "hyperfleet-system.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+{{- end }}

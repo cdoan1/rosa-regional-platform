@@ -1,0 +1,27 @@
+{{- if .Values.hyperfleetSystem.rabbitmq.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rabbitmq-config
+  namespace: {{ .Values.hyperfleetSystem.namespace }}
+  labels:
+    {{- include "hyperfleet-system.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rabbitmq
+data:
+  enabled_plugins: |
+    [rabbitmq_management,rabbitmq_prometheus,rabbitmq_shovel,rabbitmq_shovel_management].
+
+  rabbitmq.conf: |
+    # RabbitMQ configuration for HyperFleet
+    loopback_users.guest = false
+    listeners.tcp.default = {{ .Values.hyperfleetSystem.rabbitmq.service.amqpPort }}
+    management.tcp.port = {{ .Values.hyperfleetSystem.rabbitmq.service.managementPort }}
+
+    # Performance tuning
+    vm_memory_high_watermark.relative = 0.6
+    disk_free_limit.absolute = 2GB
+
+    # Clustering (single node for now)
+    cluster_formation.peer_discovery_backend = rabbit_peer_discovery_classic_config
+    cluster_formation.classic_config.nodes.1 = rabbit@localhost
+{{- end }}

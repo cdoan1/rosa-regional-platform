@@ -1,0 +1,74 @@
+{{- if .Values.hyperfleetSystem.sentinel.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hyperfleet-sentinel
+  namespace: {{ .Values.hyperfleetSystem.namespace }}
+  labels:
+    {{- include "hyperfleet-system.labels" . | nindent 4 }}
+    app.kubernetes.io/component: sentinel
+spec:
+  replicas: {{ .Values.hyperfleetSystem.sentinel.replicas }}
+  selector:
+    matchLabels:
+      {{- include "hyperfleet-system.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: sentinel
+  template:
+    metadata:
+      labels:
+        {{- include "hyperfleet-system.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: sentinel
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/sentinel-configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "hyperfleet-system.serviceAccountName" . }}
+      containers:
+      - name: sentinel
+        image: "{{ .Values.hyperfleetSystem.sentinel.image.repository }}:{{ .Values.hyperfleetSystem.sentinel.image.tag }}"
+        imagePullPolicy: {{ .Values.hyperfleetSystem.sentinel.image.pullPolicy }}
+        args:
+        - --config=/etc/sentinel/config.yaml
+        env:
+        - name: BROKER_RABBITMQ_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-credentials
+              key: username
+        - name: BROKER_RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-credentials
+              key: password
+        - name: BROKER_RABBITMQ_VHOST
+          value: "hyperfleet"
+        - name: BROKER_RABBITMQ_EXCHANGE
+          value: {{ .Values.hyperfleetSystem.rabbitmq.exchange.name }}
+        volumeMounts:
+        - name: config
+          mountPath: /etc/sentinel
+          readOnly: true
+        resources:
+          {{- toYaml .Values.hyperfleetSystem.sentinel.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.hyperfleetSystem.sentinel.probes.liveness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.hyperfleetSystem.sentinel.probes.liveness.periodSeconds }}
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.hyperfleetSystem.sentinel.probes.readiness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.hyperfleetSystem.sentinel.probes.readiness.periodSeconds }}
+          timeoutSeconds: 3
+          failureThreshold: 3
+      volumes:
+      - name: config
+        configMap:
+          name: sentinel-config
+{{- end }}

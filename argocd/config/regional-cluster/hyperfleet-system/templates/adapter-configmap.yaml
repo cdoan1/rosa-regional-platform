@@ -1,0 +1,35 @@
+{{- if .Values.hyperfleetSystem.adapter.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: adapter-config
+  namespace: {{ .Values.hyperfleetSystem.namespace }}
+  labels:
+    {{- include "hyperfleet-system.labels" . | nindent 4 }}
+    app.kubernetes.io/component: adapter
+data:
+  config.yaml: |
+    hyperfleet-api:
+      base-url: {{ .Values.hyperfleetSystem.adapter.config.hyperfleetApi.baseUrl }}
+      version: {{ .Values.hyperfleetSystem.adapter.config.hyperfleetApi.version }}
+      timeout: {{ .Values.hyperfleetSystem.adapter.config.hyperfleetApi.timeout }}
+
+    maestro:
+      grpc-server-address: {{ .Values.hyperfleetSystem.adapter.config.maestro.grpcServerAddress }}
+      http-server-address: {{ .Values.hyperfleetSystem.adapter.config.maestro.httpServerAddress }}
+      source-id: {{ .Values.hyperfleetSystem.adapter.config.maestro.sourceId }}
+
+    broker:
+      type: {{ .Values.hyperfleetSystem.adapter.broker.type }}
+      rabbitmq:
+        host: {{ .Values.hyperfleetSystem.adapter.broker.rabbitmq.host }}
+        port: {{ .Values.hyperfleetSystem.adapter.broker.rabbitmq.port }}
+        exchange-type: {{ .Values.hyperfleetSystem.adapter.broker.rabbitmq.exchangeType }}
+        queue: {{ .Values.hyperfleetSystem.adapter.broker.rabbitmq.queue }}
+        exchange: {{ .Values.hyperfleetSystem.adapter.broker.rabbitmq.exchange }}
+        routing-key: {{ .Values.hyperfleetSystem.adapter.broker.rabbitmq.routingKey | quote }}
+        prefetch-count: {{ .Values.hyperfleetSystem.adapter.broker.rabbitmq.prefetchCount }}
+
+    log:
+      level: {{ .Values.hyperfleetSystem.adapter.config.log.level }}
+{{- end }}

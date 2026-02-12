@@ -1,0 +1,25 @@
+{{- if .Values.hyperfleetSystem.postgresql.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgresql-config
+  namespace: {{ .Values.hyperfleetSystem.namespace }}
+  labels:
+    {{- include "hyperfleet-system.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+data:
+  postgresql.conf: |
+    # PostgreSQL configuration for HyperFleet
+    max_connections = {{ .Values.hyperfleetSystem.api.database.maxOpenConnections }}
+    shared_buffers = 128MB
+    effective_cache_size = 512MB
+    maintenance_work_mem = 64MB
+    checkpoint_completion_target = 0.9
+    wal_buffers = 16MB
+    default_statistics_target = 100
+    random_page_cost = 1.1
+    effective_io_concurrency = 200
+    work_mem = 2621kB
+    min_wal_size = 1GB
+    max_wal_size = 4GB
+{{- end }}

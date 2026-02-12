@@ -1,0 +1,106 @@
+{{- if .Values.hyperfleetSystem.rabbitmq.enabled -}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rabbitmq
+  namespace: {{ .Values.hyperfleetSystem.namespace }}
+  labels:
+    {{- include "hyperfleet-system.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rabbitmq
+spec:
+  serviceName: rabbitmq
+  replicas: {{ .Values.hyperfleetSystem.rabbitmq.replicas }}
+  selector:
+    matchLabels:
+      {{- include "hyperfleet-system.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: rabbitmq
+  template:
+    metadata:
+      labels:
+        {{- include "hyperfleet-system.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: rabbitmq
+    spec:
+      serviceAccountName: {{ include "hyperfleet-system.serviceAccountName" . }}
+      containers:
+      - name: rabbitmq
+        image: "{{ .Values.hyperfleetSystem.rabbitmq.image.repository }}:{{ .Values.hyperfleetSystem.rabbitmq.image.tag }}"
+        imagePullPolicy: {{ .Values.hyperfleetSystem.rabbitmq.image.pullPolicy }}
+        ports:
+        - name: amqp
+          containerPort: {{ .Values.hyperfleetSystem.rabbitmq.service.amqpPort }}
+          protocol: TCP
+        - name: management
+          containerPort: {{ .Values.hyperfleetSystem.rabbitmq.service.managementPort }}
+          protocol: TCP
+        env:
+        - name: RABBITMQ_DEFAULT_USER
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-credentials
+              key: username
+        - name: RABBITMQ_DEFAULT_PASS
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-credentials
+              key: password
+        - name: RABBITMQ_ERLANG_COOKIE
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-credentials
+              key: erlang-cookie
+        - name: RABBITMQ_NODENAME
+          value: rabbit@localhost
+        volumeMounts:
+        - name: rabbitmq-data
+          mountPath: /var/lib/rabbitmq
+        - name: rabbitmq-config
+          mountPath: /etc/rabbitmq/rabbitmq.conf
+          subPath: rabbitmq.conf
+        - name: rabbitmq-config
+          mountPath: /etc/rabbitmq/enabled_plugins
+          subPath: enabled_plugins
+        resources:
+          {{- toYaml .Values.hyperfleetSystem.rabbitmq.resources | nindent 10 }}
+        livenessProbe:
+          exec:
+            command:
+            - rabbitmq-diagnostics
+            - -q
+            - ping
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - rabbitmq-diagnostics
+            - -q
+            - check_running
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: rabbitmq-config
+        configMap:
+          name: rabbitmq-config
+  {{- if .Values.hyperfleetSystem.rabbitmq.persistence.enabled }}
+  volumeClaimTemplates:
+  - metadata:
+      name: rabbitmq-data
+      labels:
+        {{- include "hyperfleet-system.labels" . | nindent 8 }}
+        app.kubernetes.io/component: rabbitmq
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      storageClassName: {{ .Values.hyperfleetSystem.rabbitmq.persistence.storageClass }}
+      resources:
+        requests:
+          storage: {{ .Values.hyperfleetSystem.rabbitmq.persistence.size }}
+  {{- else }}
+      - name: rabbitmq-data
+        emptyDir: {}
+  {{- end }}
+{{- end }}

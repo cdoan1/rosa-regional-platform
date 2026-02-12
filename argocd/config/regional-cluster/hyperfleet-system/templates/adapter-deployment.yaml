@@ -1,0 +1,86 @@
+{{- if .Values.hyperfleetSystem.adapter.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hyperfleet-adapter
+  namespace: {{ .Values.hyperfleetSystem.namespace }}
+  labels:
+    {{- include "hyperfleet-system.labels" . | nindent 4 }}
+    app.kubernetes.io/component: adapter
+spec:
+  replicas: {{ .Values.hyperfleetSystem.adapter.replicas }}
+  selector:
+    matchLabels:
+      {{- include "hyperfleet-system.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: adapter
+  template:
+    metadata:
+      labels:
+        {{- include "hyperfleet-system.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: adapter
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/adapter-configmap.yaml") . | sha256sum }}
+        checksum/task-config: {{ include (print $.Template.BasePath "/adapter-task-configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "hyperfleet-system.serviceAccountName" . }}
+      containers:
+      - name: adapter
+        image: "{{ .Values.hyperfleetSystem.adapter.image.repository }}:{{ .Values.hyperfleetSystem.adapter.image.tag }}"
+        imagePullPolicy: {{ .Values.hyperfleetSystem.adapter.image.pullPolicy }}
+        args:
+        - --config=/etc/adapter/config.yaml
+        - --task-config=/etc/adapter/task-config.yaml
+        env:
+        - name: BROKER_RABBITMQ_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-credentials
+              key: username
+        - name: BROKER_RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-credentials
+              key: password
+        - name: BROKER_RABBITMQ_VHOST
+          value: "hyperfleet"
+        volumeMounts:
+        - name: config
+          mountPath: /etc/adapter/config.yaml
+          subPath: config.yaml
+          readOnly: true
+        {{- if .Values.hyperfleetSystem.adapter.taskConfig.enabled }}
+        - name: task-config
+          mountPath: /etc/adapter/task-config.yaml
+          subPath: task-config.yaml
+          readOnly: true
+        {{- end }}
+        resources:
+          {{- toYaml .Values.hyperfleetSystem.adapter.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.hyperfleetSystem.adapter.probes.liveness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.hyperfleetSystem.adapter.probes.liveness.periodSeconds }}
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.hyperfleetSystem.adapter.probes.readiness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.hyperfleetSystem.adapter.probes.readiness.periodSeconds }}
+          timeoutSeconds: 3
+          failureThreshold: 3
+      volumes:
+      - name: config
+        configMap:
+          name: adapter-config
+      {{- if .Values.hyperfleetSystem.adapter.taskConfig.enabled }}
+      - name: task-config
+        configMap:
+          name: adapter-task-config
+      {{- end }}
+{{- end }}
