@@ -19,8 +19,6 @@ set -euo pipefail
 #
 #   Or use environment variables:
 #   GITHUB_REPO_OWNER=myorg GITHUB_REPO_NAME=myrepo ./bootstrap-central-account.sh
-#
-#   Or run interactively (prompts for values)
 # =============================================================================
 
 # Show usage
@@ -37,17 +35,14 @@ ARGUMENTS:
 
 OPTIONS:
     -h, --help          Show this help message
-    -y, --yes           Skip confirmation prompts (non-interactive mode)
 
 ENVIRONMENT VARIABLES:
-    AUTO_APPROVE        Set to 'true' to skip confirmation prompts
     GITHUB_REPO_OWNER   GitHub repository owner (default: openshift-online)
     GITHUB_REPO_NAME    GitHub repository name
     GITHUB_BRANCH       Git branch to track (default: main)
     AWS_PROFILE         AWS CLI profile to use
 
 EXAMPLES:
-    # Interactive mode (uses defaults: openshift-online, main branch)
     $0
 
     # With command-line arguments (custom owner and branch)
@@ -62,16 +57,11 @@ EOF
 }
 
 # Parse flags
-AUTO_APPROVE="${AUTO_APPROVE:-false}"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -h|--help)
             show_usage
             exit 0
-            ;;
-        -y|--yes)
-            AUTO_APPROVE=true
-            shift
             ;;
         -*)
             echo "Unknown option: $1"
@@ -106,14 +96,26 @@ if ! command -v terraform &> /dev/null; then
     exit 1
 fi
 
-# Get current AWS identity
+# Get current AWS identity (capture once to avoid duplicate calls)
 echo "Checking AWS credentials..."
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+if ! AWS_IDENTITY=$(aws sts get-caller-identity --no-cli-pager 2>&1); then
+    echo "❌ Error: Failed to authenticate with AWS"
+    echo "$AWS_IDENTITY"
+    exit 1
+fi
+
+ACCOUNT_ID=$(echo "$AWS_IDENTITY" | jq -r '.Account')
+
+if [[ -z "$ACCOUNT_ID" || ! "$ACCOUNT_ID" =~ ^[0-9]{12}$ ]]; then
+    echo "❌ Error: Invalid AWS account ID: '$ACCOUNT_ID'"
+    exit 1
+fi
+
 REGION=$(aws configure get region 2>/dev/null)
 REGION=${REGION:-us-east-1}
 
 echo "✅ Authenticated as:"
-aws sts get-caller-identity
+echo "$AWS_IDENTITY"
 echo ""
 
 # Parse command-line arguments or use environment variables (no interactive prompts)
@@ -142,16 +144,7 @@ echo "  AWS Region:         $REGION"
 echo "  GitHub Repo:        $GITHUB_REPO_OWNER/$GITHUB_REPO_NAME"
 echo "  GitHub Branch:      $GITHUB_BRANCH"
 echo ""
-
-if [ "$AUTO_APPROVE" != "true" ]; then
-    read -p "Continue with bootstrap? [y/N]: " CONFIRM
-    if [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ]; then
-        echo "❌ Bootstrap cancelled."
-        exit 1
-    fi
-else
-    echo "✅ Auto-approve enabled, continuing..."
-fi
+echo "✅ Proceeding with bootstrap..."
 
 echo ""
 echo "==================================================="
@@ -196,19 +189,7 @@ echo "Running Terraform plan..."
 terraform plan -var-file=terraform.tfvars -out=tfplan
 
 echo ""
-if [ "$AUTO_APPROVE" != "true" ]; then
-    read -p "Apply this plan? [y/N]: " APPLY_CONFIRM
-    if [ "$APPLY_CONFIRM" != "y" ] && [ "$APPLY_CONFIRM" != "Y" ]; then
-        echo "❌ Terraform apply cancelled."
-        cd "${REPO_ROOT}"
-        exit 1
-    fi
-else
-    echo "✅ Auto-approve enabled, applying plan..."
-fi
-
-# Apply
-echo "Applying Terraform configuration..."
+echo "✅ Applying Terraform configuration..."
 terraform apply tfplan
 
 echo ""

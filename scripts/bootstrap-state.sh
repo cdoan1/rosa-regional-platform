@@ -1,8 +1,19 @@
 #!/bin/bash
 set -euo pipefail
 
-REGION=${1:-$(aws configure get region 2>/dev/null || echo "us-east-1")}
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+# Get account ID with error checking
+if ! ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --no-cli-pager 2>/dev/null); then
+    echo "❌ Error: Failed to get AWS account ID. Check your AWS credentials."
+    exit 1
+fi
+
+if [[ -z "$ACCOUNT_ID" || ! "$ACCOUNT_ID" =~ ^[0-9]{12}$ ]]; then
+    echo "❌ Error: Invalid AWS account ID: '$ACCOUNT_ID'"
+    exit 1
+fi
+
+REGION=${1:-$(aws configure get region 2>/dev/null)}
+REGION=${REGION:-us-east-1}
 BUCKET_NAME="terraform-state-${ACCOUNT_ID}"
 
 echo "Bootstrapping Terraform State in $REGION..."
