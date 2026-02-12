@@ -25,3 +25,8 @@ variable "environment" {
   description = "Environment to monitor (e.g., integration, staging, production)"
   default     = "staging"
 }
+
+variable "github_connection_arn" {
+  type        = string
+  description = "ARN of the shared GitHub CodeStar connection"
+}
