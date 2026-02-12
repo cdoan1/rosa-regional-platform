@@ -1,7 +1,7 @@
 # sectors:  shared defaults (values, terraform_vars); each has a name and environment
 # shards:   region deployments; reference a sector, inherit its config
 # Inheritance: sector `values` & `terraform_vars` deep-merged into shard (shard wins)
-# Templating:  Jinja2 on all strings, resolved after merge. e.g. "{{ region }}"
+# Templating:  Jinja2 on all strings, resolved after merge. e.g. "{{ aws_region }}"
 
 sectors:
   - name: "integration"
@@ -14,10 +14,10 @@ sectors:
       management-cluster:
         hypershift:
           oidcStorageS3Bucket:
-            name: "hypershift-mc-{{ region }}"
-            region: "{{ region }}"
+            name: "hypershift-mc-{{ aws_region }}"
+            region: "{{ aws_region }}"
           externalDns:
-            domain: "dev.{{ region }}.rosa.example.com"
+            domain: "dev.{{ aws_region }}.rosa.example.com"
 
 
   - name: "staging"
@@ -30,28 +30,48 @@ sectors:
       management-cluster:
         hypershift:
           oidcStorageS3Bucket:
-            name: "hypershift-mc-{{ region }}"
-            region: "{{ region }}"
+            name: "hypershift-mc-{{ aws_region }}"
+            region: "{{ aws_region }}"
           externalDns:
-            domain: "dev.{{ region }}.rosa.example.com"
+            domain: "dev.{{ aws_region }}.rosa.example.com"
 
 shards:
-  - region: "eu-west-1"
+  - region_alias: "eu-west-1"
+    aws_region: "eu-west-1"
     sector: "integration"
+    account_id: "REMOVED"
+    management_clusters:
+      - cluster_id: "mc01-{{ region_alias }}"
+        account_id: "REMOVED"
 
-  - region: "us-east-1"
+  - region_alias: "us-east-1"
+    aws_region: "us-east-1"
     sector: "integration"
+    account_id: "REMOVED"
+    management_clusters:
+      - cluster_id: "mc01-{{ region_alias }}"
+        account_id: "REMOVED"
 
-  - region: "us-east-2"
+  - region_alias: "us-east-2"
+    aws_region: "us-east-2"
     sector: "integration"
+    account_id: "REMOVED"
+    management_clusters:
+      - cluster_id: "mc01-{{ region_alias }}"
+        account_id: "REMOVED"
     values:
       regional-cluster:
         maestro:
-          mqttEndpoint: "xxx.iot.{{ region }}.amazonaws.com"
+          mqttEndpoint: "xxx.iot.{{ aws_region }}.amazonaws.com"
         someOtherSetting: "value"
 
-  - region: "eu-west-1"
+  - region_alias: "eu-west-1"
+    aws_region: "eu-west-1"
     sector: "staging"
+    account_id: "REMOVED"
+    management_clusters:
+      - cluster_id: "mc01-{{ region_alias }}"
+        account_id: "REMOVED"
     config_revision:
       management-cluster: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"
       regional-cluster: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"

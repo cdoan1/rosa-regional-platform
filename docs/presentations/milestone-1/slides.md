@@ -68,11 +68,11 @@ shards:
 ### 2. Render & Commit
 
 ```bash
-# Generate all the argocd/rendered
-# manifests for the new region based
-# on the config.yaml values /argocd/scripts/render.py
+# Generate all deploy/ configs
+# for the new region based on
+# config.yaml via scripts/render.py
 
-git add argocd/config.yaml argocd/rendered/
+git add argocd/config.yaml deploy/
 git commit -m "Add us-west-2 region"
 git push
 ```

@@ -121,7 +121,7 @@ phases:
         fi
 
         # Process YAML Files
-        for file in deploy/*/regional.yaml; do
+        for file in deploy/*/*/terraform/regional.yaml; do
             [ -e "$file" ] || continue
 
             ACCOUNT_ID=$(python3 -c "import yaml; print(yaml.safe_load(open('$file')).get('account_id', ''))")

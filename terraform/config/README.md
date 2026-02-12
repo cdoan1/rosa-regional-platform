@@ -8,8 +8,8 @@ flowchart LR
         direction TB
         TF["terraform apply<br/>bootstrap-pipeline/"]
         G1["git push<br/>deploy/**"]
-        G2["git push<br/>deploy/‹region›/**"]
-        G3["git push<br/>deploy/‹region›/management/**"]
+        G2["git push<br/>deploy/‹env›/‹region›/**"]
+        G3["git push<br/>deploy/‹env›/‹region›/terraform/management/**"]
     end
 
     subgraph pipelines ["CodePipelines"]
@@ -21,8 +21,8 @@ flowchart LR
 
     TF -->|one-time setup| PP
     G1 -->|triggers| PP
-    PP -->|"reads regional.yaml<br/>creates pipeline"| RC_PIPE
-    PP -->|"reads management/*.yaml<br/>creates pipeline"| MC_PIPE
+    PP -->|"reads terraform/regional.yaml<br/>creates pipeline"| RC_PIPE
+    PP -->|"reads terraform/management/*.yaml<br/>creates pipeline"| MC_PIPE
     G2 -->|triggers| RC_PIPE
     G3 -->|triggers| MC_PIPE
 
@@ -41,8 +41,8 @@ Seeds the initial CodePipeline that watches the `deploy/` directory in the repos
 
 Cluster configurations follow this directory structure:
 
-- `deploy/<region>/regional.yaml` — regional cluster pipelines
-- `deploy/<region>/management/<cluster>.yaml` — management cluster pipelines
+- `deploy/<env>/<region_alias>/terraform/regional.yaml` — regional cluster pipelines
+- `deploy/<env>/<region_alias>/terraform/management/<cluster>.yaml` — management cluster pipelines
 
 After deploying, the GitHub CodeStar connection must be authorized manually:
 

@@ -37,16 +37,13 @@ Edit `argocd/config.yaml` and add your new region following this pattern:
 ```yaml
 shards:
   # ... existing entries ...
-  - region: "us-west-2"              # ← Your target region
-    environment: "integration"       # ← Your environment (integration/staging/etc)
-    values:
-      management-cluster:
-        hypershift:
-          oidcStorageS3Bucket:
-            name: "hypershift-mc-us-west-2"    # ← Region-specific bucket name
-            region: "us-west-2"                # ← Your target region
-          externalDns:
-            domain: "dev.us-west-2.rosa.example.com"  # ← Region-specific domain
+  - region_alias: "us-west-2"         # ← Region alias (identifier for deploy paths)
+    aws_region: "us-west-2"           # ← AWS region to deploy into
+    sector: "integration"             # ← Sector (inherits environment + defaults)
+    account_id: "123456789"           # ← Regional cluster AWS account ID
+    management_clusters:
+      - cluster_id: "mc01-us-west-2"  # ← Management cluster identifier
+        account_id: "987654321"       # ← Management cluster AWS account ID
 ```
 
 ### Generate Rendered Configurations
@@ -54,25 +51,25 @@ shards:
 Run the rendering script to generate the required files:
 
 ```bash
-./argocd/scripts/render.py
+./scripts/render.py
 ```
 
 **Verify rendered files were created:**
 
 ```bash
-ls -la argocd/rendered/integration/us-west-2/  # Replace with your environment/region
+ls -la deploy/integration/us-west-2/  # Replace with your environment/region_alias
 ```
 
-You should see directories like `management-cluster-manifests/` and files like `management-cluster-values.yaml`.
+You should see `argocd/` and `terraform/` subdirectories with generated configs.
 
 ### Commit and Push Changes
 
 ```bash
-git add argocd/config.yaml argocd/rendered/
+git add argocd/config.yaml deploy/
 git commit -m "Add us-west-2 region configuration
 
 - Add us-west-2/integration to argocd/config.yaml
-- Generate rendered ArgoCD manifests and values
+- Generate deploy configs (argocd + terraform)
 - Prepare for regional cluster provisioning"
 git push origin <your-branch>
 ```

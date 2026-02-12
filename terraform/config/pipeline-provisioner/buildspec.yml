@@ -98,22 +98,25 @@ phases:
             done
         }
 
-        # Process each region directory in deploy/
-        for region_dir in deploy/*/; do
+        # Process each environment/region_alias directory in deploy/
+        for region_dir in deploy/*/*/; do
             [ -d "$region_dir" ] || continue
 
-            # Extract region name from directory path (e.g., deploy/fedramp-us-east-1/ -> fedramp-us-east-1)
-            REGION_NAME=$(basename "$region_dir")
+            # Extract environment and region_alias from directory path
+            # e.g., deploy/integration/us-east-1/ -> ENV_NAME=integration, REGION_ALIAS=us-east-1
+            REGION_ALIAS=$(basename "$region_dir")
+            ENV_NAME=$(basename "$(dirname "$region_dir")")
+            REGION_NAME="${ENV_NAME}-${REGION_ALIAS}"
 
             echo "=========================================="
-            echo "Processing region: $REGION_NAME"
+            echo "Processing: $ENV_NAME / $REGION_ALIAS"
             echo "=========================================="
 
             # 1. Check for regional.yaml in this region
-            if [ -f "${region_dir}regional.yaml" ]; then
+            if [ -f "${region_dir}terraform/regional.yaml" ]; then
                 echo "Found regional.yaml for $REGION_NAME"
 
-                REGIONAL_CONFIG="${region_dir}regional.yaml"
+                REGIONAL_CONFIG="${region_dir}terraform/regional.yaml"
 
                 # Extract configuration from YAML
                 TARGET_REGION=$(python3 -c "import yaml; config = yaml.safe_load(open('$REGIONAL_CONFIG')); print(config.get('region', config.get('target_region', 'us-east-1')))")
@@ -161,14 +164,14 @@ phases:
                     continue
                 fi
             else
-                echo "No regional.yaml found in $region_dir, skipping regional pipeline..."
+                echo "No terraform/regional.yaml found in $region_dir, skipping regional pipeline..."
             fi
 
             # 2. Check for management/*.yaml files in this region
-            if [ -d "${region_dir}management" ]; then
+            if [ -d "${region_dir}terraform/management" ]; then
                 echo "Checking for management cluster configs in $REGION_NAME..."
 
-                for mc_config in ${region_dir}management/*.yaml; do
+                for mc_config in ${region_dir}terraform/management/*.yaml; do
                     [ -e "$mc_config" ] || continue
 
                     # Extract cluster name from filename (e.g., mc01-us-east-1.yaml -> mc01-us-east-1)
@@ -235,7 +238,7 @@ phases:
                     fi
                 done
             else
-                echo "No management/ directory in $region_dir, skipping management pipelines..."
+                echo "No terraform/management/ directory in $region_dir, skipping management pipelines..."
             fi
 
             echo ""

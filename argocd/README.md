@@ -18,14 +18,21 @@ argocd/
 │   ├── shared/                          # Shared charts (ArgoCD, etc.)
 │   ├── management-cluster/              # MC-specific charts
 │   └── regional-cluster/                # RC-specific charts
-├── config.yaml                          # Source of truth for existing shards
-├── scripts/
-│   └── render.py                       # Generates region-specific values & ApplicationSets
-└── rendered/                           # Generated outputs (DO NOT EDIT)
-    └── {environment}/{region}/
-        ├── {cluster_type}-values.yaml
-        └── {cluster_type}-manifests/
-            └── applicationset.yaml
+└── config.yaml                          # Source of truth for all shards
+
+scripts/
+└── render.py                            # Generates values, ApplicationSets, and terraform configs
+
+deploy/                                  # Generated outputs (DO NOT EDIT)
+└── {environment}/{region_alias}/
+    ├── argocd/
+    │   ├── {cluster_type}-values.yaml
+    │   └── {cluster_type}-manifests/
+    │       └── applicationset.yaml
+    └── terraform/
+        ├── regional.yaml
+        └── management/
+            └── {cluster_id}.yaml
 ```
 
 ## Configuration Modes
@@ -42,20 +49,30 @@ argocd/
 
 ## config.yaml - Source of Truth
 
-This file defines which shards (environment + region combinations) exist and how they're configured:
+This file defines which shards (environment + region_alias combinations) exist and how they're configured:
 
 ```yaml
 shards:
-  - region: "eu-west-1"
-    environment: "integration"
+  - region_alias: "eu-west-1"
+    aws_region: "eu-west-1"
+    sector: "integration"
+    account_id: "123456789"
+    management_clusters:
+      - cluster_id: "mc01-eu-west-1"
+        account_id: "987654321"
     # No config_revision = uses current git revision
     values:
       management-cluster:
         hypershift:
           replicas: 1
 
-  - region: "eu-west-1"
-    environment: "staging"
+  - region_alias: "eu-west-1"
+    aws_region: "eu-west-1"
+    sector: "staging"
+    account_id: "123456789"
+    management_clusters:
+      - cluster_id: "mc01-eu-west-1"
+        account_id: "987654321"
     config_revision:                     # Pinned commits for stability
       management-cluster: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"
       regional-cluster: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"
@@ -70,7 +87,7 @@ shards:
 1. **Development**: Work with integration shards using live config (current branch)
 2. **Release**: When ready, pin staging shards to tested commit hash
 3. **Production**: Roll pinned commits through production shards
-4. **Generate configs**: Run `./argocd/scripts/render.py` after changes
+4. **Generate configs**: Run `./scripts/render.py` after changes
 
 ## Adding New Helm Charts
 
@@ -96,7 +113,7 @@ argocd/config/regional-cluster/my-rc-app/
 └── templates/
 ```
 
-The ApplicationSet will automatically discover and deploy new charts. Run `./argocd/scripts/render.py` to generate the required configuration files.
+The ApplicationSet will automatically discover and deploy new charts. Run `./scripts/render.py` to generate the required configuration files.
 
 ## How It Works
 
@@ -111,4 +128,4 @@ The Git Generator gets either:
 
 **Application Sources:**
 - **Charts & Default Values**: From `argocd/config/` at pinned commit OR current git_revision
-- **Rendered Values**: From `argocd/rendered/` at current git_revision (always latest environment config)
+- **Rendered Values**: From `deploy/<env>/<region_alias>/argocd/` at current git_revision (always latest environment config)

@@ -150,7 +150,7 @@ phases:
             )
 
             echo "Bootstrapping ArgoCD..."
-            ./scripts/bootstrap-argocd.sh regional-cluster "${TARGET_ENVIRONMENT}" "${REGION}" 2>&1 | tee /tmp/bootstrap.log
+            ./scripts/bootstrap-argocd.sh regional-cluster "${TARGET_ENVIRONMENT}" "${TARGET_ALIAS}" "${REGION}" 2>&1 | tee /tmp/bootstrap.log
             BOOTSTRAP_EXIT_CODE=${PIPESTATUS[0]}
 
             echo ""

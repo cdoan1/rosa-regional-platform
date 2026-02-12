@@ -4,13 +4,15 @@ set -euo pipefail
 
 CLUSTER_TYPE="${1:-}"
 ENVIRONMENT="${2:-integration}"
-REGION="${3:-$(aws configure get region)}"  # default to AWS CLI configured region
+REGION_ALIAS="${3:-$(aws configure get region)}"  # default to AWS CLI configured region
+AWS_REGION="${4:-$REGION_ALIAS}"  # default to REGION_ALIAS if not provided
 
 if [[ -z "$CLUSTER_TYPE" ]]; then
-    echo "Usage: $0 <cluster-type> [environment] [region]"
+    echo "Usage: $0 <cluster-type> [environment] [region-alias] [aws-region]"
     echo "       cluster-type: management-cluster or regional-cluster"
     echo "       environment: dev, staging, prod, etc. (default: integration)"
-    echo "       region: AWS region (default: current AWS CLI region)"
+    echo "       region-alias: region identifier for deploy paths (default: current AWS CLI region)"
+    echo "       aws-region: AWS region (default: same as region-alias)"
     echo ""
     echo "This script automatically reads terraform.tfvars to extract AWS profile"
     echo "and calls bootstrap-argocd.sh with the correct parameters."
@@ -31,14 +33,14 @@ OUTPUTS=$(terraform output -json)
 # - Terraform state is in central account S3, needs central account creds
 # - ECS cluster/logs are in target account, need target account creds
 if [[ -n "${ASSUME_ROLE_ARN:-}" ]]; then
-    echo "🔐 Assuming role for AWS resource access: $ASSUME_ROLE_ARN"
+    echo "Assuming role for AWS resource access: $ASSUME_ROLE_ARN"
 
     # Attempt role assumption and capture output
     if ! CREDS=$(aws sts assume-role \
         --role-arn "$ASSUME_ROLE_ARN" \
         --role-session-name "bootstrap-argocd" \
         --output json 2>&1); then
-        echo "❌ Failed to assume role: $ASSUME_ROLE_ARN"
+        echo "Failed to assume role: $ASSUME_ROLE_ARN"
         echo "AWS CLI error output:"
         echo "$CREDS"
         exit 1
@@ -46,7 +48,7 @@ if [[ -n "${ASSUME_ROLE_ARN:-}" ]]; then
 
     # Validate credentials were returned
     if ! echo "$CREDS" | jq -e '.Credentials' >/dev/null 2>&1; then
-        echo "❌ Role assumption succeeded but credentials not found in response"
+        echo "Role assumption succeeded but credentials not found in response"
         echo "Role ARN: $ASSUME_ROLE_ARN"
         echo "Response:"
         echo "$CREDS"
@@ -55,17 +57,17 @@ if [[ -n "${ASSUME_ROLE_ARN:-}" ]]; then
 
     # Extract credentials using -er to fail on null/missing values
     if ! AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -er '.Credentials.AccessKeyId'); then
-        echo "❌ Failed to extract AccessKeyId from assume-role response"
+        echo "Failed to extract AccessKeyId from assume-role response"
         exit 1
     fi
 
     if ! AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -er '.Credentials.SecretAccessKey'); then
-        echo "❌ Failed to extract SecretAccessKey from assume-role response"
+        echo "Failed to extract SecretAccessKey from assume-role response"
         exit 1
     fi
 
     if ! AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -er '.Credentials.SessionToken'); then
-        echo "❌ Failed to extract SessionToken from assume-role response"
+        echo "Failed to extract SessionToken from assume-role response"
         exit 1
     fi
 
@@ -73,7 +75,7 @@ if [[ -n "${ASSUME_ROLE_ARN:-}" ]]; then
     export AWS_SECRET_ACCESS_KEY
     export AWS_SESSION_TOKEN
 
-    echo "✅ Role assumed successfully"
+    echo "Role assumed successfully"
     echo "   Account: $(aws sts get-caller-identity --query Account --output text)"
 fi
 
@@ -87,7 +89,7 @@ REPOSITORY_URL=$(echo "$OUTPUTS" | jq -r '.repository_url.value')
 REPOSITORY_BRANCH=$(echo "$OUTPUTS" | jq -r '.repository_branch.value')
 
 # Static values
-APPLICATIONSET_PATH="argocd/rendered/$ENVIRONMENT/$REGION/${CLUSTER_TYPE}-manifests"
+APPLICATIONSET_PATH="deploy/$ENVIRONMENT/$REGION_ALIAS/argocd/${CLUSTER_TYPE}-manifests"
 
 # Extract cluster-type specific outputs
 if [[ "$CLUSTER_TYPE" == "regional-cluster" ]]; then
@@ -115,7 +117,8 @@ RUN_TASK_OUTPUT=$(aws ecs run-task \
         {\"name\": \"REPOSITORY_PATH\", \"value\": \"$APPLICATIONSET_PATH\"},
         {\"name\": \"REPOSITORY_BRANCH\", \"value\": \"$REPOSITORY_BRANCH\"},
         {\"name\": \"ENVIRONMENT\", \"value\": \"$ENVIRONMENT\"},
-        {\"name\": \"REGION\", \"value\": \"$REGION\"},
+        {\"name\": \"REGION\", \"value\": \"$AWS_REGION\"},
+        {\"name\": \"REGION_ALIAS\", \"value\": \"$REGION_ALIAS\"},
         {\"name\": \"CLUSTER_TYPE\", \"value\": \"$CLUSTER_TYPE\"},
         {\"name\": \"API_TARGET_GROUP_ARN\", \"value\": \"$API_TARGET_GROUP_ARN\"}
       ]
@@ -124,15 +127,15 @@ RUN_TASK_OUTPUT=$(aws ecs run-task \
 
 # Check if run-task succeeded
 if echo "$RUN_TASK_OUTPUT" | grep -q '"failures":\s*\[\]'; then
-  echo "✓ ECS task created successfully."
+  echo "ECS task created successfully."
   TASK_ARN=$(echo "$RUN_TASK_OUTPUT" | jq -r '.task.taskArn // .tasks[0].taskArn // empty')
   if [[ -z "$TASK_ARN" || "$TASK_ARN" == "null" ]]; then
-    echo "❌ Could not extract task ARN from response"
+    echo "Could not extract task ARN from response"
     exit 1
   fi
-  echo "✓ Bootstrap task started: $TASK_ARN"
+  echo "Bootstrap task started: $TASK_ARN"
 else
-  echo "❌ Failed to start ECS task. Error details:"
+  echo "Failed to start ECS task. Error details:"
   echo "$RUN_TASK_OUTPUT"
   exit 1
 fi
@@ -193,13 +196,13 @@ while true; do
         CONTAINER_REASON=$(echo "$TASK_DETAILS" | jq -r '.tasks[0].containers[0].reason // "unknown"')
 
         if [[ "$EXIT_CODE" == "0" ]]; then
-            echo "✓ Bootstrap completed successfully!"
+            echo "Bootstrap completed successfully!"
             exit 0
         elif [[ "$EXIT_CODE" == "null" || -z "$EXIT_CODE" ]]; then
-            echo "❌ Bootstrap failed - no exit code available"
+            echo "Bootstrap failed - no exit code available"
             exit 1
         else
-            echo "✗ Bootstrap failed with exit code: $EXIT_CODE"
+            echo "Bootstrap failed with exit code: $EXIT_CODE"
             exit 1
         fi
     fi

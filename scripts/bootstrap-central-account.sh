@@ -225,9 +225,8 @@ echo "   1. Open AWS Console: https://console.aws.amazon.com/codesuite/settings/
 echo "   2. Find connections in PENDING state"
 echo "   3. Click 'Update pending connection' and authorize with GitHub"
 echo ""
-echo "📝 To deploy clusters, create YAML files in your repository:"
-echo "   - Regional:    deploy/<name>/regional.yaml"
-echo "   - Management:  deploy/<name>/management/*.yaml"
+echo "To deploy clusters, add shards to argocd/config.yaml and run scripts/render.py."
+echo "Generated files will appear under deploy/<env>/<region_alias>/."
 echo ""
 
 cd "${REPO_ROOT}"
