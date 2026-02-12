@@ -27,7 +27,6 @@ show_usage() {
 Usage: $0 [OPTIONS] [GITHUB_REPO_OWNER] [GITHUB_REPO_NAME] [GITHUB_BRANCH]
 
 Bootstrap the central AWS account with pipeline infrastructure.
-This script runs non-interactively and does not prompt for confirmation.
 
 ARGUMENTS:
     GITHUB_REPO_OWNER    GitHub organization or user (default: 'openshift-online')
@@ -44,7 +43,6 @@ ENVIRONMENT VARIABLES:
     AWS_PROFILE         AWS CLI profile to use
 
 EXAMPLES:
-    # Non-interactive mode with defaults (openshift-online, main branch)
     $0
 
     # With command-line arguments (custom owner and branch)
