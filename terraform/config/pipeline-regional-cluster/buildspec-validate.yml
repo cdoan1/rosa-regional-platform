@@ -8,7 +8,7 @@ phases:
     commands:
       - echo "Installing dependencies..."
       - yum install -y unzip python3 jq gnupg2
-      - pip3 install boto3 pyyaml
+      - pip3 install boto3
       - echo "Installing Terraform..."
       - |
         set -euo pipefail
@@ -120,13 +120,13 @@ phases:
             validate_target "$TARGET_ACCOUNT_ID" "$TARGET_REGION" "$TARGET_ALIAS"
         fi
 
-        # Process YAML Files
-        for file in deploy/*/*/terraform/regional.yaml; do
+        # Process JSON Files
+        for file in deploy/*/*/terraform/regional.json; do
             [ -e "$file" ] || continue
 
-            ACCOUNT_ID=$(python3 -c "import yaml; print(yaml.safe_load(open('$file')).get('account_id', ''))")
-            REGION=$(python3 -c "import yaml; print(yaml.safe_load(open('$file')).get('region', ''))")
-            ALIAS=$(python3 -c "import yaml; print(yaml.safe_load(open('$file')).get('alias', ''))")
+            ACCOUNT_ID=$(jq -r '.account_id // ""' "$file")
+            REGION=$(jq -r '.region // ""' "$file")
+            ALIAS=$(jq -r '.alias // ""' "$file")
 
             if [[ -z "$ACCOUNT_ID" || -z "$REGION" || -z "$ALIAS" ]]; then
                 echo "Skipping invalid config in $file (missing account_id, region, or alias)"
