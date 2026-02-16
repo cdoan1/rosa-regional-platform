@@ -53,8 +53,17 @@ spec:
             - name: BROKER_CONFIG_FILE
               value: /etc/broker/broker.yaml
             {{- if eq .Values.hyperfleetAdapter.broker.type "rabbitmq" }}
-            - name: BROKER_URL
+            {{- if .Values.hyperfleetAdapter.broker.external.enabled }}
+            # Broker URL from Kubernetes Secret (created by SecretProviderClass)
+            - name: BROKER_RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hyperfleet-adapter.fullname" . }}-mq-secret
+                  key: BROKER_RABBITMQ_URL
+            {{- else }}
+            - name: BROKER_RABBITMQ_URL
               value: {{ .Values.hyperfleetAdapter.broker.rabbitmq.url | quote }}
+            {{- end }}
             - name: BROKER_QUEUE
               value: {{ .Values.hyperfleetAdapter.broker.rabbitmq.queue | quote }}
             {{- end }}
@@ -114,20 +123,25 @@ spec:
               mountPath: /etc/broker/broker.yaml
               subPath: broker.yaml
               readOnly: true
+            {{- if .Values.hyperfleetAdapter.broker.external.enabled }}
+            - name: mq-secrets
+              mountPath: {{ .Values.hyperfleetAdapter.broker.external.secretMountPath }}
+              readOnly: true
+            {{- end }}
             - name: tmp
               mountPath: /tmp
       volumes:
         - name: adapter-config
           projected:
             sources:
-              {{- if .Values.adapterConfig.create }}
+              {{- if .Values.hyperfleetAdapter.adapterConfig.create }}
               - configMap:
                   name: {{ include "hyperfleet-adapter.adapterConfigMapName" . }}
                   items:
                     - key: adapter-config.yaml
                       path: adapter-config.yaml
               {{- end }}
-              {{- if .Values.adapterTaskConfig.create }}
+              {{- if .Values.hyperfleetAdapter.adapterTaskConfig.create }}
               - configMap:
                   name: {{ include "hyperfleet-adapter.adapterTaskConfigMapName" . }}
                   items:
@@ -137,6 +151,14 @@ spec:
         - name: broker-config
           configMap:
             name: {{ include "hyperfleet-adapter.brokerConfigMapName" . }}
+        {{- if .Values.hyperfleetAdapter.broker.external.enabled }}
+        - name: mq-secrets
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ include "hyperfleet-adapter.fullname" . }}-mq-secrets
+        {{- end }}
         - name: tmp
           emptyDir: {}
       {{- with .Values.hyperfleetAdapter.nodeSelector }}

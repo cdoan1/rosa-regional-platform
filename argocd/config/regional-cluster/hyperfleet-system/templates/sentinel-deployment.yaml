@@ -55,15 +55,29 @@ spec:
           - name: BROKER_CONFIG_FILE
             value: /etc/sentinel/broker.yaml
           # Topic name for broker publishing
+          {{- if .Values.hyperfleetSentinel.broker.external.enabled }}
+          - name: BROKER_TOPIC
+            value: {{ .Values.hyperfleetSentinel.broker.external.exchange | quote }}
+          {{- else }}
           - name: BROKER_TOPIC
             value: {{ .Values.hyperfleetSentinel.broker.topic | quote }}
+          {{- end }}
           {{- if eq .Values.hyperfleetSentinel.broker.type "rabbitmq" }}
+          {{- if .Values.hyperfleetSentinel.broker.external.enabled }}
+          # Broker URL from Kubernetes Secret (created by SecretProviderClass)
+          - name: BROKER_RABBITMQ_URL
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "sentinel.fullname" . }}-mq-secret
+                key: BROKER_RABBITMQ_URL
+          {{- else }}
           # Broker credentials from Secret
           - name: BROKER_RABBITMQ_URL
             valueFrom:
               secretKeyRef:
                 name: {{ include "sentinel.secretName" . }}
                 key: BROKER_RABBITMQ_URL
+          {{- end }}
           {{- end }}
         volumeMounts:
           - name: config
@@ -74,6 +88,11 @@ spec:
             mountPath: /etc/sentinel/broker.yaml
             subPath: broker.yaml
             readOnly: true
+          {{- if .Values.hyperfleetSentinel.broker.external.enabled }}
+          - name: mq-secrets
+            mountPath: {{ .Values.hyperfleetSentinel.broker.external.secretMountPath }}
+            readOnly: true
+          {{- end }}
           - name: tmp
             mountPath: /tmp
         resources:
@@ -85,6 +104,14 @@ spec:
         - name: broker-config
           configMap:
             name: {{ include "sentinel.fullname" . }}-broker-config
+        {{- if .Values.hyperfleetSentinel.broker.external.enabled }}
+        - name: mq-secrets
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ include "sentinel.fullname" . }}-mq-secrets
+        {{- end }}
         - name: tmp
           emptyDir: {}
       {{- with .Values.hyperfleetSentinel.nodeSelector }}

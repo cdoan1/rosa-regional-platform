@@ -102,13 +102,52 @@ variable "authz_deletion_protection" {
 }
 
 variable "authz_frontend_api_namespace" {
-  description = "Kubernetes namespace for Frontend API (used for Pod Identity)"
+  description = "Kubernetes namespace for Platform API"
   type        = string
   default     = "platform-api"
 }
 
 variable "authz_frontend_api_service_account" {
-  description = "Kubernetes service account name for Frontend API (used for Pod Identity)"
+  description = "Kubernetes service account name for Platform API"
   type        = string
   default     = "platform-api-sa"
+}
+
+# =============================================================================
+# HyperFleet Configuration Variables
+# =============================================================================
+
+variable "hyperfleet_db_instance_class" {
+  description = "RDS instance class for HyperFleet PostgreSQL database"
+  type        = string
+  default     = "db.t4g.micro"
+}
+
+variable "hyperfleet_db_multi_az" {
+  description = "Enable Multi-AZ deployment for HyperFleet RDS (recommended for production)"
+  type        = bool
+  default     = false
+}
+
+variable "hyperfleet_db_deletion_protection" {
+  description = "Enable deletion protection for HyperFleet RDS instance (recommended for production)"
+  type        = bool
+  default     = false
+}
+
+variable "hyperfleet_mq_instance_type" {
+  description = "Amazon MQ instance type for HyperFleet RabbitMQ broker"
+  type        = string
+  default     = "mq.t3.micro"
+}
+
+variable "hyperfleet_mq_deployment_mode" {
+  description = "Amazon MQ deployment mode (SINGLE_INSTANCE or CLUSTER_MULTI_AZ)"
+  type        = string
+  default     = "SINGLE_INSTANCE"
+
+  validation {
+    condition     = contains(["SINGLE_INSTANCE", "CLUSTER_MULTI_AZ"], var.hyperfleet_mq_deployment_mode)
+    error_message = "Deployment mode must be SINGLE_INSTANCE or CLUSTER_MULTI_AZ"
+  }
 }
