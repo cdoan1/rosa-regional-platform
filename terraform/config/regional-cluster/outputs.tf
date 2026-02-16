@@ -268,3 +268,73 @@ output "authz_configuration_summary" {
   value       = module.authz.authz_configuration_summary
   sensitive   = false
 }
+
+# =============================================================================
+# HyperFleet Infrastructure Outputs
+# =============================================================================
+
+# RDS Database
+output "hyperfleet_rds_endpoint" {
+  description = "HyperFleet RDS PostgreSQL endpoint (hostname:port)"
+  value       = module.hyperfleet_infrastructure.rds_endpoint
+}
+
+output "hyperfleet_rds_address" {
+  description = "HyperFleet RDS PostgreSQL hostname"
+  value       = module.hyperfleet_infrastructure.rds_address
+}
+
+output "hyperfleet_rds_port" {
+  description = "HyperFleet RDS PostgreSQL port"
+  value       = module.hyperfleet_infrastructure.rds_port
+}
+
+output "hyperfleet_rds_database_name" {
+  description = "HyperFleet PostgreSQL database name"
+  value       = module.hyperfleet_infrastructure.rds_database_name
+}
+
+# Amazon MQ
+output "hyperfleet_mq_amqp_endpoint" {
+  description = "HyperFleet Amazon MQ AMQPS endpoint"
+  value       = module.hyperfleet_infrastructure.mq_amqp_endpoint
+}
+
+output "hyperfleet_mq_console_url" {
+  description = "HyperFleet RabbitMQ management console URL"
+  value       = module.hyperfleet_infrastructure.mq_console_url
+}
+
+# Secrets Manager
+output "hyperfleet_db_secret_name" {
+  description = "Secrets Manager secret name for HyperFleet database credentials"
+  value       = module.hyperfleet_infrastructure.db_secret_name
+}
+
+output "hyperfleet_mq_secret_name" {
+  description = "Secrets Manager secret name for HyperFleet MQ credentials"
+  value       = module.hyperfleet_infrastructure.mq_secret_name
+}
+
+# IAM Roles
+output "hyperfleet_api_role_arn" {
+  description = "IAM role ARN for HyperFleet API (Pod Identity)"
+  value       = module.hyperfleet_infrastructure.api_role_arn
+}
+
+output "hyperfleet_sentinel_role_arn" {
+  description = "IAM role ARN for HyperFleet Sentinel (Pod Identity)"
+  value       = module.hyperfleet_infrastructure.sentinel_role_arn
+}
+
+output "hyperfleet_adapter_role_arn" {
+  description = "IAM role ARN for HyperFleet Adapter (Pod Identity)"
+  value       = module.hyperfleet_infrastructure.adapter_role_arn
+}
+
+# Configuration Summary
+output "hyperfleet_configuration_summary" {
+  description = "Complete HyperFleet infrastructure configuration for use in Helm values"
+  value       = module.hyperfleet_infrastructure.configuration_summary
+  sensitive   = true
+}

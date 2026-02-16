@@ -131,3 +131,32 @@ module "authz" {
   # Use distinct() to remove any duplicate account IDs
   bootstrap_accounts = distinct(compact(split(",", var.api_additional_allowed_accounts != "" ? "${data.aws_caller_identity.current.account_id},${var.api_additional_allowed_accounts}" : data.aws_caller_identity.current.account_id)))
 }
+
+# =============================================================================
+# HyperFleet Infrastructure Module
+# =============================================================================
+
+# Call the HyperFleet infrastructure module for cluster lifecycle management
+module "hyperfleet_infrastructure" {
+  source = "../../modules/hyperfleet-infrastructure"
+
+  # Required variables from EKS cluster
+  resource_name_base                    = module.regional_cluster.resource_name_base
+  vpc_id                                = module.regional_cluster.vpc_id
+  private_subnets                       = module.regional_cluster.private_subnets
+  eks_cluster_name                      = module.regional_cluster.cluster_name
+  eks_cluster_security_group_id         = module.regional_cluster.cluster_security_group_id
+  eks_cluster_primary_security_group_id = module.regional_cluster.node_security_group_id
+
+  # Bastion access (if enabled)
+  bastion_security_group_id = var.enable_bastion ? module.bastion[0].security_group_id : null
+
+  # Database configuration
+  db_instance_class      = var.hyperfleet_db_instance_class
+  db_multi_az            = var.hyperfleet_db_multi_az
+  db_deletion_protection = var.hyperfleet_db_deletion_protection
+
+  # Message queue configuration
+  mq_instance_type   = var.hyperfleet_mq_instance_type
+  mq_deployment_mode = var.hyperfleet_mq_deployment_mode
+}

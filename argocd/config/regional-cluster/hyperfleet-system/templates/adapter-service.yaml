@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hyperfleet-adapter
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: hyperfleet-adapter
+    app.kubernetes.io/name: hyperfleet-adapter
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: adapter
+    app.kubernetes.io/part-of: hyperfleet-system
+spec:
+  type: ClusterIP
+  ports:
+  - name: health
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+    protocol: TCP
+  selector:
+    app: hyperfleet-adapter

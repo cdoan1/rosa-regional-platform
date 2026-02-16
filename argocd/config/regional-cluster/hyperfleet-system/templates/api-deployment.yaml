@@ -32,15 +32,33 @@ spec:
       - name: db-migrate
         image: "{{ .Values.hyperfleetApi.image.registry }}/{{ .Values.hyperfleetApi.image.repository }}:{{ .Values.hyperfleetApi.image.tag }}"
         imagePullPolicy: {{ .Values.hyperfleetApi.image.pullPolicy }}
+        {{- if .Values.hyperfleetApi.database.external.enabled }}
+        command:
+          - /app/hyperfleet-api
+          - migrate
+          - --db-host-file={{ .Values.hyperfleetApi.database.external.secretMountPath }}/db.host
+          - --db-port-file={{ .Values.hyperfleetApi.database.external.secretMountPath }}/db.port
+          - --db-user-file={{ .Values.hyperfleetApi.database.external.secretMountPath }}/db.user
+          - --db-password-file={{ .Values.hyperfleetApi.database.external.secretMountPath }}/db.password
+          - --db-name-file={{ .Values.hyperfleetApi.database.external.secretMountPath }}/db.name
+          - --db-sslmode={{ .Values.hyperfleetApi.database.external.sslMode }}
+        {{- else }}
         command: ["/app/hyperfleet-api", "migrate"]
+        {{- end }}
         securityContext:
           runAsNonRoot: true
           runAsUser: 1000
           readOnlyRootFilesystem: true
         volumeMounts:
+        {{- if .Values.hyperfleetApi.database.external.enabled }}
+        - name: db-secrets
+          mountPath: {{ .Values.hyperfleetApi.database.external.secretMountPath }}
+          readOnly: true
+        {{- else }}
         - name: secrets
           mountPath: /build/secrets
           readOnly: true
+        {{- end }}
         - name: tmp
           mountPath: /tmp
       {{- end }}
@@ -56,6 +74,14 @@ spec:
         - --api-server-bindaddress={{ .Values.hyperfleetApi.server.bindAddress }}
         - --health-server-bindaddress={{ .Values.hyperfleetApi.server.healthBindAddress }}
         - --metrics-server-bindaddress={{ .Values.hyperfleetApi.server.metricsBindAddress }}
+        {{- if .Values.hyperfleetApi.database.external.enabled }}
+        - --db-host-file={{ .Values.hyperfleetApi.database.external.secretMountPath }}/db.host
+        - --db-port-file={{ .Values.hyperfleetApi.database.external.secretMountPath }}/db.port
+        - --db-user-file={{ .Values.hyperfleetApi.database.external.secretMountPath }}/db.user
+        - --db-password-file={{ .Values.hyperfleetApi.database.external.secretMountPath }}/db.password
+        - --db-name-file={{ .Values.hyperfleetApi.database.external.secretMountPath }}/db.name
+        - --db-sslmode={{ .Values.hyperfleetApi.database.external.sslMode }}
+        {{- end }}
         ports:
         - name: http
           containerPort: 8000
@@ -112,7 +138,11 @@ spec:
         volumeMounts:
         - name: tmp
           mountPath: /tmp
-        {{- if or .Values.hyperfleetApi.database.external.enabled .Values.hyperfleetApi.database.postgresql.enabled }}
+        {{- if .Values.hyperfleetApi.database.external.enabled }}
+        - name: db-secrets
+          mountPath: {{ .Values.hyperfleetApi.database.external.secretMountPath }}
+          readOnly: true
+        {{- else if .Values.hyperfleetApi.database.postgresql.enabled }}
         - name: secrets
           mountPath: /build/secrets
           readOnly: true
@@ -120,14 +150,17 @@ spec:
       volumes:
       - name: tmp
         emptyDir: {}
-      {{- if or .Values.hyperfleetApi.database.external.enabled .Values.hyperfleetApi.database.postgresql.enabled }}
+      {{- if .Values.hyperfleetApi.database.external.enabled }}
+      - name: db-secrets
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: {{ include "hyperfleet-api.fullname" . }}-db-secrets
+      {{- else if .Values.hyperfleetApi.database.postgresql.enabled }}
       - name: secrets
         secret:
-          {{- if .Values.hyperfleetApi.database.external.enabled }}
-          secretName: {{ .Values.hyperfleetApi.database.external.secretName }}
-          {{- else }}
           secretName: {{ include "hyperfleet-api.fullname" . }}-db-secrets
-          {{- end }}
       {{- end }}
       {{- with .Values.hyperfleetApi.nodeSelector }}
       nodeSelector:

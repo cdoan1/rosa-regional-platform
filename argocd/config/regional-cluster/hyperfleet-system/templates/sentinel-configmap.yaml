@@ -49,9 +49,16 @@ data:
       type: {{ .Values.hyperfleetSentinel.broker.type }}
       {{- if eq .Values.hyperfleetSentinel.broker.type "rabbitmq" }}
       rabbitmq:
+        {{- if .Values.hyperfleetSentinel.broker.external.enabled }}
+        # URL provided via BROKER_RABBITMQ_URL environment variable
+        # (set from Kubernetes Secret created by SecretProviderClass with Pod Identity)
+        url: ""
+        exchange_type: {{ .Values.hyperfleetSentinel.broker.external.exchangeType | default "topic" }}
+        {{- else }}
         # URL is provided here directly (can be overridden via BROKER_RABBITMQ_URL env var)
         url: {{ .Values.hyperfleetSentinel.broker.rabbitmq.url | quote }}
         exchange_type: {{ .Values.hyperfleetSentinel.broker.rabbitmq.exchangeType | default "topic" }}
+        {{- end }}
       {{- end }}
 
     # Set to true for debugging broker configuration

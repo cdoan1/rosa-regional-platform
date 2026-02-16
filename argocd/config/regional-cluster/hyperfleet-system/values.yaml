@@ -41,7 +41,7 @@ hyperfleetApi:
   database:
     # Built-in PostgreSQL for development/testing
     postgresql:
-      enabled: true
+      enabled: false  # Changed to false - using external RDS
       image: docker.io/library/postgres:14.2
       database: hyperfleet
       user: hyperfleet
@@ -59,10 +59,19 @@ hyperfleetApi:
         size: 1Gi
         storageClass: ""
 
-    # External database configuration (for future RDS integration)
+    # External RDS configuration (production mode)
     external:
-      enabled: false
-      secretName: ""
+      enabled: true  # Changed to true - using RDS
+      usePodIdentity: true
+      secretMountPath: /mnt/secrets-store
+      sslMode: require
+
+  # AWS Pod Identity configuration
+  aws:
+    region: us-east-1
+    podIdentity:
+      enabled: true
+      roleArn: ""
 
   # Authentication configuration
   auth:
@@ -191,9 +200,27 @@ hyperfleetSentinel:
     type: rabbitmq
     topic: "hyperfleet-clusters"
 
+    # In-cluster RabbitMQ (development mode)
     rabbitmq:
+      enabled: false  # Changed to false - using external Amazon MQ
       url: "amqp://hyperfleet:hyperfleet-dev-password@rabbitmq.rabbitmq.svc.cluster.local:5672/"
       exchangeType: topic
+
+    # External Amazon MQ (production mode)
+    external:
+      enabled: true  # Changed to true - using Amazon MQ
+      usePodIdentity: true
+      secretMountPath: /mnt/secrets-store
+      useTLS: true  # AMQPS (URL with credentials from AWS Secrets Manager)
+      exchange: "hyperfleet-clusters"  # Topic exchange name
+      exchangeType: "topic"  # Exchange type
+
+  # AWS Pod Identity configuration
+  aws:
+    region: us-east-1  # Overridden by deployment-specific values
+    podIdentity:
+      enabled: true
+      roleArn: ""  # Populated from Terraform output: hyperfleet_sentinel_role_arn
 
   # Pod security context
   podSecurityContext:
@@ -304,11 +331,31 @@ hyperfleetAdapter:
   broker:
     create: true
     type: rabbitmq
+
+    # In-cluster RabbitMQ (development mode)
     rabbitmq:
+      enabled: false  # Changed to false - using external Amazon MQ
       url: "amqp://hyperfleet:hyperfleet-dev-password@rabbitmq.rabbitmq.svc.cluster.local:5672/"
       queue: "hyperfleet-clusters-landing-zone"
       exchange: "hyperfleet-clusters"
       routingKey: "#"
+
+    # External Amazon MQ (production mode)
+    external:
+      enabled: true  # Changed to true - using Amazon MQ
+      usePodIdentity: true
+      secretMountPath: /mnt/secrets-store
+      useTLS: true  # AMQPS (URL with credentials from AWS Secrets Manager)
+      queue: "hyperfleet-clusters-landing-zone"  # Queue name for adapter
+      exchange: "hyperfleet-clusters"  # Topic exchange name
+      routingKey: "#"  # Routing pattern (# = all messages)
+
+  # AWS Pod Identity configuration
+  aws:
+    region: us-east-1  # Overridden by deployment-specific values
+    podIdentity:
+      enabled: true
+      roleArn: ""  # Populated from Terraform output: hyperfleet_adapter_role_arn
 
   # Pod security context
   podSecurityContext:
