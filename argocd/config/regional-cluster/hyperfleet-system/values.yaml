@@ -296,6 +296,12 @@ hyperfleetAdapter:
       - namespaces
       - serviceaccounts
 
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 8081
+    metricsPort: 9091
+
   # Adapter configuration
   adapterConfig:
     create: true
@@ -387,7 +393,7 @@ hyperfleetAdapter:
     liveness:
       enabled: true
       path: /healthz
-      port: 8080
+      port: 8081
       initialDelaySeconds: 15
       periodSeconds: 20
       timeoutSeconds: 5
@@ -395,7 +401,7 @@ hyperfleetAdapter:
     readiness:
       enabled: true
       path: /readyz
-      port: 8080
+      port: 8081
       initialDelaySeconds: 5
       periodSeconds: 10
       timeoutSeconds: 5
@@ -404,10 +410,10 @@ hyperfleetAdapter:
   # Container ports
   containerPorts:
     - name: http
-      containerPort: 8080
+      containerPort: 8081
       protocol: TCP
     - name: metrics
-      containerPort: 9090
+      containerPort: 9091
       protocol: TCP
 
   # Node selector

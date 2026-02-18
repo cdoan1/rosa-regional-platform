@@ -1,0 +1,95 @@
+{{- if .Values.hyperfleetAdapter.maestro.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hyperfleet-adapter-consumer-registration
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: hyperfleet-adapter
+    component: maestro-consumer-registration
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  ttlSecondsAfterFinished: 300  # Clean up job after 5 minutes
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        app: hyperfleet-adapter
+        component: maestro-consumer-registration
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: {{ .Values.hyperfleetAdapter.serviceAccount.name }}
+
+      containers:
+      - name: register-consumer
+        image: curlimages/curl:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+
+          echo "Checking if consumer 'hyperfleet-adapter' already exists..."
+
+          # Check if consumer exists
+          CONSUMER_EXISTS=$(curl -s -f \
+            http://maestro-http.maestro-server.svc.cluster.local:8080/api/maestro/v1/consumers \
+            | grep -c '"name":"hyperfleet-adapter"' || echo "0")
+
+          if [ "$CONSUMER_EXISTS" -gt 0 ]; then
+            echo "Consumer 'hyperfleet-adapter' already registered. Skipping registration."
+            exit 0
+          fi
+
+          echo "Registering consumer 'hyperfleet-adapter' with Maestro..."
+
+          # Register consumer
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            http://maestro-http.maestro-server.svc.cluster.local:8080/api/maestro/v1/consumers \
+            -H "Content-Type: application/json" \
+            -d '{
+              "name": "hyperfleet-adapter",
+              "labels": {
+                "app": "hyperfleet-adapter",
+                "component": "regional-cluster",
+                "managed-by": "argocd"
+              }
+            }')
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+
+          if [ "$HTTP_CODE" = "201" ]; then
+            echo "Successfully registered consumer 'hyperfleet-adapter'"
+            echo "Response: $BODY"
+            exit 0
+          elif [ "$HTTP_CODE" = "409" ]; then
+            echo "Consumer already exists (409 Conflict). This is OK."
+            exit 0
+          else
+            echo "Failed to register consumer. HTTP Code: $HTTP_CODE"
+            echo "Response: $BODY"
+            exit 1
+          fi
+
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 65532
+          seccompProfile:
+            type: RuntimeDefault
+{{- end }}
