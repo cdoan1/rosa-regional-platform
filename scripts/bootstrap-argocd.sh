@@ -3,19 +3,26 @@
 set -euo pipefail
 
 CLUSTER_TYPE="${1:-}"
-ENVIRONMENT="${2:-integration}"
-REGION_ALIAS="${3:-$(aws configure get region)}"  # default to AWS CLI configured region
-AWS_REGION="${4:-$REGION_ALIAS}"  # default to REGION_ALIAS if not provided
+
+# Set defaults from environment variables
+ENVIRONMENT="${ENVIRONMENT:-integration}"
+# Prefer existing REGION_ALIAS, then AWS CLI, then default (handles empty CLI output)
+AWS_CLI_REGION=$(aws configure get region 2>/dev/null || true)
+REGION_ALIAS="${REGION_ALIAS:-${AWS_CLI_REGION:-us-east-1}}"
+AWS_REGION="${AWS_REGION:-$REGION_ALIAS}"
 
 if [[ -z "$CLUSTER_TYPE" ]]; then
-    echo "Usage: $0 <cluster-type> [environment] [region-alias] [aws-region]"
-    echo "       cluster-type: management-cluster or regional-cluster"
-    echo "       environment: dev, staging, prod, etc. (default: integration)"
-    echo "       region-alias: region identifier for deploy paths (default: current AWS CLI region)"
-    echo "       aws-region: AWS region (default: same as region-alias)"
+    echo "Usage: ENVIRONMENT=<env> REGION_ALIAS=<alias> AWS_REGION=<region> $0 <cluster-type>"
     echo ""
-    echo "This script automatically reads terraform.tfvars to extract AWS profile"
-    echo "and calls bootstrap-argocd.sh with the correct parameters."
+    echo "Arguments:"
+    echo "  cluster-type: management-cluster or regional-cluster"
+    echo ""
+    echo "Required environment variables:"
+    echo "  ENVIRONMENT - Environment name (integration, staging, production)"
+    echo "  REGION_ALIAS - Region directory identifier"
+    echo "  AWS_REGION - AWS region for operations"
+    echo ""
+    echo "All environment variables have defaults if not specified."
     exit 1
 fi
 
@@ -102,6 +109,8 @@ echo "Bootstrapping ArgoCD on cluster: $CLUSTER_NAME"
 
 # Run ECS task
 echo "Starting ECS task..."
+# Capture output and exit code separately to handle errors properly with set -e
+set +e
 RUN_TASK_OUTPUT=$(aws ecs run-task \
   --cluster "$ECS_CLUSTER_ARN" \
   --task-definition "$TASK_DEFINITION_ARN" \
@@ -124,9 +133,11 @@ RUN_TASK_OUTPUT=$(aws ecs run-task \
       ]
     }]
   }" 2>&1)
+RUN_TASK_EXIT_CODE=$?
+set -e
 
 # Check if run-task succeeded
-if echo "$RUN_TASK_OUTPUT" | grep -q '"failures":\s*\[\]'; then
+if [[ $RUN_TASK_EXIT_CODE -eq 0 ]] && echo "$RUN_TASK_OUTPUT" | grep -q '"failures":\s*\[\]'; then
   echo "ECS task created successfully."
   TASK_ARN=$(echo "$RUN_TASK_OUTPUT" | jq -r '.task.taskArn // .tasks[0].taskArn // empty')
   if [[ -z "$TASK_ARN" || "$TASK_ARN" == "null" ]]; then
@@ -200,9 +211,18 @@ while true; do
             exit 0
         elif [[ "$EXIT_CODE" == "null" || -z "$EXIT_CODE" ]]; then
             echo "Bootstrap failed - no exit code available"
+            echo ""
+            echo "Task Stop Reason: $STOP_REASON"
+            echo "Container Reason: $CONTAINER_REASON"
+            echo ""
+            echo "Full task details:"
+            echo "$TASK_DETAILS" | jq '.tasks[0] | {lastStatus, stoppedReason: .stoppedReason, stopCode: .stopCode, containers: [.containers[] | {name, exitCode, reason, lastStatus}]}'
             exit 1
         else
             echo "Bootstrap failed with exit code: $EXIT_CODE"
+            echo ""
+            echo "Task Stop Reason: $STOP_REASON"
+            echo "Container Reason: $CONTAINER_REASON"
             exit 1
         fi
     fi

@@ -2,6 +2,26 @@
 # Management Cluster Infrastructure Variables
 # =============================================================================
 
+variable "region" {
+  description = "AWS Region for infrastructure deployment"
+  type        = string
+}
+
+variable "target_account_id" {
+  description = "Target AWS account ID for cross-account deployment. If empty, uses current account."
+  type        = string
+  default     = ""
+}
+
+variable "target_alias" {
+  description = "Alias for the target deployment (used for resource naming and role session identification in CloudTrail)"
+  type        = string
+  validation {
+    condition     = can(regex("^[a-z0-9-]+$", var.target_alias))
+    error_message = "target_alias must contain only lowercase letters, numbers, and hyphens"
+  }
+}
+
 variable "app_code" {
   description = "Application code for tagging (CMDB Application ID)"
   type        = string

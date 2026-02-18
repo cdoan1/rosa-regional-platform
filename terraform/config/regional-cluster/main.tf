@@ -1,4 +1,18 @@
 provider "aws" {
+  region = var.region
+
+  # Conditionally assume role for cross-account deployment
+  # When target_account_id is set, assume OrganizationAccountAccessRole in target account
+  # Backend (state) uses default CodeBuild credentials (central account)
+  # Provider (resources) uses assumed role credentials (target account)
+  dynamic "assume_role" {
+    for_each = var.target_account_id != "" ? [1] : []
+    content {
+      role_arn     = "arn:aws:iam::${var.target_account_id}:role/OrganizationAccountAccessRole"
+      session_name = "terraform-regional-${var.target_alias}"
+    }
+  }
+
   default_tags {
     tags = {
       app-code      = var.app_code

@@ -58,6 +58,13 @@ phases:
         terraform version
         echo "✓ Terraform installation verified"
 
+  pre_build:
+    commands:
+      - echo "=========================================="
+      - echo "Pre-flight Setup"
+      - echo "=========================================="
+      - source ./scripts/pipeline-common/detect-central-state.sh
+
   build:
     commands:
       - echo "Validating Regional Cluster Configurations..."
@@ -70,19 +77,21 @@ phases:
 
             echo "---------------------------------------------------"
             echo "Validating Target: $ALIAS ($ACCOUNT_ID) in $REGION"
+            if [ "$ACCOUNT_ID" != "$CENTRAL_ACCOUNT_ID" ]; then
+                echo "  Terraform will assume OrganizationAccountAccessRole"
+            else
+                echo "  Using central account credentials"
+            fi
+            echo ""
 
-            local ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/OrganizationAccountAccessRole"
-
-            export TF_VAR_assume_role_arn=$ROLE_ARN
-            export TF_STATE_BUCKET="terraform-state-$(aws sts get-caller-identity --query Account --output text)"
+            # State bucket is in central account (region detected in pre_build)
+            export TF_STATE_BUCKET="terraform-state-${CENTRAL_ACCOUNT_ID}"
             export TF_STATE_KEY="regional-cluster/${ALIAS}.tfstate"
 
-            # Dynamically detect bucket region
-            BUCKET_REGION=$(aws s3api get-bucket-location --bucket $TF_STATE_BUCKET --query LocationConstraint --output text)
-            if [ "$BUCKET_REGION" == "None" ] || [ "$BUCKET_REGION" == "null" ] || [ -z "$BUCKET_REGION" ]; then BUCKET_REGION="us-east-1"; fi
-            export TF_STATE_REGION=$BUCKET_REGION
-
-            export TF_VAR_region_name=$REGION
+            # Set Terraform variables (provider will handle assume role if needed)
+            export TF_VAR_region=$REGION
+            export TF_VAR_target_account_id="$ACCOUNT_ID"
+            export TF_VAR_target_alias="$ALIAS"
             export TF_VAR_app_code="infra"
             export TF_VAR_service_phase="prod"
             export TF_VAR_cost_center="000"
@@ -128,8 +137,15 @@ phases:
             REGION=$(jq -r '.region // ""' "$file")
             ALIAS=$(jq -r '.alias // ""' "$file")
 
+            # Skip if any required field is missing
             if [[ -z "$ACCOUNT_ID" || -z "$REGION" || -z "$ALIAS" ]]; then
-                echo "Skipping invalid config in $file (missing account_id, region, or alias)"
+                echo "Skipping $file (missing account_id, region, or alias)"
+                continue
+            fi
+
+            # Skip if account_id is not a valid 12-digit AWS account ID
+            if [[ ! "$ACCOUNT_ID" =~ ^[0-9]{12}$ ]]; then
+                echo "Skipping $file (invalid account_id: $ACCOUNT_ID - must be 12 digits)"
                 continue
             fi
 

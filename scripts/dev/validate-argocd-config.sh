@@ -3,11 +3,22 @@
 set -euo pipefail
 
 CLUSTER_TYPE="${1:-}"
-ENVIRONMENT="${2:-integration}"
-REGION_ALIAS="${3:-$(aws configure get region 2>/dev/null || echo "us-east-1")}"
 
-if [[ -z "$CLUSTER_TYPE" ]]; then
-    echo "Usage: $0 <cluster-type> [environment] [region-alias]"
+# Set defaults from environment variables
+ENVIRONMENT="${ENVIRONMENT:-integration}"
+REGION_ALIAS="${REGION_ALIAS:-}"
+
+if [[ -z "$CLUSTER_TYPE" || -z "$REGION_ALIAS" ]]; then
+    echo "Usage: ENVIRONMENT=<env> REGION_ALIAS=<region-alias> $0 <cluster-type>"
+    echo ""
+    echo "Arguments:"
+    echo "  cluster-type: management-cluster or regional-cluster"
+    echo ""
+    echo "Required environment variables:"
+    echo "  REGION_ALIAS: The region alias from config.yaml (e.g., us-east-1, us-east-1-fedramp)"
+    echo ""
+    echo "Optional environment variables:"
+    echo "  ENVIRONMENT (default: integration)"
     exit 1
 fi
 

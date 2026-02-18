@@ -67,3 +67,14 @@ variable "cost_center" {
   description = "Cost center for billing"
   default     = "000"
 }
+
+variable "repository_url" {
+  type        = string
+  description = "Git repository URL for cluster configuration"
+}
+
+variable "repository_branch" {
+  type        = string
+  description = "Git branch to use for cluster configuration"
+  default     = "main"
+}

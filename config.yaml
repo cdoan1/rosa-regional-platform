@@ -97,5 +97,3 @@ region_deployments:
     management_clusters:
       - cluster_id: "mc01-{{ region_alias }}"
         account_id: "REMOVED"
-      - cluster_id: "mc02-{{ region_alias }}"
-        account_id: "REMOVED"

@@ -39,7 +39,75 @@ apply_bucket_security() {
         --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true" \
         --region "$REGION"
 
-    echo "✅ Security settings applied"
+    # Get AWS Organization ID to restrict access to organization members only
+    ORG_ID=$(aws organizations describe-organization --query 'Organization.Id' --output text 2>/dev/null || echo "")
+
+    # Add bucket policy to allow cross-account access from OrganizationAccountAccessRole
+    # This allows target accounts in the same organization to access their state files
+    if [ -n "$ORG_ID" ]; then
+        echo "Detected AWS Organization: $ORG_ID"
+        cat > /tmp/bucket-policy.json <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowOrganizationAccountAccess",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::${BUCKET_NAME}",
+        "arn:aws:s3:::${BUCKET_NAME}/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:PrincipalOrgID": "${ORG_ID}"
+        }
+      }
+    }
+  ]
+}
+EOF
+    else
+        echo "⚠️  Warning: Not in an AWS Organization, skipping cross-account bucket policy"
+        echo "⚠️  Cross-account access will not work without a bucket policy"
+        cat > /tmp/bucket-policy.json <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyAll",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::${BUCKET_NAME}",
+        "arn:aws:s3:::${BUCKET_NAME}/*"
+      ],
+      "Condition": {
+        "StringNotEquals": {
+          "aws:PrincipalAccount": "${ACCOUNT_ID}"
+        }
+      }
+    }
+  ]
+}
+EOF
+    fi
+
+    aws s3api put-bucket-policy \
+        --bucket "$BUCKET_NAME" \
+        --policy file:///tmp/bucket-policy.json \
+        --region "$REGION"
+
+    rm -f /tmp/bucket-policy.json
+
+    echo "✅ Security settings and cross-account policy applied"
 }
 
 # Create S3 Bucket

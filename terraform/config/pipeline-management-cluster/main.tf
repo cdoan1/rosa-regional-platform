@@ -12,17 +12,17 @@ locals {
 
   # Use hash-based naming for all resources to avoid length limits
   # Hash of full alias ensures uniqueness while keeping names short
-  resource_hash = substr(md5("management-${local.name_suffix}-${data.aws_caller_identity.current.account_id}"), 0, 12)
+  resource_hash  = substr(md5("management-${local.name_suffix}-${data.aws_caller_identity.current.account_id}"), 0, 12)
   account_suffix = substr(data.aws_caller_identity.current.account_id, -8, 8)
 
   # Resource naming patterns (all under 32 chars)
-  artifact_bucket_name = "mc-${local.resource_hash}-${local.account_suffix}"  # 24 chars
-  codebuild_role_name = "mc-cb-${local.resource_hash}"  # 18 chars
-  codepipeline_role_name = "mc-cp-${local.resource_hash}"  # 18 chars
-  validate_project_name = "mc-val-${local.resource_hash}"  # 19 chars
-  apply_project_name = "mc-app-${local.resource_hash}"  # 19 chars
-  bootstrap_project_name = "mc-boot-${local.resource_hash}"  # 21 chars
-  pipeline_name = "mc-pipe-${local.resource_hash}"  # 20 chars
+  artifact_bucket_name   = "mc-${local.resource_hash}-${local.account_suffix}" # 24 chars
+  codebuild_role_name    = "mc-cb-${local.resource_hash}"                      # 18 chars
+  codepipeline_role_name = "mc-cp-${local.resource_hash}"                      # 18 chars
+  validate_project_name  = "mc-val-${local.resource_hash}"                     # 19 chars
+  apply_project_name     = "mc-app-${local.resource_hash}"                     # 19 chars
+  bootstrap_project_name = "mc-boot-${local.resource_hash}"                    # 21 chars
+  pipeline_name          = "mc-pipe-${local.resource_hash}"                    # 20 chars
 }
 
 # Use shared GitHub Connection (passed from pipeline-provisioner)
@@ -91,6 +91,123 @@ resource "aws_iam_role_policy" "codebuild_policy" {
         Effect   = "Allow"
         Action   = "sts:AssumeRole"
         Resource = "arn:aws:iam::*:role/OrganizationAccountAccessRole"
+      },
+      # Permissions for same-account operations (when TARGET_ACCOUNT_ID == CENTRAL_ACCOUNT_ID)
+      # In production, cross-account deployments should use OrganizationAccountAccessRole
+      # These permissions allow Terraform to provision management cluster infrastructure
+      {
+        Effect = "Allow"
+        Action = [
+          # EC2/VPC - Full permissions for networking infrastructure
+          "ec2:*",
+          # EKS - Full permissions for cluster management
+          "eks:*",
+          # ECS - For bootstrap cluster operations
+          "ecs:CreateCluster",
+          "ecs:DeleteCluster",
+          "ecs:DescribeClusters",
+          "ecs:ListClusters",
+          "ecs:PutClusterCapacityProviders",
+          "ecs:TagResource",
+          "ecs:UntagResource",
+          "ecs:RegisterTaskDefinition",
+          "ecs:DeregisterTaskDefinition",
+          "ecs:DescribeTaskDefinition",
+          "ecs:ListTaskDefinitions",
+          "ecs:RunTask",
+          "ecs:StopTask",
+          "ecs:DescribeTasks",
+          "ecs:ListTasks",
+          # ECR - For platform image repository
+          "ecr:CreateRepository",
+          "ecr:DeleteRepository",
+          "ecr:DescribeRepositories",
+          "ecr:ListTagsForResource",
+          "ecr:TagResource",
+          "ecr:UntagResource",
+          "ecr:SetRepositoryPolicy",
+          "ecr:GetRepositoryPolicy",
+          "ecr:DeleteRepositoryPolicy",
+          "ecr:GetLifecyclePolicy",
+          "ecr:PutLifecyclePolicy",
+          "ecr:DeleteLifecyclePolicy",
+          "ecr:PutImageScanningConfiguration",
+          "ecr:PutImageTagMutability",
+          # ECR - For building and pushing platform images
+          "ecr:GetAuthorizationToken",
+          "ecr:DescribeImages",
+          "ecr:BatchGetImage",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:PutImage",
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload",
+          "ecr:BatchCheckLayerAvailability",
+          # Secrets Manager - For Maestro agent secrets
+          "secretsmanager:*",
+          # IAM - For creating cluster roles and policies
+          "iam:CreateRole",
+          "iam:DeleteRole",
+          "iam:GetRole",
+          "iam:PassRole",
+          "iam:PutRolePolicy",
+          "iam:DeleteRolePolicy",
+          "iam:GetRolePolicy",
+          "iam:ListRolePolicies",
+          "iam:ListAttachedRolePolicies",
+          "iam:AttachRolePolicy",
+          "iam:DetachRolePolicy",
+          "iam:CreatePolicy",
+          "iam:DeletePolicy",
+          "iam:GetPolicy",
+          "iam:GetPolicyVersion",
+          "iam:ListPolicyVersions",
+          "iam:CreatePolicyVersion",
+          "iam:DeletePolicyVersion",
+          "iam:TagRole",
+          "iam:TagPolicy",
+          "iam:UntagRole",
+          "iam:UntagPolicy",
+          "iam:CreateOpenIDConnectProvider",
+          "iam:DeleteOpenIDConnectProvider",
+          "iam:GetOpenIDConnectProvider",
+          "iam:TagOpenIDConnectProvider",
+          "iam:UntagOpenIDConnectProvider",
+          "iam:CreateServiceLinkedRole",
+          "iam:GetServiceLinkedRoleDeletionStatus",
+          "iam:DeleteServiceLinkedRole",
+          # KMS - For encryption
+          "kms:CreateKey",
+          "kms:CreateAlias",
+          "kms:DeleteAlias",
+          "kms:DescribeKey",
+          "kms:GetKeyPolicy",
+          "kms:GetKeyRotationStatus",
+          "kms:EnableKeyRotation",
+          "kms:DisableKeyRotation",
+          "kms:ListAliases",
+          "kms:ListResourceTags",
+          "kms:PutKeyPolicy",
+          "kms:ScheduleKeyDeletion",
+          "kms:TagResource",
+          "kms:UntagResource",
+          "kms:CreateGrant",
+          "kms:ListGrants",
+          "kms:RevokeGrant",
+          "kms:RetireGrant",
+          # Logs - For EKS control plane logs and ECS task logs
+          "logs:CreateLogGroup",
+          "logs:DeleteLogGroup",
+          "logs:DescribeLogGroups",
+          "logs:ListTagsLogGroup",
+          "logs:ListTagsForResource",
+          "logs:TagResource",
+          "logs:UntagResource",
+          "logs:PutRetentionPolicy",
+          "logs:TagLogGroup",
+          "logs:UntagLogGroup"
+        ]
+        Resource = "*"
       }
     ]
   })
@@ -173,7 +290,7 @@ resource "aws_s3_bucket" "pipeline_artifact" {
   bucket = local.artifact_bucket_name
 
   timeouts {
-    create = "30s"  # Fail fast if bucket creation hangs (explicit names should be instant)
+    create = "30s" # Fail fast if bucket creation hangs (explicit names should be instant)
     delete = "2m"
   }
 }
@@ -355,22 +472,27 @@ resource "aws_codebuild_project" "management_bootstrap" {
     image                       = "aws/codebuild/amazonlinux2-x86_64-standard:4.0"
     type                        = "LINUX_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
+    privileged_mode             = true # Required for Docker builds
 
     environment_variable {
       name  = "TARGET_ACCOUNT_ID"
       value = var.target_account_id
     }
     environment_variable {
-      name  = "TARGET_REGION"
-      value = var.target_region
-    }
-    environment_variable {
       name  = "TARGET_ALIAS"
       value = var.target_alias
     }
     environment_variable {
-      name  = "TARGET_ENVIRONMENT"
+      name  = "TARGET_REGION"
+      value = var.target_region
+    }
+    environment_variable {
+      name  = "ENVIRONMENT"
       value = var.target_environment
+    }
+    environment_variable {
+      name  = "AWS_REGION"
+      value = var.target_region
     }
   }
 
@@ -385,6 +507,9 @@ resource "aws_codepipeline" "regional_pipeline" {
   name          = local.pipeline_name
   role_arn      = aws_iam_role.codepipeline_role.arn
   pipeline_type = "V2"
+
+  # Ensure IAM policy is attached before creating pipeline
+  depends_on = [aws_iam_role_policy.codepipeline_policy]
 
   artifact_store {
     location = aws_s3_bucket.pipeline_artifact.bucket
@@ -462,7 +587,7 @@ resource "aws_codepipeline" "regional_pipeline" {
   }
 
   stage {
-    name = "Bootstrap"
+    name = "Bootstrap-ArgoCD"
 
     action {
       name             = "BootstrapArgoCD"

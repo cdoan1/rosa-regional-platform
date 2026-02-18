@@ -11,6 +11,17 @@ resource "aws_codestarconnections_connection" "github_shared" {
   provider_type = "GitHub"
 }
 
+# Platform Image ECR Repository
+module "platform_image" {
+  source = "../../modules/platform-image"
+
+  resource_name_base = "rosa-regional"
+  tags = {
+    Name        = "rosa-regional-platform-image"
+    Environment = var.environment
+  }
+}
+
 module "pipeline_provisioner" {
   source = "../pipeline-provisioner"
 

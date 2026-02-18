@@ -45,3 +45,17 @@ output "deployment_region" {
   description = "AWS Region where pipelines are deployed"
   value       = data.aws_region.current.id
 }
+
+# =============================================================================
+# Platform Image
+# =============================================================================
+
+output "platform_ecr_repository_url" {
+  description = "URL of the platform image ECR repository"
+  value       = module.platform_image.ecr_repository_url
+}
+
+output "platform_image_tag" {
+  description = "Tag of the platform image (based on Dockerfile hash)"
+  value       = module.platform_image.image_tag
+}
