@@ -51,8 +51,8 @@ Define your region in Git, render the ArgoCD manifests, commit.
 ### 1. Edit [config.yaml](https://github.com/openshift-online/rosa-regional-platform/blob/main/config.yaml)
 
 ```yaml
-shards:
-  - region: "us-west-2"
+region_deployments:
+  - name: "us-west-2"
     environment: "integration"
     values:
       management-cluster:

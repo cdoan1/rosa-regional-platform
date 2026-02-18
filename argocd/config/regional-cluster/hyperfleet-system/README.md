@@ -346,7 +346,7 @@ Before deploying to production:
    - Enable deletion protection and automated backups
 
 2. **Configure Pod Identity Role ARNs**:
-   - Add role ARNs to `config.yaml` for your region/shard:
+   - Add role ARNs to `config.yaml` for your region deployment:
    ```yaml
    values:
      regional-cluster:

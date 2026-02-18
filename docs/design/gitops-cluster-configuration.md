@@ -236,15 +236,15 @@ The architecture enables sophisticated deployment patterns through sector config
 
 ```yaml
 # Sector progression example
-shards:
+region_deployments:
   # Integration: Always HEAD for rapid development
-  - region_alias: "us-east-1"
+  - name: "us-east-1"
     aws_region: "us-east-1"
     sector: "integration"
     # No config_revision = follows HEAD of repository
 
   # Staging: Pinned commits for QA validation
-  - region_alias: "eu-west-1"
+  - name: "eu-west-1"
     aws_region: "eu-west-1"
     sector: "staging"
     config_revision:
@@ -252,7 +252,7 @@ shards:
       regional-cluster: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"
 
   # Production: Promoted commits with explicit approval
-  - region_alias: "eu-west-1"
+  - name: "eu-west-1"
     aws_region: "eu-west-1"
     sector: "production"
     config_revision:

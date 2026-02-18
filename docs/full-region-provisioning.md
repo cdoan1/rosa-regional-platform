@@ -22,10 +22,10 @@ python --version  # or python3 --version
 
 To provision a regional and management cluster, you require two AWS accounts. Ensure you have access to both via environment variables or ideally AWS profiles. 
 
-## 2. ArgoCD Configuration Shard Creation (optional)
+## 2. ArgoCD Configuration Region Deployment Creation (optional)
 
 <details>
-<summary>🔧 Configure New Region Shard (skip if reusing existing environment/region configuration pair)</summary>
+<summary>🔧 Configure New Region Deployment (skip if reusing existing environment/region configuration pair)</summary>
 
 **Note:** In case you are deploying clusters based on existing argocd configuration, you can skip this step.
 Example: you want to spin up a development cluster and re-use the existing configuration for `env = integration` and `region = us-east-1`.
@@ -35,9 +35,9 @@ Example: you want to spin up a development cluster and re-use the existing confi
 Edit `config.yaml` and add your new region following this pattern:
 
 ```yaml
-shards:
+region_deployments:
   # ... existing entries ...
-  - region_alias: "us-west-2"         # ← Region alias (identifier for deploy paths)
+  - name: "us-west-2"                # ← Region deployment name (identifier for deploy paths)
     aws_region: "us-west-2"           # ← AWS region to deploy into
     sector: "integration"             # ← Sector (inherits environment + defaults)
     account_id: "123456789"           # ← Regional cluster AWS account ID
@@ -57,7 +57,7 @@ Run the rendering script to generate the required files:
 **Verify rendered files were created:**
 
 ```bash
-ls -la deploy/integration/us-west-2/  # Replace with your environment/region_alias
+ls -la deploy/integration/us-west-2/  # Replace with your environment/name
 ```
 
 You should see `argocd/` and `terraform/` subdirectories with generated configs.

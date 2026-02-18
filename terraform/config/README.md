@@ -41,8 +41,8 @@ Seeds the initial CodePipeline that watches the `deploy/` directory in the repos
 
 Cluster configurations follow this directory structure:
 
-- `deploy/<env>/<region_alias>/terraform/regional.json` — regional cluster pipelines
-- `deploy/<env>/<region_alias>/terraform/management/<cluster>.json` — management cluster pipelines
+- `deploy/<env>/<name>/terraform/regional.json` — regional cluster pipelines
+- `deploy/<env>/<name>/terraform/management/<cluster>.json` — management cluster pipelines
 
 After deploying, the GitHub CodeStar connection must be authorized manually:
 

@@ -6,7 +6,7 @@
 # - Then run: scripts/render.py
 #
 # Cluster Type: regional-cluster
-# Shard: eu-west-1 (integration)
+# Region Deployment: eu-west-1 (integration)
 # Config Revision: 826fa76d
 # Generated: render.py
 #

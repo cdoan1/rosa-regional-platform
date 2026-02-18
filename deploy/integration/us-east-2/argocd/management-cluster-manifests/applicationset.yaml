@@ -6,7 +6,7 @@
 # - Then run: scripts/render.py
 #
 # Cluster Type: management-cluster
-# Shard: us-east-2 (integration)
+# Region Deployment: us-east-2 (integration)
 # Config Revision: metadata.annotations.git_revision
 # Generated: render.py
 #

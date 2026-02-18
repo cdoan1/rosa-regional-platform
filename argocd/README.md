@@ -18,7 +18,7 @@ argocd/
 │   ├── shared/                          # Shared charts (ArgoCD, etc.)
 │   ├── management-cluster/              # MC-specific charts
 │   └── regional-cluster/                # RC-specific charts
-└── config.yaml                          # Source of truth for all shards
+└── config.yaml                          # Source of truth for all region deployments
 
 scripts/
 └── render.py                            # Generates values, ApplicationSets, and terraform configs
@@ -44,16 +44,16 @@ deploy/                                  # Generated outputs (DO NOT EDIT)
 
 ### Pinned Commits (Staging/Production)
 - **"Cut releases"** by specifying commit hashes in `config.yaml`
-- **Progressive delivery** - roll through staging shards, then production shards
+- **Progressive delivery** - roll through staging region deployments, then production region deployments
 - **Immutable deployments** - exact reproducible state
 
 ## config.yaml - Source of Truth
 
-This file defines which shards (environment + region_alias combinations) exist and how they're configured:
+This file defines which region deployments (environment + name combinations) exist and how they're configured:
 
 ```yaml
-shards:
-  - region_alias: "eu-west-1"
+region_deployments:
+  - name: "eu-west-1"
     aws_region: "eu-west-1"
     sector: "integration"
     account_id: "123456789"
@@ -66,7 +66,7 @@ shards:
         hypershift:
           replicas: 1
 
-  - region_alias: "eu-west-1"
+  - name: "eu-west-1"
     aws_region: "eu-west-1"
     sector: "staging"
     account_id: "123456789"
@@ -84,9 +84,9 @@ shards:
 
 ## Workflow
 
-1. **Development**: Work with integration shards using live config (current branch)
-2. **Release**: When ready, pin staging shards to tested commit hash
-3. **Production**: Roll pinned commits through production shards
+1. **Development**: Work with integration region deployments using live config (current branch)
+2. **Release**: When ready, pin staging region deployments to tested commit hash
+3. **Production**: Roll pinned commits through production region deployments
 4. **Generate configs**: Run `./scripts/render.py` after changes
 
 ## Adding New Helm Charts
