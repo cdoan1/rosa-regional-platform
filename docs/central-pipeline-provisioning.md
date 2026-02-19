@@ -129,7 +129,7 @@ GITHUB_REPO_OWNER=<ORG> GITHUB_REPO_NAME=rosa-regional-platform GITHUB_BRANCH=<B
 
 As a single manual process, you must accept the CodeStar connection.  
 
-Log into the Central AWS Account console.  
+Log into the Central AWS Account console, by way of the [AWS SSO page](https://auth.redhat.com/auth/realms/EmployeeIDP/protocol/saml/clients/itaws).  
 
 `Developer Tools` > `Settings` > `Connections` > `Accept the pending connection`
 
