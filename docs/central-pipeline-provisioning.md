@@ -1,6 +1,6 @@
-# Complete Guide: Provision a New Region
+# Complete Guide: Provision a New Central Pipeline
 
-This comprehensive guide walks through all steps to provision a new region in the ROSA Regional Platform. Follow these steps in order to set up both Regional and Management Clusters with full ArgoCD configuration and Maestro connectivity.
+This comprehensive guide walks through all steps to provision a new central pipeline in the ROSA Regional Platform. Follow these steps in order to set up a central pipeline that will provision both Regional and Management Clusters with full ArgoCD configuration and Maestro connectivity.
 
 ---
 
@@ -20,15 +20,41 @@ python --version  # or python3 --version
 
 ### Required AWS accounts
 
-To provision a regional and management cluster, you require two AWS accounts. Ensure you have access to both via environment variables or ideally AWS profiles. 
+To provision a regional and management cluster, you require three AWS accounts. One account for Central, one account for the Regional Cluster, and one account for the Management Cluster.  Ensure you have access to the designated Central account via environment variables or ideally AWS profiles. 
 
-## 2. ArgoCD Configuration Region Deployment Creation (optional)
+The 2 accounts designated for the Regional Cluster and Management Cluster require additional configuration.  Add the Central AWS account number to the trust policy of `OrganizationAccountAccessRole` in the 2 regional and management accounts.
+
+## 2. Configure a new Sector/Region Deployment
 
 <details>
-<summary>🔧 Configure New Region Deployment (skip if reusing existing environment/region configuration pair)</summary>
+<summary>🔧 Configure New Region Deployment</summary>
 
 **Note:** In case you are deploying clusters based on existing argocd configuration, you can skip this step.
 Example: you want to spin up a development cluster and re-use the existing configuration for `env = integration` and `region = us-east-1`.
+
+### Add Sector to Configuration
+
+Edit `config.yaml` and add your new sector following this pattern:
+
+```yaml
+sectors:
+  # ... existing entries ...
+  - name: "brian-testing"
+    environment: "brian"
+    terraform_vars:
+      app_code: "infra"
+      service_phase: "dev"
+      cost_center: "000"
+      environment: "{{ environment }}"
+    values:
+      management-cluster:
+        hypershift:
+          oidcStorageS3Bucket:
+            name: "hypershift-mc-{{ aws_region }}"
+            region: "{{ aws_region }}"
+          externalDns:
+            domain: "dev.{{ aws_region }}.rosa.example.com"
+```
 
 ### Add Region to Configuration
 
@@ -37,13 +63,18 @@ Edit `config.yaml` and add your new region following this pattern:
 ```yaml
 region_deployments:
   # ... existing entries ...
-  - name: "us-west-2"                # ← Region deployment name (identifier for deploy paths)
-    aws_region: "us-west-2"           # ← AWS region to deploy into
-    sector: "integration"             # ← Sector (inherits environment + defaults)
-    account_id: "123456789"           # ← Regional cluster AWS account ID
+  - name: "us-east-1"
+    aws_region: "us-east-1"
+    sector: "brian"
+    account_id: "<Regional account>"
+    terraform_vars:
+      account_id: "{{ account_id }}"
+      region: "{{ aws_region }}"
+      alias: "regional-{{region_alias}}"
+      region_alias: "{{ region_alias }}"
     management_clusters:
-      - cluster_id: "mc01-us-west-2"  # ← Management cluster identifier
-        account_id: "987654321"       # ← Management cluster AWS account ID
+      - cluster_id: "mc01-{{ region_alias }}"
+        account_id: "<Management Account>"
 ```
 
 ### Generate Rendered Configurations
@@ -57,7 +88,7 @@ Run the rendering script to generate the required files:
 **Verify rendered files were created:**
 
 ```bash
-ls -la deploy/integration/us-west-2/  # Replace with your environment/name
+ls -la deploy/<sector>/<region>/  # Replace with your environment/name
 ```
 
 You should see `argocd/` and `terraform/` subdirectories with generated configs.
@@ -66,11 +97,11 @@ You should see `argocd/` and `terraform/` subdirectories with generated configs.
 
 ```bash
 git add config.yaml deploy/
-git commit -m "Add us-west-2 region configuration
+git commit -m "Add <region> region configuration
 
-- Add us-west-2/integration to config.yaml
+- Add <region>/<sector> to config.yaml
 - Generate deploy configs (argocd + terraform)
-- Prepare for regional cluster provisioning"
+- Prepare for regional cluster provisioning
 git push origin <your-branch>
 ```
 
@@ -78,31 +109,35 @@ git push origin <your-branch>
 
 ---
 
-## 3. Regional Cluster Provisioning
+## 3. Central Pipeline Provisioning
 
-Switch to your **regional account** AWS profile and provision the Regional Cluster.
+Switch to your **central account** AWS profile and provision the pipeline.
 
-### Configure Regional Cluster Parameters
-
-In `terraform/config/regional-cluster/terraform.tfvars`, configure:
+### Execute central pipeline bootstrap
 
 ```bash
-# One-time setup: Copy and edit configurations
-cp terraform/config/regional-cluster/terraform.tfvars.example \
-   terraform/config/regional-cluster/terraform.tfvars
-```
-
-### Execute Regional Cluster Provisioning
-
-```bash
-# Authenticate with regional account (choose your preferred method)
-export AWS_PROFILE=<regional-profile>
+# Authenticate with central account (choose your preferred method)
+export AWS_PROFILE=<central-profile>
 # OR: aws configure set profile <regional-profile>
 # OR: use your SSO/assume role method
 
-# Provision Regional Environment
-make provision-regional
+# Bootstrap the pipeline
+GITHUB_REPO_OWNER=<ORG> GITHUB_REPO_NAME=rosa-regional-platform GITHUB_BRANCH=<BRANCH> TARGET_ENVIRONMENT=<SECTOR> ./scripts/bootstrap-central-account.sh
 ```
+
+### Accept the Codestar connection
+
+As a single manual process, you must accept the CodeStar connection.  
+
+Log into the Central AWS Account console.  
+
+`Developer Tools` > `Settings` > `Connections` > `Accept the pending connection`
+
+Since the pipeline was deployed before the connection was accepted, you must retrigger the `CodePipeline`.
+
+The `pipeline-provisioner` will begin creating new pipelines for any configured regions in the specified sector.  You should expect to see 2 new pipelines.  One for the regional cluster deployment and 1 for the management cluster deployment.  
+
+### Verify Regional Cluster Deployment (optional)
 
 <details>
 <summary>🔍 Verify Regional Cluster Deployment (optional)</summary>
@@ -119,41 +154,15 @@ Expected: ArgoCD applications "Synced" and "Healthy".
 
 ---
 
-## 4. Maestro Connectivity Setup
+## 4. Verify Maestro Connectivity
 
 Maestro uses AWS IoT Core for secure MQTT communication between Regional and Management Clusters. This requires a two-account certificate exchange process.
 
 ### Step 4a: Regional Account IoT Setup
-
-**Ensure you're authenticated with the regional account:**
-
-```bash
-# Choose your preferred authentication method
-export AWS_PROFILE=<regional-profile>
-# OR: use --profile flag, SSO, assume role, etc.
-```
-
-**Provision IoT resources in regional account:**
-
-```bash
-MGMT_TFVARS=terraform/config/management-cluster/terraform.tfvars make provision-maestro-agent-iot-regional
-```
+**Completed during the pipeline -- Provision IoT resources in regional account:**
 
 ### Step 4b: Management Account Secret Setup
-
-**Switch to management account authentication:**
-
-```bash
-# Choose your preferred authentication method
-export AWS_PROFILE=<management-profile>
-# OR: use --profile flag, SSO, assume role, etc.
-```
-
-**Create IoT secret in management account:**
-
-```bash
-MGMT_TFVARS=terraform/config/management-cluster/terraform.tfvars make provision-maestro-agent-iot-management
-```
+**Completed during the pipeline -- Create IoT secret in management account:**
 
 **What this creates:**
 - Kubernetes secret containing IoT certificate and endpoint
@@ -161,6 +170,12 @@ MGMT_TFVARS=terraform/config/management-cluster/terraform.tfvars make provision-
 
 <details>
 <summary>🔍 Verify IoT Resources (optional)</summary>
+
+```bash
+# Choose your preferred authentication method
+export AWS_PROFILE=<regional-profile>
+# OR: use --profile flag, SSO, assume role, etc.
+```
 
 ```bash
 # In regional account - verify IoT endpoint
@@ -177,32 +192,19 @@ Expected: IoT endpoint URL should be returned and certificate should show "ACTIV
 ---
 
 ## 5. Management Cluster Provisioning
+*** Completed During the pipeline deployment ***
 
-Switch to your **management account** AWS profile and provision the Management Cluster.
+### Verify Management Cluster Provisioning
 
-### Configure Management Cluster Parameters
-
-In `terraform/config/management-cluster/terraform.tfvars`, configure:
-
-```bash
-# One-time setup: Copy and edit configurations
-cp terraform/config/management-cluster/terraform.tfvars.example \
-   terraform/config/management-cluster/terraform.tfvars
-```
-
-### Execute Management Cluster Provisioning
+<details>
+<summary>🔍 Verify Management Cluster Deployment (optional)</summary>
 
 ```bash
 # Authenticate with management account (choose your preferred method)
 export AWS_PROFILE=<management-profile>
 # OR: aws configure set profile <management-profile>
 # OR: use your SSO/assume role method
-
-# Provision Management Environment
-make provision-management
 ```
-<details>
-<summary>🔍 Verify Management Cluster Deployment (optional)</summary>
 
 ```bash
 # Check cluster is provisioned
@@ -219,6 +221,8 @@ Expected: ArgoCD applications "Synced" and "Healthy".
 ---
 
 ## 6. Consumer Registration & Verification
+*** The pipeline process currently ends here  ***
+*** TODO: Will be added to the pipeline process ***
 
 Register the Management Cluster as a consumer with the Regional Cluster's Maestro server.
 
