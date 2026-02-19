@@ -29,9 +29,6 @@ The 2 accounts designated for the Regional Cluster and Management Cluster requir
 <details>
 <summary>🔧 Configure New Region Deployment</summary>
 
-**Note:** In case you are deploying clusters based on existing argocd configuration, you can skip this step.
-Example: you want to spin up a development cluster and re-use the existing configuration for `env = integration` and `region = us-east-1`.
-
 ### Add Sector to Configuration
 
 Edit `config.yaml` and add your new sector following this pattern:
@@ -97,11 +94,14 @@ You should see `argocd/` and `terraform/` subdirectories with generated configs.
 
 ```bash
 git add config.yaml deploy/
-git commit -m "Add <region> region configuration
+git commit -m "$(cat <<'EOF'
+Add <region> region configuration
 
 - Add <region>/<sector> to config.yaml
 - Generate deploy configs (argocd + terraform)
 - Prepare for regional cluster provisioning
+EOF
+)"
 git push origin <your-branch>
 ```
 
