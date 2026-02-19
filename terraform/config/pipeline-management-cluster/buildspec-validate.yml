@@ -94,6 +94,31 @@ phases:
         export TF_STATE_KEY="management-cluster/${TARGET_ALIAS}.tfstate"
 
 
+        # Resolve REGIONAL_AWS_ACCOUNT_ID (supports both direct values and SSM parameter references)
+        RESOLVED_REGIONAL_ACCOUNT_ID="${REGIONAL_AWS_ACCOUNT_ID}"
+
+        # If value is an SSM parameter reference (starts with ssm:/), fetch from Parameter Store
+        if [[ "$RESOLVED_REGIONAL_ACCOUNT_ID" =~ ^ssm:/ ]]; then
+            SSM_PARAM_NAME="${RESOLVED_REGIONAL_ACCOUNT_ID#ssm:}"
+            echo "Resolving SSM parameter: $SSM_PARAM_NAME in region ${TARGET_REGION}"
+
+            RESOLVED_REGIONAL_ACCOUNT_ID=$(aws ssm get-parameter \
+                --name "$SSM_PARAM_NAME" \
+                --with-decryption \
+                --query 'Parameter.Value' \
+                --output text \
+                --region "${TARGET_REGION}")
+
+            echo "✓ Resolved regional account ID: $RESOLVED_REGIONAL_ACCOUNT_ID"
+        fi
+
+        # Validate that REGIONAL_AWS_ACCOUNT_ID is non-empty
+        if [[ -z "$RESOLVED_REGIONAL_ACCOUNT_ID" ]]; then
+            echo "❌ ERROR: REGIONAL_AWS_ACCOUNT_ID must be provided for region ${TARGET_REGION}"
+            echo "   Set this in your management cluster config (either direct account ID or ssm:/path/to/param)"
+            exit 1
+        fi
+
         # Export required Terraform variables
         export TF_VAR_region="${TARGET_REGION}"
         export TF_VAR_app_code="${APP_CODE}"
@@ -102,7 +127,7 @@ phases:
         export TF_VAR_repository_url="${REPOSITORY_URL}"
         export TF_VAR_repository_branch="${REPOSITORY_BRANCH}"
         export TF_VAR_cluster_id="${CLUSTER_ID:-mgmt-cluster-01}"
-        export TF_VAR_regional_aws_account_id="${REGIONAL_AWS_ACCOUNT_ID:-${CENTRAL_ACCOUNT_ID}}"
+        export TF_VAR_regional_aws_account_id="${RESOLVED_REGIONAL_ACCOUNT_ID}"
         export TF_VAR_target_account_id="${TARGET_ACCOUNT_ID}"
 
         # Create placeholder Maestro agent secrets in target account (using assumed credentials from pre_build)

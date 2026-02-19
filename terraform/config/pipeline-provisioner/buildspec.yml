@@ -98,6 +98,24 @@ phases:
             done
         }
 
+        # Helper function: Resolve SSM parameter if value starts with "ssm:"
+        resolve_ssm_param() {
+            local value="$1"
+            local region="${2:-${AWS_REGION}}"  # Optional region parameter, defaults to AWS_REGION
+            if [[ "$value" == ssm:* ]]; then
+                local param_name="${value#ssm:}"
+                echo "Resolving SSM parameter: $param_name in region ${region}" >&2
+                aws ssm get-parameter \
+                    --name "$param_name" \
+                    --with-decryption \
+                    --query 'Parameter.Value' \
+                    --output text \
+                    --region "${region}"
+            else
+                echo "$value"
+            fi
+        }
+
         # Determine which environment to process (prefer existing, fall back to TARGET_ENVIRONMENT, then staging)
         ENVIRONMENT="${ENVIRONMENT:-${TARGET_ENVIRONMENT:-staging}}"
 
@@ -178,6 +196,7 @@ phases:
                 # Extract configuration from JSON
                 AWS_REGION=$(jq -r '.region // .target_region // "us-east-1"' "$REGIONAL_CONFIG")
                 TARGET_ACCOUNT_ID=$(jq -r '.account_id // ""' "$REGIONAL_CONFIG")
+                TARGET_ACCOUNT_ID=$(resolve_ssm_param "$TARGET_ACCOUNT_ID")
                 TARGET_ALIAS=$(jq -r '.alias // ""' "$REGIONAL_CONFIG")
 
                 # Extract terraform vars with defaults
@@ -243,6 +262,7 @@ phases:
                     # Extract configuration from JSON
                     AWS_REGION=$(jq -r '.region // .target_region // "us-east-1"' "$mc_config")
                     TARGET_ACCOUNT_ID=$(jq -r '.account_id // ""' "$mc_config")
+                    TARGET_ACCOUNT_ID=$(resolve_ssm_param "$TARGET_ACCOUNT_ID")
                     TARGET_ALIAS=$(jq -r '.alias // ""' "$mc_config")
 
                     # Extract terraform vars with defaults
@@ -254,8 +274,16 @@ phases:
 
                     # Use TARGET_ALIAS as cluster_id default if not specified
                     [ -z "$CLUSTER_ID" ] && CLUSTER_ID="${TARGET_ALIAS}"
-                    # Use CENTRAL_ACCOUNT_ID as regional account default if not specified
-                    [ -z "$REGIONAL_AWS_ACCOUNT_ID" ] && REGIONAL_AWS_ACCOUNT_ID="${CENTRAL_ACCOUNT_ID}"
+
+                    # Resolve REGIONAL_AWS_ACCOUNT_ID using the helper function
+                    REGIONAL_AWS_ACCOUNT_ID=$(resolve_ssm_param "$REGIONAL_AWS_ACCOUNT_ID" "${AWS_REGION}")
+
+                    # Validate that REGIONAL_AWS_ACCOUNT_ID is non-empty
+                    if [[ -z "$REGIONAL_AWS_ACCOUNT_ID" ]]; then
+                        echo "❌ ERROR: REGIONAL_AWS_ACCOUNT_ID must be provided for region ${AWS_REGION}"
+                        echo "   Set regional_aws_account_id in your management cluster config (either direct account ID or ssm:/path/to/param)"
+                        exit 1
+                    fi
 
                     echo "  AWS Region: $AWS_REGION"
                     [ -n "$TARGET_ACCOUNT_ID" ] && echo "  Target Account ID: $TARGET_ACCOUNT_ID"
