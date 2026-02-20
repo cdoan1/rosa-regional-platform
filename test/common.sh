@@ -19,3 +19,4 @@ if [ -z "${PROW_JOB_NAME:-}" ]; then
   exit 0
 fi
 
+echo "common.sh loaded"
