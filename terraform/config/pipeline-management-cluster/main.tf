@@ -22,6 +22,7 @@ locals {
   validate_project_name  = "mc-val-${local.resource_hash}"                     # 19 chars
   apply_project_name     = "mc-app-${local.resource_hash}"                     # 19 chars
   bootstrap_project_name = "mc-boot-${local.resource_hash}"                    # 21 chars
+  destroy_project_name   = "mc-dest-${local.resource_hash}"                    # 20 chars
   pipeline_name          = "mc-pipe-${local.resource_hash}"                    # 20 chars
 }
 
@@ -67,7 +68,9 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_apply.name}",
           "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_apply.name}:*",
           "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_bootstrap.name}",
-          "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_bootstrap.name}:*"
+          "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_bootstrap.name}:*",
+          "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_destroy.name}",
+          "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_destroy.name}:*"
         ]
       },
       {
@@ -267,7 +270,8 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
         Resource = [
           aws_codebuild_project.management_validate.arn,
           aws_codebuild_project.management_apply.arn,
-          aws_codebuild_project.management_bootstrap.arn
+          aws_codebuild_project.management_bootstrap.arn,
+          aws_codebuild_project.management_destroy.arn
         ]
       },
       {
@@ -278,7 +282,8 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
         Resource = [
           "arn:aws:codebuild:*:*:project/${aws_codebuild_project.management_validate.name}",
           "arn:aws:codebuild:*:*:project/${aws_codebuild_project.management_apply.name}",
-          "arn:aws:codebuild:*:*:project/${aws_codebuild_project.management_bootstrap.name}"
+          "arn:aws:codebuild:*:*:project/${aws_codebuild_project.management_bootstrap.name}",
+          "arn:aws:codebuild:*:*:project/${aws_codebuild_project.management_destroy.name}"
         ]
       }
     ]
@@ -515,6 +520,99 @@ resource "aws_codebuild_project" "management_bootstrap" {
   source {
     type      = "CODEPIPELINE"
     buildspec = "terraform/config/pipeline-management-cluster/buildspec-bootstrap.yml"
+  }
+}
+
+# CodeBuild Project - Destroy
+resource "aws_codebuild_project" "management_destroy" {
+  name          = local.destroy_project_name
+  service_role  = aws_iam_role.codebuild_role.arn
+  build_timeout = 60
+
+  artifacts {
+    type     = "S3"
+    location = aws_s3_bucket.pipeline_artifact.bucket
+    path     = "destroy-logs"
+    packaging = "ZIP"
+  }
+
+  environment {
+    compute_type                = "BUILD_GENERAL1_SMALL"
+    image                       = "aws/codebuild/amazonlinux2-x86_64-standard:4.0"
+    type                        = "LINUX_CONTAINER"
+    image_pull_credentials_type = "CODEBUILD"
+
+    environment_variable {
+      name  = "TARGET_ACCOUNT_ID"
+      value = var.target_account_id
+    }
+    environment_variable {
+      name  = "TARGET_REGION"
+      value = var.target_region
+    }
+    environment_variable {
+      name  = "TARGET_ALIAS"
+      value = var.target_alias
+    }
+    environment_variable {
+      name  = "APP_CODE"
+      value = var.app_code
+    }
+    environment_variable {
+      name  = "SERVICE_PHASE"
+      value = var.service_phase
+    }
+    environment_variable {
+      name  = "COST_CENTER"
+      value = var.cost_center
+    }
+    environment_variable {
+      name  = "REPOSITORY_URL"
+      value = var.repository_url
+    }
+    environment_variable {
+      name  = "REPOSITORY_BRANCH"
+      value = var.repository_branch
+    }
+    environment_variable {
+      name  = "CLUSTER_ID"
+      value = var.cluster_id
+    }
+    environment_variable {
+      name  = "REGIONAL_AWS_ACCOUNT_ID"
+      value = var.regional_aws_account_id
+    }
+    environment_variable {
+      name  = "ENVIRONMENT"
+      value = var.target_environment
+    }
+    environment_variable {
+      name  = "ENABLE_BASTION"
+      value = var.enable_bastion ? "true" : "false"
+    }
+    environment_variable {
+      name  = "CONFIRM_DESTROY"
+      value = "false"
+    }
+    environment_variable {
+      name  = "GITHUB_REPO_OWNER"
+      value = var.github_repo_owner
+    }
+    environment_variable {
+      name  = "GITHUB_REPO_NAME"
+      value = var.github_repo_name
+    }
+    environment_variable {
+      name  = "GITHUB_BRANCH"
+      value = var.github_branch
+    }
+  }
+
+  source {
+    type            = "GITHUB"
+    location        = "https://github.com/${var.github_repo_owner}/${var.github_repo_name}.git"
+    git_clone_depth = 1
+    buildspec       = "terraform/config/pipeline-management-cluster/buildspec-destroy.yml"
   }
 }
 

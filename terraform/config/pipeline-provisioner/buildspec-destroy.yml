@@ -1,0 +1,277 @@
+version: 0.2
+
+env:
+  shell: bash
+
+phases:
+  install:
+    commands:
+      - echo "Installing dependencies..."
+      - yum install -y unzip python3 jq gnupg2
+      - pip3 install boto3
+      - echo "Installing Terraform..."
+      - |
+        set -euo pipefail
+        TF_VERSION="1.14.3"
+        TF_PACKAGE="terraform_${TF_VERSION}_linux_amd64.zip"
+        TF_BASE_URL="https://releases.hashicorp.com/terraform/${TF_VERSION}"
+
+        # Download Terraform package and verification files
+        echo "Downloading Terraform ${TF_VERSION}..."
+        curl -sSfO "${TF_BASE_URL}/${TF_PACKAGE}"
+        curl -sSfO "${TF_BASE_URL}/terraform_${TF_VERSION}_SHA256SUMS"
+        curl -sSfO "${TF_BASE_URL}/terraform_${TF_VERSION}_SHA256SUMS.sig"
+
+        # Import HashiCorp GPG key
+        echo "Importing HashiCorp GPG key..."
+        gpg --batch --keyserver keyserver.ubuntu.com --recv-keys \
+          C874011F0AB405110D02105534365D9472D7468F || \
+        gpg --batch --keyserver keys.openpgp.org --recv-keys \
+          C874011F0AB405110D02105534365D9472D7468F || \
+        gpg --batch --keyserver pgp.mit.edu --recv-keys \
+          C874011F0AB405110D02105534365D9472D7468F
+
+        # Verify GPG signature on SHA256SUMS
+        echo "Verifying GPG signature..."
+        if ! gpg --batch --verify "terraform_${TF_VERSION}_SHA256SUMS.sig" "terraform_${TF_VERSION}_SHA256SUMS"; then
+          echo "❌ GPG signature verification failed"
+          exit 1
+        fi
+        echo "✓ GPG signature verified"
+
+        # Verify checksum of Terraform package
+        echo "Verifying SHA256 checksum..."
+        if ! grep "${TF_PACKAGE}" "terraform_${TF_VERSION}_SHA256SUMS" | sha256sum -c -; then
+          echo "❌ Checksum verification failed"
+          exit 1
+        fi
+        echo "✓ Checksum verified"
+
+        # Install Terraform
+        echo "Installing Terraform..."
+        unzip -o "${TF_PACKAGE}" -d /tmp/tf-bin
+        mv /tmp/tf-bin/terraform /usr/local/bin/
+
+        # Cleanup
+        rm -f "${TF_PACKAGE}" "terraform_${TF_VERSION}_SHA256SUMS" "terraform_${TF_VERSION}_SHA256SUMS.sig"
+
+        terraform version
+        echo "✓ Terraform installation verified"
+
+  pre_build:
+    commands:
+      - |
+        echo "=========================================="
+        echo "🔥 PIPELINE DESTROY SAFETY CHECK"
+        echo "=========================================="
+
+        # Require explicit confirmation
+        if [ "${CONFIRM_DESTROY:-false}" != "true" ]; then
+            echo "❌ ERROR: CONFIRM_DESTROY must be set to 'true' to proceed with pipeline destroy"
+            echo ""
+            echo "This will destroy ALL CodePipeline infrastructure for the target environment."
+            echo "This is a safety mechanism to prevent accidental destruction."
+            echo ""
+            echo "To proceed, override the environment variable:"
+            echo "  aws codebuild start-build \\"
+            echo "    --project-name <project-name> \\"
+            echo "    --environment-variables-override \\"
+            echo "      name=CONFIRM_DESTROY,value=true,type=PLAINTEXT"
+            echo ""
+            exit 1
+        fi
+
+        echo "⚠️  DESTROY CONFIRMED - Proceeding with pipeline infrastructure destruction"
+        echo ""
+
+  build:
+    commands:
+      - echo "Destroying Pipeline Infrastructure from deploy/ directory structure..."
+      - |
+        set -euo pipefail
+        # Get central account ID for state bucket
+        CENTRAL_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+        TF_STATE_BUCKET="terraform-state-${CENTRAL_ACCOUNT_ID}"
+
+        # Determine which environment to process (prefer existing, fall back to TARGET_ENVIRONMENT, then staging)
+        ENVIRONMENT="${ENVIRONMENT:-${TARGET_ENVIRONMENT:-staging}}"
+
+        # Try to read tf_state_region from config.yaml via the first regional.json file found
+        TF_STATE_REGION=""
+        if [ -d "deploy/${ENVIRONMENT}" ]; then
+            # Find first regional.json file in this environment
+            FIRST_REGIONAL_JSON=$(find "deploy/${ENVIRONMENT}" -name "regional.json" -type f | head -n 1)
+            if [ -n "$FIRST_REGIONAL_JSON" ]; then
+                TF_STATE_REGION=$(jq -r '.tf_state_region // empty' "$FIRST_REGIONAL_JSON" 2>/dev/null || echo "")
+            fi
+        fi
+
+        # If not found in config, try to detect from bucket location
+        if [ -z "$TF_STATE_REGION" ]; then
+            BUCKET_REGION=$(aws s3api get-bucket-location --bucket "$TF_STATE_BUCKET" --region us-east-1 --query LocationConstraint --output text 2>/dev/null || echo "")
+            if [ "$BUCKET_REGION" == "None" ] || [ "$BUCKET_REGION" == "null" ] || [ -z "$BUCKET_REGION" ]; then
+                TF_STATE_REGION="us-east-1"
+            else
+                TF_STATE_REGION="$BUCKET_REGION"
+            fi
+        fi
+
+        echo "Using state bucket: $TF_STATE_BUCKET"
+        echo "Using state bucket region: $TF_STATE_REGION"
+        echo ""
+
+        # Helper function: Resolve SSM parameter if value starts with "ssm:"
+        resolve_ssm_param() {
+            local value="$1"
+            local region="${2:-${AWS_REGION}}"
+            if [[ "$value" == ssm:* ]]; then
+                local param_name="${value#ssm:}"
+                echo "Resolving SSM parameter: $param_name in region ${region}" >&2
+                aws ssm get-parameter \
+                    --name "$param_name" \
+                    --with-decryption \
+                    --query 'Parameter.Value' \
+                    --output text \
+                    --region "${region}"
+            else
+                echo "$value"
+            fi
+        }
+
+        # Validate and sanitize ENVIRONMENT
+        if [[ -z "$ENVIRONMENT" ]]; then
+            echo "❌ ERROR: ENVIRONMENT is empty" >&2
+            exit 1
+        fi
+
+        if [[ "$ENVIRONMENT" == *"/"* ]] || [[ "$ENVIRONMENT" == *".."* ]]; then
+            echo "❌ ERROR: ENVIRONMENT contains invalid characters: $ENVIRONMENT" >&2
+            exit 1
+        fi
+
+        if [[ ! "$ENVIRONMENT" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "❌ ERROR: ENVIRONMENT contains invalid characters: $ENVIRONMENT" >&2
+            exit 1
+        fi
+
+        echo "🔥 Destroying pipelines for environment: $ENVIRONMENT"
+        echo ""
+
+        # Validate environment directory exists
+        if [ ! -d "deploy/${ENVIRONMENT}" ]; then
+            echo "❌ ERROR: Environment directory does not exist: deploy/${ENVIRONMENT}" >&2
+            exit 1
+        fi
+
+        # Process each region_alias directory in the target environment
+        # IMPORTANT: Destroy management pipelines BEFORE regional pipelines
+        for region_dir in deploy/${ENVIRONMENT}/*/; do
+            [ -d "$region_dir" ] || continue
+
+            REGION_ALIAS=$(basename "$region_dir")
+
+            echo "=========================================="
+            echo "Processing: $ENVIRONMENT / $REGION_ALIAS"
+            echo "=========================================="
+
+            # 1. FIRST: Destroy management cluster pipelines
+            if [ -d "${region_dir}terraform/management" ]; then
+                echo "Destroying management cluster pipelines in ${ENVIRONMENT}-${REGION_ALIAS}..."
+
+                for mc_config in ${region_dir}terraform/management/*.json; do
+                    [ -e "$mc_config" ] || continue
+
+                    CLUSTER_NAME=$(basename "$mc_config" .json)
+
+                    echo "Destroying management pipeline for $CLUSTER_NAME..."
+
+                    # Extract configuration
+                    AWS_REGION=$(jq -r '.region // .target_region // "us-east-1"' "$mc_config")
+                    TARGET_ACCOUNT_ID=$(jq -r '.account_id // ""' "$mc_config")
+                    TARGET_ACCOUNT_ID=$(resolve_ssm_param "$TARGET_ACCOUNT_ID")
+                    TARGET_ALIAS=$(jq -r '.alias // ""' "$mc_config")
+
+                    cd terraform/config/pipeline-management-cluster
+
+                    terraform init \
+                        -reconfigure \
+                        -backend-config="bucket=$TF_STATE_BUCKET" \
+                        -backend-config="key=pipelines/management-${ENVIRONMENT}-${REGION_ALIAS}-${CLUSTER_NAME}.tfstate" \
+                        -backend-config="region=$TF_STATE_REGION" \
+                        -backend-config="use_lockfile=true"
+
+                    # Build terraform destroy command
+                    TF_VARS="-var=github_repo_owner=${GITHUB_REPO_OWNER:-openshift-online} -var=github_repo_name=${GITHUB_REPO_NAME:-rosa-regional-platform} -var=github_branch=${GITHUB_BRANCH:-main} -var=region=${AWS_REGION}"
+                    [ -n "$GITHUB_CONNECTION_ARN" ] && TF_VARS="$TF_VARS -var=github_connection_arn=${GITHUB_CONNECTION_ARN}"
+                    [ -n "$TARGET_ACCOUNT_ID" ] && TF_VARS="$TF_VARS -var=target_account_id=${TARGET_ACCOUNT_ID}"
+                    [ -n "$TARGET_ALIAS" ] && TF_VARS="$TF_VARS -var=target_alias=${TARGET_ALIAS}"
+
+                    echo "⚠️  Running terraform destroy for management pipeline $CLUSTER_NAME..."
+                    if terraform destroy -auto-approve $TF_VARS; then
+                        echo "✅ Management pipeline destroyed for $CLUSTER_NAME"
+                    else
+                        echo "❌ Failed to destroy management pipeline for $CLUSTER_NAME"
+                        echo "⏭️  Continuing with next pipeline..."
+                    fi
+
+                    cd ../../..
+                done
+            else
+                echo "No management pipelines in $region_dir, skipping..."
+            fi
+
+            # 2. SECOND: Destroy regional cluster pipeline
+            if [ -f "${region_dir}terraform/regional.json" ]; then
+                echo "Destroying regional pipeline for ${ENVIRONMENT}-${REGION_ALIAS}..."
+
+                REGIONAL_CONFIG="${region_dir}terraform/regional.json"
+
+                # Extract configuration
+                AWS_REGION=$(jq -r '.region // .target_region // "us-east-1"' "$REGIONAL_CONFIG")
+                TARGET_ACCOUNT_ID=$(jq -r '.account_id // ""' "$REGIONAL_CONFIG")
+                TARGET_ACCOUNT_ID=$(resolve_ssm_param "$TARGET_ACCOUNT_ID")
+                TARGET_ALIAS=$(jq -r '.alias // ""' "$REGIONAL_CONFIG")
+
+                cd terraform/config/pipeline-regional-cluster
+
+                terraform init \
+                    -reconfigure \
+                    -backend-config="bucket=$TF_STATE_BUCKET" \
+                    -backend-config="key=pipelines/regional-${ENVIRONMENT}-${REGION_ALIAS}.tfstate" \
+                    -backend-config="region=$TF_STATE_REGION" \
+                    -backend-config="use_lockfile=true"
+
+                # Build terraform destroy command
+                TF_VARS="-var=github_repo_owner=${GITHUB_REPO_OWNER:-openshift-online} -var=github_repo_name=${GITHUB_REPO_NAME:-rosa-regional-platform} -var=github_branch=${GITHUB_BRANCH:-main} -var=region=${AWS_REGION}"
+                [ -n "$GITHUB_CONNECTION_ARN" ] && TF_VARS="$TF_VARS -var=github_connection_arn=${GITHUB_CONNECTION_ARN}"
+                [ -n "$TARGET_ACCOUNT_ID" ] && TF_VARS="$TF_VARS -var=target_account_id=${TARGET_ACCOUNT_ID}"
+                [ -n "$TARGET_ALIAS" ] && TF_VARS="$TF_VARS -var=target_alias=${TARGET_ALIAS}"
+
+                echo "⚠️  Running terraform destroy for regional pipeline ${ENVIRONMENT}-${REGION_ALIAS}..."
+                if terraform destroy -auto-approve $TF_VARS; then
+                    echo "✅ Regional pipeline destroyed for ${ENVIRONMENT}-${REGION_ALIAS}"
+                else
+                    echo "❌ Failed to destroy regional pipeline for ${ENVIRONMENT}-${REGION_ALIAS}"
+                    echo "⏭️  Continuing with next pipeline..."
+                fi
+
+                cd ../../..
+            else
+                echo "No regional.json in $region_dir, skipping regional pipeline..."
+            fi
+
+            echo ""
+        done
+
+        echo "=========================================="
+        echo "Pipeline Destroy Complete"
+        echo "=========================================="
+        echo ""
+        echo "All CodePipeline infrastructure for environment '${ENVIRONMENT}' has been destroyed."
+        echo ""
+        echo "Note: This only destroyed the PIPELINE infrastructure (CodePipeline, CodeBuild)."
+        echo "To destroy the actual clusters, use the individual cluster destroy buildspecs."
+
+  post_build:
+    commands:
+      - echo "Pipeline destroy complete."

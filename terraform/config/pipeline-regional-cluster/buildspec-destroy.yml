@@ -1,0 +1,52 @@
+version: 0.2
+
+env:
+  shell: bash
+
+phases:
+  install:
+    commands:
+      - echo "Installing dependencies..."
+      - yum install -y unzip python3 jq gnupg2
+      - pip3 install boto3 pyyaml
+      - echo "Installing Terraform..."
+      - chmod 755 ./scripts/codepipeline/destroy-install.sh &&
+        ./scripts/codepipeline/destroy-install.sh
+
+  pre_build:
+    commands:
+      - source ./scripts/pipeline-common/setup-apply-preflight.sh
+
+      - chmod 755 ./scripts/codepipeline/destroy-prebuild.sh &&
+        ./scripts/codepipeline/destroy-prebuild.sh
+      
+      - chmod 755 ./scripts/codepipeline/stop-ecs-tasks.sh &&
+        ./scripts/codepipeline/stop-ecs-tasks.sh
+
+  build:
+    commands:
+      - echo "=========================================="
+      - echo "🔥 Destroying Regional Cluster Infrastructure"
+      - echo "=========================================="
+      - chmod 755 ./scripts/codepipeline/terraform-destroy.sh &&
+        ./scripts/codepipeline/terraform-destroy.sh
+
+
+  post_build:
+    commands:
+      - |
+        echo "=========================================="
+        echo "Destroy Complete"
+        echo "=========================================="
+        echo ""
+        echo "Regional cluster infrastructure has been destroyed."
+        echo ""
+        echo "Note: Terraform state file is preserved in S3 for audit purposes:"
+        echo "  s3://terraform-state-${CENTRAL_ACCOUNT_ID}/regional-cluster/${TARGET_ALIAS}.tfstate"
+        echo ""
+        echo "To recreate the cluster, run the apply pipeline."
+
+artifacts:
+  files:
+    - '**/*'
+  name: destroy-output

@@ -1,0 +1,332 @@
+version: 0.2
+
+env:
+  shell: bash
+
+phases:
+  install:
+    commands:
+      - echo "Installing dependencies..."
+      - yum install -y unzip python3 jq gnupg2
+      - pip3 install boto3 pyyaml
+      - echo "Installing Terraform..."
+      - |
+        set -euo pipefail
+        TF_VERSION="1.14.3"
+        TF_PACKAGE="terraform_${TF_VERSION}_linux_amd64.zip"
+        TF_BASE_URL="https://releases.hashicorp.com/terraform/${TF_VERSION}"
+
+        # Download Terraform package and verification files
+        echo "Downloading Terraform ${TF_VERSION}..."
+        curl -sSfO "${TF_BASE_URL}/${TF_PACKAGE}"
+        curl -sSfO "${TF_BASE_URL}/terraform_${TF_VERSION}_SHA256SUMS"
+        curl -sSfO "${TF_BASE_URL}/terraform_${TF_VERSION}_SHA256SUMS.sig"
+
+        # Import HashiCorp GPG key
+        echo "Importing HashiCorp GPG key..."
+        gpg --batch --keyserver keyserver.ubuntu.com --recv-keys \
+          C874011F0AB405110D02105534365D9472D7468F || \
+        gpg --batch --keyserver keys.openpgp.org --recv-keys \
+          C874011F0AB405110D02105534365D9472D7468F || \
+        gpg --batch --keyserver pgp.mit.edu --recv-keys \
+          C874011F0AB405110D02105534365D9472D7468F
+
+        # Verify GPG signature on SHA256SUMS
+        echo "Verifying GPG signature..."
+        if ! gpg --batch --verify "terraform_${TF_VERSION}_SHA256SUMS.sig" "terraform_${TF_VERSION}_SHA256SUMS"; then
+          echo "❌ GPG signature verification failed"
+          exit 1
+        fi
+        echo "✓ GPG signature verified"
+
+        # Verify checksum of Terraform package
+        echo "Verifying SHA256 checksum..."
+        if ! grep "${TF_PACKAGE}" "terraform_${TF_VERSION}_SHA256SUMS" | sha256sum -c -; then
+          echo "❌ Checksum verification failed"
+          exit 1
+        fi
+        echo "✓ Checksum verified"
+
+        # Install Terraform
+        echo "Installing Terraform..."
+        unzip -o "${TF_PACKAGE}" -d /tmp/tf-bin
+        mv /tmp/tf-bin/terraform /usr/local/bin/
+
+        # Cleanup
+        rm -f "${TF_PACKAGE}" "terraform_${TF_VERSION}_SHA256SUMS" "terraform_${TF_VERSION}_SHA256SUMS.sig"
+
+        terraform version
+        echo "✓ Terraform installation verified"
+
+  pre_build:
+    commands:
+      - source scripts/pipeline-common/setup-apply-preflight.sh
+      - |
+        echo "=========================================="
+        echo "🔥 DESTROY SAFETY CHECK"
+        echo "=========================================="
+
+        # Require explicit confirmation
+        if [ "${CONFIRM_DESTROY:-false}" != "true" ]; then
+            echo "❌ ERROR: CONFIRM_DESTROY must be set to 'true' to proceed with destroy"
+            echo ""
+            echo "This is a safety mechanism to prevent accidental infrastructure destruction."
+            echo ""
+            echo "To proceed, override the environment variable:"
+            echo "  aws codebuild start-build \\"
+            echo "    --project-name <project-name> \\"
+            echo "    --environment-variables-override \\"
+            echo "      name=CONFIRM_DESTROY,value=true,type=PLAINTEXT"
+            echo ""
+            exit 1
+        fi
+
+        echo "⚠️  DESTROY CONFIRMED - Proceeding with infrastructure destruction"
+        echo ""
+        echo "Target:"
+        echo "  Account: ${TARGET_ACCOUNT_ID}"
+        echo "  Region: ${TARGET_REGION}"
+        echo "  Alias: ${TARGET_ALIAS}"
+        echo "  Cluster ID: ${CLUSTER_ID:-mgmt-cluster-01}"
+        echo ""
+
+      - |
+        echo "=========================================="
+        echo "Cleaning up Maestro IoT resources"
+        echo "=========================================="
+        echo ""
+
+        # Run IoT cleanup script for Maestro agent
+        # This must happen before infrastructure destroy to avoid orphaned IoT resources
+        if [ -f scripts/pipeline-common/cleanup-maestro-iot-pipeline.sh ]; then
+            bash scripts/pipeline-common/cleanup-maestro-iot-pipeline.sh
+        else
+            echo "⚠️  Warning: IoT cleanup script not found, skipping IoT cleanup"
+            echo "   Manual cleanup may be required: scripts/cleanup-maestro-agent-iot.sh"
+        fi
+
+        echo ""
+
+      - |
+        echo "=========================================="
+        echo "Stopping Bastion ECS Tasks"
+        echo "=========================================="
+        echo ""
+        echo "Stopping all running bastion ECS tasks in account ${TARGET_ACCOUNT_ID}, region ${TARGET_REGION}..."
+        echo "This ensures clean teardown before Terraform destroy."
+        echo ""
+
+        # Assume role in target account if needed
+        if [ "$TARGET_ACCOUNT_ID" != "$CENTRAL_ACCOUNT_ID" ]; then
+            echo "Assuming role in target account ${TARGET_ACCOUNT_ID}..."
+            ASSUMED_ROLE_ARN="arn:aws:iam::${TARGET_ACCOUNT_ID}:role/OrganizationAccountAccessRole"
+            ASSUMED_CREDS=$(aws sts assume-role \
+                --role-arn "$ASSUMED_ROLE_ARN" \
+                --role-session-name "ecs-cleanup-$(date +%s)" \
+                --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
+                --output text)
+
+            if [ -z "$ASSUMED_CREDS" ] || [ "$ASSUMED_CREDS" == "None" ]; then
+                echo "⚠️  Warning: Could not assume role in target account, skipping ECS cleanup"
+                echo "   This may cause destroy to fail if bastion tasks are running"
+            else
+                read -r AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN <<< "$ASSUMED_CREDS"
+                export AWS_ACCESS_KEY_ID
+                export AWS_SECRET_ACCESS_KEY
+                export AWS_SESSION_TOKEN
+                echo "✅ Assumed role successfully"
+            fi
+        fi
+
+        # Set region for AWS CLI
+        export AWS_DEFAULT_REGION="${TARGET_REGION}"
+        export AWS_REGION="${TARGET_REGION}"
+
+        # List all ECS clusters in the region and filter for bastion clusters
+        echo "Listing ECS clusters (filtering for bastion clusters ending with '-bastion')..."
+        ALL_CLUSTERS=$(aws ecs list-clusters --region "${TARGET_REGION}" --query 'clusterArns[]' --output text 2>/dev/null || echo "")
+
+        BASTION_FOUND=0
+
+        if [ -z "$ALL_CLUSTERS" ] || [ "$ALL_CLUSTERS" == "None" ]; then
+            echo "✓ No ECS clusters found in region ${TARGET_REGION}"
+        else
+            # Iterate through all clusters and process only bastion clusters
+            for CLUSTER_ARN in $ALL_CLUSTERS; do
+                if [ -n "$CLUSTER_ARN" ] && [ "$CLUSTER_ARN" != "None" ]; then
+                    CLUSTER_NAME=$(echo "$CLUSTER_ARN" | awk -F'/' '{print $NF}')
+                    
+                    # Only process clusters ending with "-bastion"
+                    if [[ "$CLUSTER_NAME" == *"-bastion" ]]; then
+                        BASTION_FOUND=1
+                        echo "Found bastion cluster: $CLUSTER_NAME"
+
+                        # List running tasks in this bastion cluster
+                        RUNNING_TASKS=$(aws ecs list-tasks \
+                            --cluster "$CLUSTER_NAME" \
+                            --desired-status RUNNING \
+                            --region "${TARGET_REGION}" \
+                            --query 'taskArns[]' \
+                            --output text 2>/dev/null || echo "")
+
+                        if [ -n "$RUNNING_TASKS" ] && [ "$RUNNING_TASKS" != "None" ]; then
+                            echo "  Stopping running bastion tasks..."
+                            for TASK_ARN in $RUNNING_TASKS; do
+                                if [ -n "$TASK_ARN" ] && [ "$TASK_ARN" != "None" ]; then
+                                    TASK_ID=$(echo "$TASK_ARN" | awk -F'/' '{print $NF}')
+                                    echo "    Stopping bastion task: $TASK_ID"
+                                    aws ecs stop-task \
+                                        --cluster "$CLUSTER_NAME" \
+                                        --task "$TASK_ARN" \
+                                        --reason "Terraform destroy - stopping bastion tasks before infrastructure teardown" \
+                                        --region "${TARGET_REGION}" \
+                                        2>/dev/null || echo "      ⚠️  Failed to stop task $TASK_ID"
+                                fi
+                            done
+
+                            # Wait a moment for tasks to start stopping
+                            echo "  Waiting for bastion tasks to stop..."
+                            sleep 5
+
+                            # Wait for all tasks to be stopped (with timeout)
+                            MAX_WAIT=120
+                            WAIT_TIME=0
+                            while [ $WAIT_TIME -lt $MAX_WAIT ]; do
+                                REMAINING_TASKS=$(aws ecs list-tasks \
+                                    --cluster "$CLUSTER_NAME" \
+                                    --desired-status RUNNING \
+                                    --region "${TARGET_REGION}" \
+                                    --query 'taskArns[]' \
+                                    --output text 2>/dev/null || echo "")
+
+                                if [ -z "$REMAINING_TASKS" ] || [ "$REMAINING_TASKS" == "None" ]; then
+                                    echo "  ✓ All bastion tasks stopped"
+                                    break
+                                fi
+
+                                echo "  Waiting for bastion tasks to stop... ($WAIT_TIME/$MAX_WAIT seconds)"
+                                sleep 5
+                                WAIT_TIME=$((WAIT_TIME + 5))
+                            done
+
+                            if [ $WAIT_TIME -ge $MAX_WAIT ]; then
+                                echo "  ⚠️  Warning: Some bastion tasks may still be running after timeout"
+                                echo "  Continuing with destroy..."
+                            fi
+                        else
+                            echo "  ✓ No running bastion tasks found"
+                        fi
+                    fi
+                fi
+            done
+
+            if [ $BASTION_FOUND -eq 0 ]; then
+                echo "✓ No bastion ECS clusters found (clusters ending with '-bastion')"
+            fi
+        fi
+
+        echo ""
+        echo "✓ Bastion ECS task cleanup complete"
+        echo ""
+
+  build:
+    commands:
+      - echo "=========================================="
+      - echo "🔥 Destroying Management Cluster Infrastructure"
+      - echo "=========================================="
+      - |
+        set -euo pipefail
+
+        echo "Destroying in account: ${TARGET_ACCOUNT_ID}"
+        echo "  Region: ${TARGET_REGION}"
+        echo "  Alias: ${TARGET_ALIAS}"
+        echo ""
+
+        # Configure Terraform backend (state in central account, region detected in pre_build)
+        export TF_STATE_BUCKET="terraform-state-${CENTRAL_ACCOUNT_ID}"
+        export TF_STATE_KEY="management-cluster/${TARGET_ALIAS}.tfstate"
+
+        echo "Terraform backend:"
+        echo "  Bucket: $TF_STATE_BUCKET (central account: $CENTRAL_ACCOUNT_ID)"
+        echo "  Key: $TF_STATE_KEY"
+        echo "  Region: $TF_STATE_REGION"
+        echo ""
+
+        # Change to management cluster Terraform directory
+        cd terraform/config/management-cluster
+
+        # Initialize Terraform with backend configuration
+        echo "Initializing Terraform..."
+        terraform init \
+          -backend-config="bucket=${TF_STATE_BUCKET}" \
+          -backend-config="key=${TF_STATE_KEY}" \
+          -backend-config="region=${TF_STATE_REGION}"
+
+        # Resolve REGIONAL_AWS_ACCOUNT_ID (supports both direct values and SSM parameter references)
+        RESOLVED_REGIONAL_ACCOUNT_ID="${REGIONAL_AWS_ACCOUNT_ID}"
+
+        # If value is an SSM parameter reference (starts with ssm:/), fetch from Parameter Store
+        if [[ "$RESOLVED_REGIONAL_ACCOUNT_ID" =~ ^ssm:/ ]]; then
+            SSM_PARAM_NAME="${RESOLVED_REGIONAL_ACCOUNT_ID#ssm:}"
+            echo "Resolving SSM parameter: $SSM_PARAM_NAME in region ${TARGET_REGION}"
+
+            RESOLVED_REGIONAL_ACCOUNT_ID=$(aws ssm get-parameter \
+                --name "$SSM_PARAM_NAME" \
+                --with-decryption \
+                --query 'Parameter.Value' \
+                --output text \
+                --region "${TARGET_REGION}")
+
+            echo "✓ Resolved regional account ID: $RESOLVED_REGIONAL_ACCOUNT_ID"
+        fi
+
+        # Set Terraform variables for destroy (same as apply)
+        export TF_VAR_region="${TARGET_REGION}"
+        export TF_VAR_target_account_id="${TARGET_ACCOUNT_ID}"
+        export TF_VAR_app_code="${APP_CODE}"
+        export TF_VAR_service_phase="${SERVICE_PHASE}"
+        export TF_VAR_cost_center="${COST_CENTER}"
+        export TF_VAR_cluster_id="${CLUSTER_ID:-mgmt-cluster-01}"
+        export TF_VAR_regional_aws_account_id="${RESOLVED_REGIONAL_ACCOUNT_ID}"
+
+        # Set repository variables with fallback handling
+        _REPO_BRANCH="${REPOSITORY_BRANCH:-${GITHUB_BRANCH:-main}}"
+        export TF_VAR_repository_url="${REPOSITORY_URL:-https://github.com/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}.git}"
+        export TF_VAR_repository_branch="${_REPO_BRANCH}"
+
+        # Enable bastion variable (default to false)
+        ENABLE_BASTION="${ENABLE_BASTION:-false}"
+        if [ "$ENABLE_BASTION" == "true" ] || [ "$ENABLE_BASTION" == "1" ]; then
+            export TF_VAR_enable_bastion="true"
+        else
+            export TF_VAR_enable_bastion="false"
+        fi
+
+        echo "Terraform variables configured for destroy"
+        echo ""
+
+        # Run Terraform destroy
+        echo "⚠️  Running terraform destroy -auto-approve..."
+        terraform destroy -auto-approve
+
+        echo ""
+        echo "✅ Management cluster destroyed successfully."
+
+  post_build:
+    commands:
+      - |
+        echo "=========================================="
+        echo "Destroy Complete"
+        echo "=========================================="
+        echo ""
+        echo "Management cluster infrastructure has been destroyed."
+        echo ""
+        echo "Note: Terraform state file is preserved in S3 for audit purposes:"
+        echo "  s3://terraform-state-${CENTRAL_ACCOUNT_ID}/management-cluster/${TARGET_ALIAS}.tfstate"
+        echo ""
+        echo "To recreate the cluster, run the apply pipeline."
+
+artifacts:
+  files:
+    - '**/*'
+  name: destroy-output
