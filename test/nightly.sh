@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source "$(dirname ${BASH_SOURCE[0]})./common.sh"
+source "$(dirname ${BASH_SOURCE[0]})/common.sh"
 export AWS_PAGER=""
 
 ## None of this will work now. This is purely a stub to give an idea
