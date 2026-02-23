@@ -194,7 +194,38 @@ The `pipeline-provisioner` is the first pipeline. Once this completes successful
 
 At any point, you can retrigger a pipeline by going to the CodePipeline > Pipeline view select a pipeline like `pipeline-provisioner` and click `Release change` button. If you branch has new changes, the pipeline will fetch the latest SHA and run.
 
-### 3.3 Connect to the bastion (Optional)
+### 3.3 Pipeline can be triggered from the aws cli
+
+
+```bash
+aws codepipeline start-pipeline-execution --name MyFirstPipeline --variables name=var1,value=1 name=var2,value=2
+```
+
+Example trigger RC pipeline
+
+```
+# from the central account, get the list of pipelines available
+aws codepipeline list-pipelines \
+  --query 'pipelines[*].[name,created,updated]' \
+  --output table
+--------------------------------------------------------------------------------------------------
+|                                          ListPipelines                                         |
++----------------------+------------------------------------+------------------------------------+
+|  mc-pipe-fa50acc785e1|  2026-02-19T12:00:21.529000-06:00  |  2026-02-19T12:00:21.529000-06:00  |
+|  pipeline-provisioner|  2026-02-19T11:09:03.855000-06:00  |  2026-02-19T11:09:03.855000-06:00  |
+|  rc-pipe-1f570faa867c|  2026-02-19T11:59:06.179000-06:00  |  2026-02-19T11:59:06.179000-06:00  |
++----------------------+------------------------------------+------------------------------------+
+
+# trigger the pipeline. this trigger will referesh the source repo to the latest commit
+aws codepipeline start-pipeline-execution --name rc-pipe-1f570faa867c
+{
+    "pipelineExecutionId": "f54ab63b-f317-4300-9f1a-a371cc92e55f"
+}
+```
+
+> NOTE: In `rc-pipe-1f570faa867c`, `1f570faa867c` is just a hash of static string
+
+### 3.4 Connect to the bastion (Optional)
 
 If you enabled the bastion, you can verify the state of the `Regional` cluster directly.
 
@@ -207,7 +238,7 @@ TASK_ID=$(aws ecs list-tasks --cluster $CLUSTER --query 'taskArns[0]' --output t
 aws ecs execute-command --cluster $CLUSTER --task $TASK_ID --container bastion --interactive --command '/bin/bash'
 ```
 
-### 3.4 From the bastion, verify Applcations
+### 3.5 From the bastion, verify Applcations
 
 ```bash
 kubectl get applications -A
