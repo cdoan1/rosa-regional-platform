@@ -15,7 +15,7 @@ trap waitBeforeExit EXIT
 
 if [ -z "${PROW_JOB_NAME:-}" ]; then
   echo "PROW_JOB_NAME is not set. Exiting."
-  exit 0
+  exit 254
 fi
 
 echo "common.sh loaded"
