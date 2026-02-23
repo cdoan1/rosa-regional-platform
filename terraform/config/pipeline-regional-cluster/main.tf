@@ -240,6 +240,26 @@ resource "aws_codebuild_project" "regional_validate" {
       name  = "TARGET_ALIAS"
       value = var.target_alias
     }
+    environment_variable {
+      name  = "APP_CODE"
+      value = var.app_code
+    }
+    environment_variable {
+      name  = "SERVICE_PHASE"
+      value = var.service_phase
+    }
+    environment_variable {
+      name  = "COST_CENTER"
+      value = var.cost_center
+    }
+    environment_variable {
+      name  = "REPOSITORY_URL"
+      value = var.repository_url
+    }
+    environment_variable {
+      name  = "REPOSITORY_BRANCH"
+      value = var.repository_branch
+    }
   }
 
   source {
