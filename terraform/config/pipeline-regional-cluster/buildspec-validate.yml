@@ -93,7 +93,7 @@ phases:
             export TF_VAR_target_account_id="$ACCOUNT_ID"
             export TF_VAR_target_alias="$ALIAS"
             export TF_VAR_app_code="infra"
-            export TF_VAR_service_phase="prod"
+            export TF_VAR_service_phase="${SERVICE_PHASE}"
             export TF_VAR_cost_center="000"
             export TF_VAR_repository_url="https://github.com/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}.git"
             export TF_VAR_repository_branch="${GITHUB_BRANCH:-main}"
