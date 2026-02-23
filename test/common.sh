@@ -13,9 +13,11 @@ function waitBeforeExit() {
 
 trap waitBeforeExit EXIT
 
-if [ -z "${PROW_JOB_NAME:-}" ]; then
-  echo "PROW_JOB_NAME is not set. Exiting."
-  exit 254
-fi
+## I'm not sure why this is here. But I don't want to remove it
+## until I'm sure that we don't need it.
+# if [ -z "${PROW_JOB_NAME:-}" ]; then
+#   echo "PROW_JOB_NAME is not set. Exiting."
+#   exit 254
+# fi
 
 echo "common.sh loaded"
