@@ -104,6 +104,7 @@ phases:
 
             while [ $attempt -le $max_attempts ]; do
                 echo "📝 Attempt $attempt/$max_attempts: Running terraform apply..."
+                echo "🔍 DEBUG: terraform apply -auto-approve $TF_VARS"
 
                 if terraform apply -auto-approve $TF_VARS; then
                     echo "✅ Terraform apply succeeded"

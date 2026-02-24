@@ -181,7 +181,7 @@ region_deployments:
   - name: "us-east-1"
     aws_region: "us-east-1"
     sector: "psav-central"
-    account_id: "<Regional account>"
+    account_id: "ssm:/infra/psav-central/us-east-1/account_id"
     terraform_vars:
       account_id: "{{ account_id }}"
       region: "{{ aws_region }}"
@@ -190,4 +190,4 @@ region_deployments:
       enable_bastion: true
     management_clusters:
       - cluster_id: "mc01-{{ region_alias }}"
-        account_id: "<Management Account>"
+        account_id: "ssm:/infra/psav-central/us-east-1/mc01/account_id"

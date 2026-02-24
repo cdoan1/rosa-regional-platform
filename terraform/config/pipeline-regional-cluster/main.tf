@@ -260,6 +260,14 @@ resource "aws_codebuild_project" "regional_validate" {
       name  = "REPOSITORY_BRANCH"
       value = var.repository_branch
     }
+    environment_variable {
+      name  = "ENVIRONMENT"
+      value = var.target_environment
+    }
+    environment_variable {
+      name  = "ENABLE_BASTION"
+      value = var.enable_bastion ? "true" : "false"
+    }
   }
 
   source {

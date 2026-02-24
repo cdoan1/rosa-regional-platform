@@ -129,8 +129,8 @@ phases:
             validate_target "$TARGET_ACCOUNT_ID" "$TARGET_REGION" "$TARGET_ALIAS"
         fi
 
-        # Process JSON Files
-        for file in deploy/*/*/terraform/regional.json; do
+        # Process JSON Files (scoped to current environment)
+        for file in deploy/${ENVIRONMENT}/*/terraform/regional.json; do
             [ -e "$file" ] || continue
 
             ACCOUNT_ID=$(jq -r '.account_id // ""' "$file")
