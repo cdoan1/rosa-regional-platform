@@ -15,22 +15,21 @@ set -euo pipefail
 # - GitHub repository set up
 #
 # Usage:
-#   ./bootstrap-central-account.sh [GITHUB_REPO_OWNER] [GITHUB_REPO_NAME] [GITHUB_BRANCH]
+#   GITHUB_REPOSITORY=owner/repo GITHUB_BRANCH=main ./bootstrap-central-account.sh
 #
-#   Or use environment variables:
-#   GITHUB_REPO_OWNER=myorg GITHUB_REPO_NAME=myrepo ./bootstrap-central-account.sh
+#   Or with command-line arguments:
+#   ./bootstrap-central-account.sh owner/repo main staging
 # =============================================================================
 
 # Show usage
 show_usage() {
     cat <<EOF
-Usage: $0 [OPTIONS] [GITHUB_REPO_OWNER] [GITHUB_REPO_NAME] [GITHUB_BRANCH] [ENVIRONMENT]
+Usage: $0 [OPTIONS] [GITHUB_REPOSITORY] [GITHUB_BRANCH] [ENVIRONMENT]
 
 Bootstrap the central AWS account with pipeline infrastructure.
 
 ARGUMENTS:
-    GITHUB_REPO_OWNER    GitHub organization or user (default: 'openshift-online')
-    GITHUB_REPO_NAME     Repository name (e.g., 'rosa-regional-platform')
+    GITHUB_REPOSITORY    GitHub repository in owner/name format (default: 'openshift-online/rosa-regional-platform')
     GITHUB_BRANCH        Branch name (default: 'main')
     ENVIRONMENT          Environment to monitor (e.g., integration, staging, production) (default: 'staging')
 
@@ -38,23 +37,20 @@ OPTIONS:
     -h, --help          Show this help message
 
 ENVIRONMENT VARIABLES:
-    GITHUB_REPO_OWNER   GitHub repository owner (default: openshift-online)
-    GITHUB_REPO_NAME    GitHub repository name
+    GITHUB_REPOSITORY   GitHub repository in owner/name format (e.g., 'theautoroboto/rosa-regional-platform')
     GITHUB_BRANCH       Git branch to track (default: main)
     TARGET_ENVIRONMENT  Environment to monitor (default: staging)
     AWS_PROFILE         AWS CLI profile to use
 
 EXAMPLES:
+    # With environment variables (recommended)
+    GITHUB_REPOSITORY=theautoroboto/rosa-regional-platform GITHUB_BRANCH=bugfix-environment TARGET_ENVIRONMENT=brian $0
+
+    # With command-line arguments
+    $0 custom-org/rosa-regional-platform feature-branch staging
+
+    # Using defaults (openshift-online/rosa-regional-platform, main, staging)
     $0
-
-    # With command-line arguments (custom owner, branch, and environment)
-    $0 custom-org rosa-regional-platform feature-branch staging
-
-    # With environment variables
-    TARGET_ENVIRONMENT=integration GITHUB_REPO_NAME=rosa-regional-platform $0
-
-    # Override only the owner (uses default branch: main, environment: staging)
-    $0 custom-org rosa-regional-platform
 EOF
 }
 
@@ -123,21 +119,20 @@ echo ""
 # Parse command-line arguments or use environment variables (no interactive prompts)
 if [ $# -ge 1 ]; then
     # Command-line arguments provided
-    GITHUB_REPO_OWNER="$1"
-    GITHUB_REPO_NAME="${2:-}"
-    GITHUB_BRANCH="${3:-main}"
-    TARGET_ENVIRONMENT="${4:-}"
+    GITHUB_REPOSITORY="$1"
+    GITHUB_BRANCH="${2:-main}"
+    TARGET_ENVIRONMENT="${3:-}"
 fi
 
 # Set defaults for optional parameters
-GITHUB_REPO_OWNER="${GITHUB_REPO_OWNER:-openshift-online}"
+GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-openshift-online/rosa-regional-platform}"
 GITHUB_BRANCH="${GITHUB_BRANCH:-main}"
 TARGET_ENVIRONMENT="${TARGET_ENVIRONMENT:-staging}"
 
-# Validate required inputs
-if [ -z "$GITHUB_REPO_NAME" ]; then
-    echo "❌ Error: GitHub Repository Name is required"
-    echo "   Provide via: command-line argument, environment variable, or interactive prompt"
+# Validate repository format (must be owner/name)
+if [[ ! "$GITHUB_REPOSITORY" =~ ^[^/]+/[^/]+$ ]]; then
+    echo "❌ Error: GITHUB_REPOSITORY must be in 'owner/name' format"
+    echo "   Example: theautoroboto/rosa-regional-platform"
     exit 1
 fi
 
@@ -145,7 +140,7 @@ echo ""
 echo "Configuration:"
 echo "  Central Account ID: $ACCOUNT_ID"
 echo "  AWS Region:         $REGION"
-echo "  GitHub Repo:        $GITHUB_REPO_OWNER/$GITHUB_REPO_NAME"
+echo "  GitHub Repo:        $GITHUB_REPOSITORY"
 echo "  GitHub Branch:      $GITHUB_BRANCH"
 echo "  Target Environment: $TARGET_ENVIRONMENT"
 echo ""
@@ -179,8 +174,7 @@ terraform init -reconfigure \
 
 # Create tfvars file
 cat > terraform.tfvars <<EOF
-github_repo_owner = "${GITHUB_REPO_OWNER}"
-github_repo_name  = "${GITHUB_REPO_NAME}"
+github_repository = "${GITHUB_REPOSITORY}"
 github_branch     = "${GITHUB_BRANCH}"
 region            = "${REGION}"
 environment       = "${TARGET_ENVIRONMENT}"

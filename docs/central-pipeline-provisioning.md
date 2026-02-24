@@ -160,10 +160,10 @@ export AWS_PROFILE=<central-profile>
 # OR: use your SSO/assume role method
 
 # Bootstrap the pipeline
-GITHUB_REPO_OWNER=<ORG> GITHUB_REPO_NAME=rosa-regional-platform GITHUB_BRANCH=<BRANCH> TARGET_ENVIRONMENT=<SECTOR> ./scripts/bootstrap-central-account.sh
+GITHUB_REPOSITORY=<ORG>/rosa-regional-platform GITHUB_BRANCH=<BRANCH> TARGET_ENVIRONMENT=<SECTOR> ./scripts/bootstrap-central-account.sh
 
 # Example
-GITHUB_REPO_OWNER=cdoan1 GITHUB_REPO_NAME=rosa-regional-platform GITHUB_BRANCH=process-doc TARGET_ENVIRONMENT=cdoan-central ./scripts/bootstrap-central-account.sh
+GITHUB_REPOSITORY=cdoan1/rosa-regional-platform GITHUB_BRANCH=process-doc TARGET_ENVIRONMENT=cdoan-central ./scripts/bootstrap-central-account.sh
 
 ```
 

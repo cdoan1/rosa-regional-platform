@@ -1,11 +1,10 @@
-variable "github_repo_owner" {
+variable "github_repository" {
   type        = string
-  description = "GitHub Repository Owner"
-}
-
-variable "github_repo_name" {
-  type        = string
-  description = "GitHub Repository Name"
+  description = "GitHub Repository in owner/name format (e.g., 'octocat/hello-world')"
+  validation {
+    condition     = can(regex("^[^/]+/[^/]+$", var.github_repository))
+    error_message = "github_repository must be in 'owner/name' format"
+  }
 }
 
 variable "github_branch" {

@@ -64,11 +64,11 @@ terraform-output-regional:
 # =============================================================================
 
 # Bootstrap central AWS account with Terraform state and pipeline infrastructure
-# Usage: make bootstrap-central-account GITHUB_REPO_NAME=repo-name [GITHUB_REPO_OWNER=owner] [GITHUB_BRANCH=branch]
-# Or: make bootstrap-central-account (interactive mode)
+# Usage: make bootstrap-central-account GITHUB_REPOSITORY=owner/repo [GITHUB_BRANCH=branch] [TARGET_ENVIRONMENT=env]
+# Or: make bootstrap-central-account (uses defaults)
 bootstrap-central-account:
-	@if [ -n "$(GITHUB_REPO_NAME)" ]; then \
-		scripts/bootstrap-central-account.sh $(GITHUB_REPO_OWNER) $(GITHUB_REPO_NAME) $(GITHUB_BRANCH); \
+	@if [ -n "$(GITHUB_REPOSITORY)" ]; then \
+		scripts/bootstrap-central-account.sh "$(GITHUB_REPOSITORY)" "$(GITHUB_BRANCH)" "$(TARGET_ENVIRONMENT)"; \
 	else \
 		scripts/bootstrap-central-account.sh; \
 	fi
