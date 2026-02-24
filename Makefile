@@ -1,4 +1,4 @@
-.PHONY: help terraform-fmt terraform-upgrade terraform-output-management terraform-output-regional provision-management provision-regional apply-infra-management apply-infra-regional provision-maestro-agent-iot-regional provision-maestro-agent-iot-management cleanup-maestro-agent-iot destroy-management destroy-regional build-platform-image test test-e2e
+.PHONY: help terraform-fmt terraform-init terraform-validate terraform-upgrade terraform-output-management terraform-output-regional provision-management provision-regional apply-infra-management apply-infra-regional provision-maestro-agent-iot-regional provision-maestro-agent-iot-management cleanup-maestro-agent-iot destroy-management destroy-regional build-platform-image test-e2e helm-lint check-rendered-files
 
 # Default target
 help:
@@ -26,8 +26,10 @@ help:
 	@echo "  terraform-output-management      - Get the Terraform output for the Management Cluster"
 	@echo "  terraform-output-regional        - Get the Terraform output for the Regional Cluster"
 	@echo ""
-	@echo "🧪 Testing:"
-	@echo "  test                             - Run tests"
+	@echo "🧪 Validation & Testing:"
+	@echo "  terraform-validate               - Check formatting and validate all Terraform configs"
+	@echo "  helm-lint                        - Lint all Helm charts"
+	@echo "  check-rendered-files             - Verify deploy/ is up to date with config.yaml"
 	@echo "  test-e2e                         - Run end-to-end tests"
 	@echo ""
 	@echo "  help                             - Show this help message"
@@ -289,14 +291,91 @@ build-platform-image:
 	@scripts/build-platform-image.sh
 
 # =============================================================================
-# Testing Targets
+# Validation & Testing Targets
 # =============================================================================
 
-# Run tests
-test:
-	@echo "🧪 Running tests..."
-	@./test/execute-prow-job.sh
-	@echo "✅ Tests complete"
+# Initialize all Terraform configurations (no backend)
+terraform-init:
+	@echo "🔧 Initializing Terraform configurations..."
+	@for dir in $(TERRAFORM_DIRS); do \
+		echo "   Initializing $$dir"; \
+		if ! terraform -chdir=$$dir init -backend=false; then \
+			echo "   ❌ Init failed in $$dir"; \
+			exit 1; \
+		fi; \
+	done
+	@echo "✅ Terraform initialization complete"
+
+# Check formatting and validate all Terraform configurations
+terraform-validate: terraform-init
+	@echo "🔍 Checking Terraform formatting..."
+	@failed=0; \
+	for dir in $(TERRAFORM_DIRS); do \
+		echo "   Checking formatting in $$dir"; \
+		if ! terraform -chdir=$$dir fmt -check -recursive; then \
+			echo "   ❌ Formatting check failed in $$dir"; \
+			failed=1; \
+		fi; \
+	done; \
+	if [ "$$failed" -ne 0 ]; then \
+		echo "❌ Terraform formatting check failed for one or more directories"; \
+		echo "   Run 'make terraform-fmt' to fix formatting."; \
+		exit 1; \
+	fi
+	@echo "🔍 Validating Terraform configurations..."
+	@failed=0; \
+	for dir in $(TERRAFORM_DIRS); do \
+		echo "   Validating $$dir"; \
+		if ! terraform -chdir=$$dir validate; then \
+			echo "   ❌ Validation failed in $$dir"; \
+			failed=1; \
+		fi; \
+	done; \
+	if [ "$$failed" -ne 0 ]; then \
+		echo "❌ Terraform validation failed for one or more directories"; \
+		exit 1; \
+	fi
+	@echo "✅ Terraform validation complete"
+
+# Lint all Helm charts under argocd/config/
+# Global values (aws_region, environment, cluster_type) are injected by the
+# ApplicationSet at deploy time, so we supply stubs here for linting.
+HELM_LINT_SET := --set global.aws_region=us-east-1 --set global.environment=lint --set global.cluster_type=lint
+helm-lint:
+	@echo "🔍 Linting Helm charts..."
+	@failed=false; \
+	for chart_dir in $$(find argocd/config -name "Chart.yaml" -exec dirname {} \; | sort); do \
+		echo "   Linting $$chart_dir"; \
+		if ! helm lint $$chart_dir $(HELM_LINT_SET); then \
+			failed=true; \
+		fi; \
+	done; \
+	if [ "$$failed" = true ]; then \
+		echo "❌ Helm lint failed for one or more charts"; \
+		exit 1; \
+	fi
+	@echo "✅ Helm lint complete"
+
+# Verify rendered files in deploy/ are up to date with config.yaml
+check-rendered-files:
+	@echo "🔍 Rendering deploy/ from config.yaml..."
+	@uv run scripts/render.py
+	@echo "Checking for uncommitted changes in deploy/..."
+	@if ! git diff --exit-code deploy/; then \
+		echo ""; \
+		echo "❌ Rendered files in deploy/ are out of date."; \
+		echo "   Run 'uv run scripts/render.py' and commit the results."; \
+		exit 1; \
+	fi
+	@untracked=$$(git ls-files --others --exclude-standard deploy/); \
+	if [ -n "$$untracked" ]; then \
+		echo ""; \
+		echo "❌ Untracked rendered files found in deploy/:"; \
+		echo "$$untracked"; \
+		echo "   Run 'uv run scripts/render.py' and 'git add' the new files."; \
+		exit 1; \
+	fi
+	@echo "✅ Rendered files are up to date"
 
 # Run end-to-end tests
 test-e2e:
