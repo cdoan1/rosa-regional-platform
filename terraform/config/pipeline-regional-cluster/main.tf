@@ -216,46 +216,57 @@ resource "aws_codebuild_project" "regional_validate" {
     type                        = "LINUX_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
 
+    # GitHub repository owner/organization
     environment_variable {
       name  = "GITHUB_REPO_OWNER"
       value = var.github_repo_owner
     }
+    # GitHub repository name
     environment_variable {
       name  = "GITHUB_REPO_NAME"
       value = var.github_repo_name
     }
+    # Git branch to monitor for pipeline triggers
     environment_variable {
       name  = "GITHUB_BRANCH"
       value = var.github_branch
     }
+    # AWS account ID where resources will be deployed
     environment_variable {
       name  = "TARGET_ACCOUNT_ID"
       value = var.target_account_id
     }
+    # AWS region for deployment
     environment_variable {
       name  = "TARGET_REGION"
       value = var.target_region
     }
+    # Human-readable alias for the target environment
     environment_variable {
       name  = "TARGET_ALIAS"
       value = var.target_alias
     }
+    # Application code for resource tagging
     environment_variable {
       name  = "APP_CODE"
       value = var.app_code
     }
+    # Service phase (dev/staging/prod)
     environment_variable {
       name  = "SERVICE_PHASE"
       value = var.service_phase
     }
+    # Cost center for billing attribution
     environment_variable {
       name  = "COST_CENTER"
       value = var.cost_center
     }
+    # Git repository URL for ArgoCD to sync
     environment_variable {
       name  = "REPOSITORY_URL"
       value = var.repository_url
     }
+    # Git branch for ArgoCD to track
     environment_variable {
       name  = "REPOSITORY_BRANCH"
       value = var.repository_branch
@@ -284,54 +295,67 @@ resource "aws_codebuild_project" "regional_apply" {
     type                        = "LINUX_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
 
+    # GitHub repository owner/organization
     environment_variable {
       name  = "GITHUB_REPO_OWNER"
       value = var.github_repo_owner
     }
+    # GitHub repository name
     environment_variable {
       name  = "GITHUB_REPO_NAME"
       value = var.github_repo_name
     }
+    # Git branch to monitor for pipeline triggers
     environment_variable {
       name  = "GITHUB_BRANCH"
       value = var.github_branch
     }
+    # AWS account ID where resources will be deployed
     environment_variable {
       name  = "TARGET_ACCOUNT_ID"
       value = var.target_account_id
     }
+    # AWS region for deployment
     environment_variable {
       name  = "TARGET_REGION"
       value = var.target_region
     }
+    # Human-readable alias for the target environment
     environment_variable {
       name  = "TARGET_ALIAS"
       value = var.target_alias
     }
+    # Application code for resource tagging
     environment_variable {
       name  = "APP_CODE"
       value = var.app_code
     }
+    # Service phase (dev/staging/prod)
     environment_variable {
       name  = "SERVICE_PHASE"
       value = var.service_phase
     }
+    # Cost center for billing attribution
     environment_variable {
       name  = "COST_CENTER"
       value = var.cost_center
     }
+    # Git repository URL for ArgoCD to sync
     environment_variable {
       name  = "REPOSITORY_URL"
       value = var.repository_url
     }
+    # Git branch for ArgoCD to track
     environment_variable {
       name  = "REPOSITORY_BRANCH"
       value = var.repository_branch
     }
+    # Target environment name (dev/staging/prod)
     environment_variable {
       name  = "ENVIRONMENT"
       value = var.target_environment
     }
+    # Enable bastion host for cluster access
     environment_variable {
       name  = "ENABLE_BASTION"
       value = var.enable_bastion ? "true" : "false"
@@ -360,42 +384,52 @@ resource "aws_codebuild_project" "regional_bootstrap" {
     type                        = "LINUX_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
 
+    # GitHub repository owner/organization
     environment_variable {
       name  = "GITHUB_REPO_OWNER"
       value = var.github_repo_owner
     }
+    # GitHub repository name
     environment_variable {
       name  = "GITHUB_REPO_NAME"
       value = var.github_repo_name
     }
+    # Git branch to monitor for pipeline triggers
     environment_variable {
       name  = "GITHUB_BRANCH"
       value = var.github_branch
     }
+    # AWS account ID where resources will be deployed
     environment_variable {
       name  = "TARGET_ACCOUNT_ID"
       value = var.target_account_id
     }
+    # Human-readable alias for the target environment
     environment_variable {
       name  = "TARGET_ALIAS"
       value = var.target_alias
     }
+    # AWS region for deployment
     environment_variable {
       name  = "TARGET_REGION"
       value = var.target_region
     }
+    # Target environment name (dev/staging/prod)
     environment_variable {
       name  = "ENVIRONMENT"
       value = var.target_environment
     }
+    # AWS region for SDK/CLI operations
     environment_variable {
       name  = "AWS_REGION"
       value = var.target_region
     }
+    # Git repository URL for ArgoCD to sync
     environment_variable {
       name  = "REPOSITORY_URL"
       value = var.repository_url
     }
+    # Git branch for ArgoCD to track
     environment_variable {
       name  = "REPOSITORY_BRANCH"
       value = var.repository_branch

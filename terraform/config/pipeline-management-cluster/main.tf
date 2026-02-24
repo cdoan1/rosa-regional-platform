@@ -345,42 +345,72 @@ resource "aws_codebuild_project" "management_validate" {
     type                        = "LINUX_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
 
+    # GitHub organization or user name
+    environment_variable {
+      name  = "GITHUB_REPO_OWNER"
+      value = var.github_repo_owner
+    }
+    # GitHub repository name
+    environment_variable {
+      name  = "GITHUB_REPO_NAME"
+      value = var.github_repo_name
+    }
+    # Git branch to trigger builds from
+    environment_variable {
+      name  = "GITHUB_BRANCH"
+      value = var.github_branch
+    }
+    # CodeStar connection ARN for GitHub access
+    environment_variable {
+      name  = "GITHUB_CONNECTION_ARN"
+      value = var.github_connection_arn
+    }
+    # AWS account where Management Cluster will be deployed
     environment_variable {
       name  = "TARGET_ACCOUNT_ID"
       value = var.target_account_id
     }
+    # AWS region for Management Cluster deployment
     environment_variable {
       name  = "TARGET_REGION"
       value = var.target_region
     }
+    # Unique identifier for deploying multiple clusters per region
     environment_variable {
       name  = "TARGET_ALIAS"
       value = var.target_alias
     }
+    # Application code for resource tagging
     environment_variable {
       name  = "APP_CODE"
       value = var.app_code
     }
+    # Service phase for resource tagging
     environment_variable {
       name  = "SERVICE_PHASE"
       value = var.service_phase
     }
+    # Cost center for resource tagging
     environment_variable {
       name  = "COST_CENTER"
       value = var.cost_center
     }
+    # Git repository URL for ArgoCD configuration
     environment_variable {
       name  = "REPOSITORY_URL"
       value = var.repository_url
     }
+    # Git branch for ArgoCD configuration
     environment_variable {
       name  = "REPOSITORY_BRANCH"
       value = var.repository_branch
     }
+    # Logical ID for registering with Regional Cluster
     environment_variable {
       name  = "CLUSTER_ID"
       value = var.cluster_id
     }
+    # AWS account hosting the Regional Cluster
     environment_variable {
       name  = "REGIONAL_AWS_ACCOUNT_ID"
       value = var.regional_aws_account_id
@@ -409,50 +439,62 @@ resource "aws_codebuild_project" "management_apply" {
     type                        = "LINUX_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
 
+    # AWS account where Management Cluster will be deployed
     environment_variable {
       name  = "TARGET_ACCOUNT_ID"
       value = var.target_account_id
     }
+    # AWS region for Management Cluster deployment
     environment_variable {
       name  = "TARGET_REGION"
       value = var.target_region
     }
+    # Unique identifier for deploying multiple clusters per region
     environment_variable {
       name  = "TARGET_ALIAS"
       value = var.target_alias
     }
+    # Application code for resource tagging
     environment_variable {
       name  = "APP_CODE"
       value = var.app_code
     }
+    # Service phase for resource tagging
     environment_variable {
       name  = "SERVICE_PHASE"
       value = var.service_phase
     }
+    # Cost center for resource tagging
     environment_variable {
       name  = "COST_CENTER"
       value = var.cost_center
     }
+    # Git repository URL for ArgoCD configuration
     environment_variable {
       name  = "REPOSITORY_URL"
       value = var.repository_url
     }
+    # Git branch for ArgoCD configuration
     environment_variable {
       name  = "REPOSITORY_BRANCH"
       value = var.repository_branch
     }
+    # Logical ID for registering with Regional Cluster
     environment_variable {
       name  = "CLUSTER_ID"
       value = var.cluster_id
     }
+    # AWS account hosting the Regional Cluster
     environment_variable {
       name  = "REGIONAL_AWS_ACCOUNT_ID"
       value = var.regional_aws_account_id
     }
+    # Environment name (staging/production)
     environment_variable {
       name  = "ENVIRONMENT"
       value = var.target_environment
     }
+    # Whether to provision a bastion host
     environment_variable {
       name  = "ENABLE_BASTION"
       value = var.enable_bastion ? "true" : "false"
@@ -482,30 +524,37 @@ resource "aws_codebuild_project" "management_bootstrap" {
     image_pull_credentials_type = "CODEBUILD"
     privileged_mode             = true # Required for Docker builds
 
+    # AWS account where Management Cluster is deployed
     environment_variable {
       name  = "TARGET_ACCOUNT_ID"
       value = var.target_account_id
     }
+    # Unique identifier for the cluster
     environment_variable {
       name  = "TARGET_ALIAS"
       value = var.target_alias
     }
+    # AWS region for bootstrap operations
     environment_variable {
       name  = "TARGET_REGION"
       value = var.target_region
     }
+    # Environment name (staging/production)
     environment_variable {
       name  = "ENVIRONMENT"
       value = var.target_environment
     }
+    # AWS region for SDK/CLI operations
     environment_variable {
       name  = "AWS_REGION"
       value = var.target_region
     }
+    # Git repository URL for ArgoCD bootstrap
     environment_variable {
       name  = "REPOSITORY_URL"
       value = var.repository_url
     }
+    # Git branch for ArgoCD bootstrap
     environment_variable {
       name  = "REPOSITORY_BRANCH"
       value = var.repository_branch
