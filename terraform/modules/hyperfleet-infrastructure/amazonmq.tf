@@ -87,8 +87,8 @@ resource "aws_mq_broker" "hyperfleet" {
   # Network configuration
   # For SINGLE_INSTANCE: uses first subnet
   # For CLUSTER_MULTI_AZ: uses first two subnets (requires 2 AZs)
-  subnet_ids         = var.mq_deployment_mode == "CLUSTER_MULTI_AZ" ? slice(var.private_subnets, 0, 2) : [var.private_subnets[0]]
-  security_groups    = [aws_security_group.hyperfleet_mq.id]
+  subnet_ids          = var.mq_deployment_mode == "CLUSTER_MULTI_AZ" ? slice(var.private_subnets, 0, 2) : [var.private_subnets[0]]
+  security_groups     = [aws_security_group.hyperfleet_mq.id]
   publicly_accessible = false
 
   # Authentication
