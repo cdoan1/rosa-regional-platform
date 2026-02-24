@@ -19,7 +19,6 @@ locals {
   artifact_bucket_name   = "rc-${local.resource_hash}-${local.account_suffix}" # 24 chars
   codebuild_role_name    = "rc-cb-${local.resource_hash}"                      # 18 chars
   codepipeline_role_name = "rc-cp-${local.resource_hash}"                      # 18 chars
-  validate_project_name  = "rc-val-${local.resource_hash}"                     # 19 chars
   apply_project_name     = "rc-app-${local.resource_hash}"                     # 19 chars
   bootstrap_project_name = "rc-boot-${local.resource_hash}"                    # 21 chars
   pipeline_name          = "rc-pipe-${local.resource_hash}"                    # 20 chars
@@ -140,7 +139,6 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
           "codebuild:StartBuild"
         ]
         Resource = [
-          aws_codebuild_project.regional_validate.arn,
           aws_codebuild_project.regional_apply.arn,
           aws_codebuild_project.regional_bootstrap.arn
         ]
@@ -201,90 +199,6 @@ resource "aws_s3_bucket_public_access_block" "pipeline_artifact" {
   ignore_public_acls      = true
   block_public_policy     = true
   restrict_public_buckets = true
-}
-
-# CodeBuild Project - Validate
-resource "aws_codebuild_project" "regional_validate" {
-  name          = local.validate_project_name
-  service_role  = aws_iam_role.codebuild_role.arn
-  build_timeout = 30
-
-  artifacts {
-    type = "CODEPIPELINE"
-  }
-
-  environment {
-    compute_type                = "BUILD_GENERAL1_SMALL"
-    image                       = "aws/codebuild/amazonlinux2-x86_64-standard:4.0"
-    type                        = "LINUX_CONTAINER"
-    image_pull_credentials_type = "CODEBUILD"
-
-    # GitHub repository in owner/name format
-    environment_variable {
-      name  = "GITHUB_REPOSITORY"
-      value = var.github_repository
-    }
-    # Git branch to monitor for pipeline triggers
-    environment_variable {
-      name  = "GITHUB_BRANCH"
-      value = var.github_branch
-    }
-    # AWS account ID where resources will be deployed
-    environment_variable {
-      name  = "TARGET_ACCOUNT_ID"
-      value = var.target_account_id
-    }
-    # AWS region for deployment
-    environment_variable {
-      name  = "TARGET_REGION"
-      value = var.target_region
-    }
-    # Human-readable alias for the target environment
-    environment_variable {
-      name  = "TARGET_ALIAS"
-      value = var.target_alias
-    }
-    # Application code for resource tagging
-    environment_variable {
-      name  = "APP_CODE"
-      value = var.app_code
-    }
-    # Service phase (dev/staging/prod)
-    environment_variable {
-      name  = "SERVICE_PHASE"
-      value = var.service_phase
-    }
-    # Cost center for billing attribution
-    environment_variable {
-      name  = "COST_CENTER"
-      value = var.cost_center
-    }
-    # Git repository URL for ArgoCD to sync
-    environment_variable {
-      name  = "REPOSITORY_URL"
-      value = var.repository_url
-    }
-    # Git branch for ArgoCD to track
-    environment_variable {
-      name  = "REPOSITORY_BRANCH"
-      value = var.repository_branch
-    }
-    # Target environment name (dev/staging/prod)
-    environment_variable {
-      name  = "ENVIRONMENT"
-      value = var.target_environment
-    }
-    # Enable bastion host for cluster access
-    environment_variable {
-      name  = "ENABLE_BASTION"
-      value = var.enable_bastion ? "true" : "false"
-    }
-  }
-
-  source {
-    type      = "CODEPIPELINE"
-    buildspec = "terraform/config/pipeline-regional-cluster/buildspec-validate.yml"
-  }
 }
 
 # CodeBuild Project - Apply
@@ -482,24 +396,6 @@ resource "aws_codepipeline" "central_pipeline" {
   }
 
   stage {
-    name = "Validate"
-
-    action {
-      name             = "ValidateAndPlan"
-      category         = "Build"
-      owner            = "AWS"
-      provider         = "CodeBuild"
-      input_artifacts  = ["source_output"]
-      output_artifacts = ["validate_output"]
-      version          = "1"
-
-      configuration = {
-        ProjectName = aws_codebuild_project.regional_validate.name
-      }
-    }
-  }
-
-  stage {
     name = "Deploy"
 
     action {
@@ -507,7 +403,7 @@ resource "aws_codepipeline" "central_pipeline" {
       category         = "Build"
       owner            = "AWS"
       provider         = "CodeBuild"
-      input_artifacts  = ["validate_output"]
+      input_artifacts  = ["source_output"]
       output_artifacts = ["apply_output"]
       version          = "1"
 
