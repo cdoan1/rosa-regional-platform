@@ -208,12 +208,8 @@ resource "aws_codebuild_project" "provisioner" {
     image_pull_credentials_type = "CODEBUILD"
 
     environment_variable {
-      name  = "GITHUB_REPO_OWNER"
-      value = var.github_repo_owner
-    }
-    environment_variable {
-      name  = "GITHUB_REPO_NAME"
-      value = var.github_repo_name
+      name  = "GITHUB_REPOSITORY"
+      value = var.github_repository
     }
     environment_variable {
       name  = "GITHUB_BRANCH"
@@ -280,7 +276,7 @@ resource "aws_codepipeline" "provisioner" {
 
       configuration = {
         ConnectionArn    = data.aws_codestarconnections_connection.github.arn
-        FullRepositoryId = "${var.github_repo_owner}/${var.github_repo_name}"
+        FullRepositoryId = var.github_repository
         BranchName       = var.github_branch
         DetectChanges    = "true"
       }

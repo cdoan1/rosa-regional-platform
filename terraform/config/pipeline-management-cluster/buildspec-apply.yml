@@ -74,7 +74,7 @@ phases:
         # Use REPOSITORY_BRANCH (from CodeBuild env vars) or GITHUB_BRANCH instead
         _REPO_URL="${REPOSITORY_URL:-}"
         _REPO_BRANCH="${REPOSITORY_BRANCH:-${GITHUB_BRANCH:-main}}"
-        export TF_VAR_repository_url="${REPOSITORY_URL:-https://github.com/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}.git}"
+        export TF_VAR_repository_url="${REPOSITORY_URL:-https://github.com/${GITHUB_REPOSITORY}.git}"
         export TF_VAR_repository_branch="${_REPO_BRANCH}"
 
         export TF_VAR_target_account_id="${TARGET_ACCOUNT_ID}"

@@ -62,7 +62,7 @@ validate_target() {
     export TF_VAR_app_code="${APP_CODE:-infra}"
     export TF_VAR_service_phase="${SERVICE_PHASE:-prod}"
     export TF_VAR_cost_center="${COST_CENTER:-000}"
-    export TF_VAR_repository_url="${REPOSITORY_URL:-https://github.com/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}.git}"
+    export TF_VAR_repository_url="${REPOSITORY_URL:-https://github.com/${GITHUB_REPOSITORY}.git}"
     export TF_VAR_repository_branch="${REPOSITORY_BRANCH:-${GITHUB_BRANCH:-main}}"
 
     # Export Cluster-Specific Variables

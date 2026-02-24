@@ -23,6 +23,9 @@ locals {
   apply_project_name     = "mc-app-${local.resource_hash}"                     # 19 chars
   bootstrap_project_name = "mc-boot-${local.resource_hash}"                    # 21 chars
   pipeline_name          = "mc-pipe-${local.resource_hash}"                    # 20 chars
+
+  # Repository URL constructed from github_repository variable
+  repository_url = "https://github.com/${var.github_repository}.git"
 }
 
 # Use shared GitHub Connection (passed from pipeline-provisioner)
@@ -345,15 +348,10 @@ resource "aws_codebuild_project" "management_validate" {
     type                        = "LINUX_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
 
-    # GitHub organization or user name
+    # GitHub repository in owner/name format
     environment_variable {
-      name  = "GITHUB_REPO_OWNER"
-      value = var.github_repo_owner
-    }
-    # GitHub repository name
-    environment_variable {
-      name  = "GITHUB_REPO_NAME"
-      value = var.github_repo_name
+      name  = "GITHUB_REPOSITORY"
+      value = var.github_repository
     }
     # Git branch to trigger builds from
     environment_variable {
@@ -624,7 +622,7 @@ resource "aws_codepipeline" "regional_pipeline" {
 
       configuration = {
         ConnectionArn    = data.aws_codestarconnections_connection.github.arn
-        FullRepositoryId = "${var.github_repo_owner}/${var.github_repo_name}"
+        FullRepositoryId = var.github_repository
         BranchName       = var.github_branch
       }
     }
