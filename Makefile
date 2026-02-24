@@ -68,7 +68,7 @@ terraform-output-regional:
 # Or: make bootstrap-central-account (uses defaults)
 bootstrap-central-account:
 	@if [ -n "$(GITHUB_REPOSITORY)" ]; then \
-		scripts/bootstrap-central-account.sh $(GITHUB_REPOSITORY) $(GITHUB_BRANCH) $(TARGET_ENVIRONMENT); \
+		scripts/bootstrap-central-account.sh "$(GITHUB_REPOSITORY)" "$(GITHUB_BRANCH)" "$(TARGET_ENVIRONMENT)"; \
 	else \
 		scripts/bootstrap-central-account.sh; \
 	fi
