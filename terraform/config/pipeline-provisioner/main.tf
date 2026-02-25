@@ -84,16 +84,15 @@ resource "aws_iam_role_policy" "codebuild_policy" {
       {
         Effect = "Allow"
         Action = [
-          "ecr:GetAuthorizationToken",
-          "ecr:BatchGetImage",
-          "ecr:GetDownloadUrlForLayer",
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:DescribeRepositories",
-          "ecr:DescribeImages",
-          "ecr:PutImage",
-          "ecr:InitiateLayerUpload",
-          "ecr:UploadLayerPart",
-          "ecr:CompleteLayerUpload"
+          "ecr-public:GetAuthorizationToken",
+          "ecr-public:DescribeRepositories",
+          "ecr-public:DescribeImages",
+          "ecr-public:BatchCheckLayerAvailability",
+          "ecr-public:PutImage",
+          "ecr-public:InitiateLayerUpload",
+          "ecr-public:UploadLayerPart",
+          "ecr-public:CompleteLayerUpload",
+          "sts:GetServiceBearerToken"
         ]
         Resource = "*"
       }
@@ -224,7 +223,7 @@ resource "aws_codebuild_project" "provisioner" {
     compute_type                = "BUILD_GENERAL1_SMALL"
     image                       = var.codebuild_image
     type                        = "LINUX_CONTAINER"
-    image_pull_credentials_type = "SERVICE_ROLE"
+    image_pull_credentials_type = "CODEBUILD"
 
     environment_variable {
       name  = "GITHUB_REPOSITORY"
@@ -243,7 +242,7 @@ resource "aws_codebuild_project" "provisioner" {
       value = data.aws_codestarconnections_connection.github.arn
     }
     environment_variable {
-      name  = "CODEBUILD_IMAGE"
+      name  = "PLATFORM_IMAGE"
       value = var.codebuild_image
     }
   }
@@ -334,13 +333,12 @@ resource "aws_codepipeline" "provisioner" {
     name = "Build-Platform-Image"
 
     action {
-      name             = "BuildPlatformImage"
-      category         = "Build"
-      owner            = "AWS"
-      provider         = "CodeBuild"
-      input_artifacts  = ["source_output"]
-      output_artifacts = ["build_image_output"]
-      version          = "1"
+      name            = "BuildPlatformImage"
+      category        = "Build"
+      owner           = "AWS"
+      provider        = "CodeBuild"
+      input_artifacts = ["source_output"]
+      version         = "1"
 
       configuration = {
         ProjectName = aws_codebuild_project.build_platform_image.name
@@ -352,13 +350,12 @@ resource "aws_codepipeline" "provisioner" {
     name = "Provision"
 
     action {
-      name             = "ProvisionPipelines"
-      category         = "Build"
-      owner            = "AWS"
-      provider         = "CodeBuild"
-      input_artifacts  = ["source_output"]
-      output_artifacts = ["provision_output"]
-      version          = "1"
+      name            = "ProvisionPipelines"
+      category        = "Build"
+      owner           = "AWS"
+      provider        = "CodeBuild"
+      input_artifacts = ["source_output"]
+      version         = "1"
 
       configuration = {
         ProjectName = aws_codebuild_project.provisioner.name

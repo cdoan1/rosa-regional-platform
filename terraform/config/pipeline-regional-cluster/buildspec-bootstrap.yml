@@ -48,5 +48,4 @@ phases:
       - echo "Regional cluster is now fully provisioned and ready for use."
 
 artifacts:
-  files:
-    - '**/*'
+  files: []

@@ -55,6 +55,9 @@ phases:
 
         export TF_VAR_api_additional_allowed_accounts="${TARGET_ACCOUNT_ID}"
 
+        # Set container image for ECS tasks (bastion and bootstrap)
+        export TF_VAR_container_image="${PLATFORM_IMAGE}"
+
         # Set enable_bastion variable (default to false if not set)
         ENABLE_BASTION="${ENABLE_BASTION:-false}"
         if [ "$ENABLE_BASTION" == "true" ] || [ "$ENABLE_BASTION" == "1" ]; then

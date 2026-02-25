@@ -4,8 +4,8 @@ output "container_image" {
 }
 
 output "ecr_repository_url" {
-  description = "ECR repository URL"
-  value       = aws_ecr_repository.platform.repository_url
+  description = "Public ECR repository URL"
+  value       = aws_ecrpublic_repository.platform.repository_uri
 }
 
 output "image_tag" {

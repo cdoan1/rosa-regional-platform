@@ -118,31 +118,6 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "ecs:StopTask",
           "ecs:DescribeTasks",
           "ecs:ListTasks",
-          # ECR - For platform image repository
-          "ecr:CreateRepository",
-          "ecr:DeleteRepository",
-          "ecr:DescribeRepositories",
-          "ecr:ListTagsForResource",
-          "ecr:TagResource",
-          "ecr:UntagResource",
-          "ecr:SetRepositoryPolicy",
-          "ecr:GetRepositoryPolicy",
-          "ecr:DeleteRepositoryPolicy",
-          "ecr:GetLifecyclePolicy",
-          "ecr:PutLifecyclePolicy",
-          "ecr:DeleteLifecyclePolicy",
-          "ecr:PutImageScanningConfiguration",
-          "ecr:PutImageTagMutability",
-          # ECR - For building and pushing platform images
-          "ecr:GetAuthorizationToken",
-          "ecr:DescribeImages",
-          "ecr:BatchGetImage",
-          "ecr:GetDownloadUrlForLayer",
-          "ecr:PutImage",
-          "ecr:InitiateLayerUpload",
-          "ecr:UploadLayerPart",
-          "ecr:CompleteLayerUpload",
-          "ecr:BatchCheckLayerAvailability",
           # Secrets Manager - For Maestro agent secrets
           "secretsmanager:*",
           # IAM - For creating cluster roles and policies
@@ -341,7 +316,7 @@ resource "aws_codebuild_project" "management_apply" {
     compute_type                = "BUILD_GENERAL1_SMALL"
     image                       = var.codebuild_image
     type                        = "LINUX_CONTAINER"
-    image_pull_credentials_type = "SERVICE_ROLE"
+    image_pull_credentials_type = "CODEBUILD"
 
     # AWS account where Management Cluster will be deployed
     environment_variable {
@@ -403,6 +378,10 @@ resource "aws_codebuild_project" "management_apply" {
       name  = "ENABLE_BASTION"
       value = var.enable_bastion ? "true" : "false"
     }
+    environment_variable {
+      name  = "PLATFORM_IMAGE"
+      value = var.codebuild_image
+    }
   }
 
   source {
@@ -425,7 +404,7 @@ resource "aws_codebuild_project" "management_bootstrap" {
     compute_type                = "BUILD_GENERAL1_SMALL"
     image                       = var.codebuild_image
     type                        = "LINUX_CONTAINER"
-    image_pull_credentials_type = "SERVICE_ROLE"
+    image_pull_credentials_type = "CODEBUILD"
     privileged_mode             = true # Required for Docker builds
 
     # AWS account where Management Cluster is deployed
@@ -536,13 +515,12 @@ resource "aws_codepipeline" "regional_pipeline" {
     name = "Bootstrap-ArgoCD"
 
     action {
-      name             = "BootstrapArgoCD"
-      category         = "Build"
-      owner            = "AWS"
-      provider         = "CodeBuild"
-      input_artifacts  = ["apply_output"]
-      output_artifacts = ["bootstrap_output"]
-      version          = "1"
+      name            = "BootstrapArgoCD"
+      category        = "Build"
+      owner           = "AWS"
+      provider        = "CodeBuild"
+      input_artifacts = ["apply_output"]
+      version         = "1"
 
       configuration = {
         ProjectName = aws_codebuild_project.management_bootstrap.name

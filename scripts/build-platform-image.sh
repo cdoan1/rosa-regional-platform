@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Build and push the platform container image to ECR
+# Build and push the platform container image to public ECR
 #
 # The image is tagged with the SHA256 of the Dockerfile (first 12 chars).
 # If an image with that tag already exists in ECR, the build is skipped.
 #
-# Uses the current AWS credentials to find the platform ECR repository.
+# Public ECR repositories must be managed from us-east-1.
 #
 # Usage:
 #   ./scripts/build-platform-image.sh
@@ -50,34 +50,32 @@ else
   exit 1
 fi
 
-# Find the platform ECR repository in the current account/region
-echo "Looking up platform ECR repository..."
-ECR_URL=$(aws ecr describe-repositories \
+# Find the platform public ECR repository in the current account
+echo "Looking up platform public ECR repository..."
+ECR_URL=$(aws ecr-public describe-repositories \
+  --region us-east-1 \
   --query "repositories[?ends_with(repositoryName, '/platform')].repositoryUri | [0]" \
   --output text 2>/dev/null)
 
 if [ -z "$ECR_URL" ] || [ "$ECR_URL" = "None" ]; then
-  echo "Error: No platform ECR repository found in this account/region."
+  echo "Error: No platform public ECR repository found in this account."
   echo "Make sure 'terraform apply' has been run first."
   exit 1
 fi
 
-# Extract registry and repo name
-ECR_REGISTRY="${ECR_URL%%/*}"
-ECR_REPO="${ECR_URL#*/}"
-REGION=$(echo "$ECR_REGISTRY" | sed 's/.*\.ecr\.\(.*\)\.amazonaws\.com/\1/')
-
 echo "ECR Repository: $ECR_URL"
 echo "Image tag:      $IMAGE_TAG"
-echo "Region:         $REGION"
 echo ""
 
 # Check if the image already exists in ECR
 echo "Checking if image already exists in ECR..."
-if aws ecr describe-images \
+# Public ECR URI format: public.ecr.aws/<alias>/<repo-name>
+# Extract the repository name by removing the "public.ecr.aws/<alias>/" prefix
+ECR_REPO=$(echo "$ECR_URL" | sed 's|^public\.ecr\.aws/[^/]*/||')
+if aws ecr-public describe-images \
+    --region us-east-1 \
     --repository-name "$ECR_REPO" \
-    --image-ids imageTag="$IMAGE_TAG" \
-    --region "$REGION" &>/dev/null; then
+    --image-ids imageTag="$IMAGE_TAG" &>/dev/null; then
   echo "Image ${ECR_URL}:${IMAGE_TAG} already exists in ECR. Skipping build."
   exit 0
 fi
@@ -85,9 +83,9 @@ fi
 echo "Image not found in ECR. Building..."
 echo ""
 
-# Authenticate with ECR
-echo "Authenticating with ECR..."
-aws ecr get-login-password --region "$REGION" | $CONTAINER_RUNTIME login --username AWS --password-stdin "$ECR_REGISTRY"
+# Authenticate with public ECR (required for pushing)
+echo "Authenticating with public ECR..."
+aws ecr-public get-login-password --region us-east-1 | $CONTAINER_RUNTIME login --username AWS --password-stdin public.ecr.aws
 echo ""
 
 # Build the image

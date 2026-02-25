@@ -19,6 +19,8 @@ RUN microdnf install -y \
       less \
       vim-enhanced \
       which \
+      findutils \
+      make \
       procps-ng \
       bind-utils \
       shadow-utils \
