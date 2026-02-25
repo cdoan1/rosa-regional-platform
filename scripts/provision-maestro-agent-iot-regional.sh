@@ -101,7 +101,7 @@ fi
 
 log_info "Verifying AWS credentials (should be REGIONAL account)..."
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text 2>/dev/null || echo "")
-AWS_REGION=$(aws configure get region || echo "")
+AWS_REGION="${AWS_REGION:-$(aws configure get region 2>/dev/null || echo "")}"
 
 if [ -z "$AWS_ACCOUNT_ID" ]; then
   log_error "Unable to verify AWS credentials. Ensure you're authenticated."
@@ -178,13 +178,17 @@ log_info "Running Terraform plan..."
 terraform plan -out=tfplan
 
 echo ""
-read -p "$(echo -e ${YELLOW}Continue with terraform apply? [y/N]:${NC} )" -n 1 -r
-echo ""
+if [ "${AUTO_APPROVE:-}" = "true" ]; then
+  log_info "Auto-approve enabled, proceeding with apply..."
+else
+  read -p "$(echo -e ${YELLOW}Continue with terraform apply? [y/N]:${NC} )" -n 1 -r
+  echo ""
 
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-  log_warning "Terraform apply cancelled"
-  rm -f tfplan
-  exit 0
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    log_warning "Terraform apply cancelled"
+    rm -f tfplan
+    exit 0
+  fi
 fi
 
 log_info "Applying Terraform configuration..."

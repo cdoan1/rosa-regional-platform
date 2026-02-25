@@ -106,7 +106,8 @@ phases:
         # Create placeholder Maestro agent secrets in target account (using assumed credentials from pre_build)
         echo "Ensuring Maestro agent secrets exist in account ${TARGET_ACCOUNT_ID}..."
 
-        for SECRET_NAME in "maestro/agent-cert" "maestro/agent-config"; do
+        CLUSTER_ID_VAL="${CLUSTER_ID:-mgmt-cluster-01}"
+        for SECRET_NAME in "${CLUSTER_ID_VAL}/maestro/agent-cert" "${CLUSTER_ID_VAL}/maestro/agent-config"; do
             # Check if secret exists (using target account credentials)
             if ! AWS_ACCESS_KEY_ID="$TARGET_AWS_ACCESS_KEY_ID" \
                  AWS_SECRET_ACCESS_KEY="$TARGET_AWS_SECRET_ACCESS_KEY" \

@@ -21,6 +21,8 @@ locals {
   codepipeline_role_name = "mc-cp-${local.resource_hash}"                      # 18 chars
   apply_project_name     = "mc-app-${local.resource_hash}"                     # 19 chars
   bootstrap_project_name = "mc-boot-${local.resource_hash}"                    # 21 chars
+  iot_mint_project_name  = "mc-iotm-${local.resource_hash}"                    # 21 chars
+  iot_apply_project_name = "mc-iota-${local.resource_hash}"                    # 21 chars
   pipeline_name          = "mc-pipe-${local.resource_hash}"                    # 20 chars
 
   # Repository URL constructed from github_repository variable
@@ -67,7 +69,11 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_apply.name}",
           "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_apply.name}:*",
           "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_bootstrap.name}",
-          "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_bootstrap.name}:*"
+          "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_bootstrap.name}:*",
+          "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.iot_mint.name}",
+          "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.iot_mint.name}:*",
+          "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.iot_apply.name}",
+          "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.iot_apply.name}:*"
         ]
       },
       {
@@ -98,6 +104,8 @@ resource "aws_iam_role_policy" "codebuild_policy" {
       {
         Effect = "Allow"
         Action = [
+          # IoT - For minting Maestro agent certificates (same-account case)
+          "iot:*",
           # EC2/VPC - Full permissions for networking infrastructure
           "ec2:*",
           # EKS - Full permissions for cluster management
@@ -241,7 +249,9 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
         ]
         Resource = [
           aws_codebuild_project.management_apply.arn,
-          aws_codebuild_project.management_bootstrap.arn
+          aws_codebuild_project.management_bootstrap.arn,
+          aws_codebuild_project.iot_mint.arn,
+          aws_codebuild_project.iot_apply.arn
         ]
       },
       {
@@ -251,7 +261,9 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
         ]
         Resource = [
           "arn:aws:codebuild:*:*:project/${aws_codebuild_project.management_apply.name}",
-          "arn:aws:codebuild:*:*:project/${aws_codebuild_project.management_bootstrap.name}"
+          "arn:aws:codebuild:*:*:project/${aws_codebuild_project.management_bootstrap.name}",
+          "arn:aws:codebuild:*:*:project/${aws_codebuild_project.iot_mint.name}",
+          "arn:aws:codebuild:*:*:project/${aws_codebuild_project.iot_apply.name}"
         ]
       }
     ]
@@ -445,6 +457,117 @@ resource "aws_codebuild_project" "management_bootstrap" {
   }
 }
 
+# CodeBuild Project - IoT Certificate Mint (runs in RC account context)
+resource "aws_codebuild_project" "iot_mint" {
+  name          = local.iot_mint_project_name
+  service_role  = aws_iam_role.codebuild_role.arn
+  build_timeout = 30
+
+  artifacts {
+    type = "CODEPIPELINE"
+  }
+
+  environment {
+    compute_type                = "BUILD_GENERAL1_SMALL"
+    image                       = var.codebuild_image
+    type                        = "LINUX_CONTAINER"
+    image_pull_credentials_type = "CODEBUILD"
+
+    # Management cluster identifier (used for IoT policy naming and SM secret paths)
+    environment_variable {
+      name  = "CLUSTER_ID"
+      value = var.cluster_id
+    }
+    # AWS account hosting the Regional Cluster (where IoT resources are created)
+    environment_variable {
+      name  = "REGIONAL_AWS_ACCOUNT_ID"
+      value = var.regional_aws_account_id
+    }
+    # AWS region for the deployment
+    environment_variable {
+      name  = "TARGET_REGION"
+      value = var.target_region
+    }
+    # Unique identifier for this management cluster pipeline
+    environment_variable {
+      name  = "TARGET_ALIAS"
+      value = var.target_alias
+    }
+    # Application code for resource tagging
+    environment_variable {
+      name  = "APP_CODE"
+      value = var.app_code
+    }
+    # Service phase for resource tagging
+    environment_variable {
+      name  = "SERVICE_PHASE"
+      value = var.service_phase
+    }
+    # Cost center for resource tagging
+    environment_variable {
+      name  = "COST_CENTER"
+      value = var.cost_center
+    }
+    environment_variable {
+      name  = "PLATFORM_IMAGE"
+      value = var.codebuild_image
+    }
+  }
+
+  source {
+    type      = "CODEPIPELINE"
+    buildspec = "terraform/config/pipeline-management-cluster/buildspec-iot-mint.yml"
+  }
+}
+
+# CodeBuild Project - IoT Certificate Apply (reads from central SM, writes to MC)
+resource "aws_codebuild_project" "iot_apply" {
+  name          = local.iot_apply_project_name
+  service_role  = aws_iam_role.codebuild_role.arn
+  build_timeout = 15
+
+  artifacts {
+    type = "CODEPIPELINE"
+  }
+
+  environment {
+    compute_type                = "BUILD_GENERAL1_SMALL"
+    image                       = var.codebuild_image
+    type                        = "LINUX_CONTAINER"
+    image_pull_credentials_type = "CODEBUILD"
+
+    # Management cluster identifier (used for SM secret paths)
+    environment_variable {
+      name  = "CLUSTER_ID"
+      value = var.cluster_id
+    }
+    # AWS account where Management Cluster is deployed
+    environment_variable {
+      name  = "TARGET_ACCOUNT_ID"
+      value = var.target_account_id
+    }
+    # AWS region for the deployment
+    environment_variable {
+      name  = "TARGET_REGION"
+      value = var.target_region
+    }
+    # Unique identifier for this management cluster pipeline
+    environment_variable {
+      name  = "TARGET_ALIAS"
+      value = var.target_alias
+    }
+    environment_variable {
+      name  = "PLATFORM_IMAGE"
+      value = var.codebuild_image
+    }
+  }
+
+  source {
+    type      = "CODEPIPELINE"
+    buildspec = "terraform/config/pipeline-management-cluster/buildspec-iot-apply.yml"
+  }
+}
+
 # CodePipeline
 resource "aws_codepipeline" "regional_pipeline" {
   name          = local.pipeline_name
@@ -504,9 +627,42 @@ resource "aws_codepipeline" "regional_pipeline" {
       input_artifacts  = ["source_output"]
       output_artifacts = ["apply_output"]
       version          = "1"
+      run_order        = 1
 
       configuration = {
         ProjectName = aws_codebuild_project.management_apply.name
+      }
+    }
+
+    action {
+      name             = "MintIoTCertificate"
+      category         = "Build"
+      owner            = "AWS"
+      provider         = "CodeBuild"
+      input_artifacts  = ["source_output"]
+      output_artifacts = ["iot_mint_output"]
+      version          = "1"
+      run_order        = 1 # Same run_order = parallel with ApplyInfrastructure
+
+      configuration = {
+        ProjectName = aws_codebuild_project.iot_mint.name
+      }
+    }
+  }
+
+  stage {
+    name = "Apply-IoT-Certs"
+
+    action {
+      name            = "ApplyIoTCertificates"
+      category        = "Build"
+      owner           = "AWS"
+      provider        = "CodeBuild"
+      input_artifacts = ["source_output"]
+      version         = "1"
+
+      configuration = {
+        ProjectName = aws_codebuild_project.iot_apply.name
       }
     }
   }
