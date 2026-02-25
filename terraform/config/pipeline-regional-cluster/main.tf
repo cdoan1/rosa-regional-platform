@@ -65,7 +65,6 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "iam:*",
           "s3:*",
           "ecs:*",
-          "ecr:*",
           "kms:*",
           "apigateway:*",
           "iot:*",
@@ -213,7 +212,7 @@ resource "aws_codebuild_project" "regional_apply" {
 
   environment {
     compute_type                = "BUILD_GENERAL1_SMALL"
-    image                       = "aws/codebuild/amazonlinux2-x86_64-standard:4.0"
+    image                       = var.codebuild_image
     type                        = "LINUX_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
 
@@ -277,6 +276,10 @@ resource "aws_codebuild_project" "regional_apply" {
       name  = "ENABLE_BASTION"
       value = var.enable_bastion ? "true" : "false"
     }
+    environment_variable {
+      name  = "PLATFORM_IMAGE"
+      value = var.codebuild_image
+    }
   }
 
   source {
@@ -297,7 +300,7 @@ resource "aws_codebuild_project" "regional_bootstrap" {
 
   environment {
     compute_type                = "BUILD_GENERAL1_SMALL"
-    image                       = "aws/codebuild/amazonlinux2-x86_64-standard:4.0"
+    image                       = var.codebuild_image
     type                        = "LINUX_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
 
@@ -417,13 +420,12 @@ resource "aws_codepipeline" "central_pipeline" {
     name = "Bootstrap-ArgoCD"
 
     action {
-      name             = "BootstrapArgoCD"
-      category         = "Build"
-      owner            = "AWS"
-      provider         = "CodeBuild"
-      input_artifacts  = ["apply_output"]
-      output_artifacts = ["bootstrap_output"]
-      version          = "1"
+      name            = "BootstrapArgoCD"
+      category        = "Build"
+      owner           = "AWS"
+      provider        = "CodeBuild"
+      input_artifacts = ["apply_output"]
+      version         = "1"
 
       configuration = {
         ProjectName = aws_codebuild_project.regional_bootstrap.name

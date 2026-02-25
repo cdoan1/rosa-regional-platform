@@ -7,6 +7,7 @@ ARG K9S_VERSION=v0.32.5
 ARG STERN_VERSION=1.30.0
 ARG YQ_VERSION=v4.44.3
 ARG OC_VERSION=4.16.0
+ARG TERRAFORM_VERSION=1.14.3
 
 # Install base packages
 RUN microdnf install -y \
@@ -18,10 +19,16 @@ RUN microdnf install -y \
       less \
       vim-enhanced \
       which \
+      findutils \
+      make \
       procps-ng \
       bind-utils \
       shadow-utils \
-      postgresql && \
+      postgresql \
+      python3 \
+      python3-pip \
+      gnupg2 && \
+    pip3 install --no-cache-dir boto3==1.35.86 pyyaml==6.0.2 && \
     microdnf clean all && \
     rm -rf /var/cache/yum
 
@@ -60,6 +67,27 @@ RUN curl -sL "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/${OC_VER
     mv /tmp/oc /usr/local/bin/oc && \
     chmod +x /usr/local/bin/oc && \
     rm -f /tmp/kubectl /tmp/README.md
+
+# Install Terraform (GPG-verified)
+RUN set -euo pipefail && \
+    TF_PACKAGE="terraform_${TERRAFORM_VERSION}_linux_amd64.zip" && \
+    TF_BASE_URL="https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}" && \
+    curl -sSfO "${TF_BASE_URL}/${TF_PACKAGE}" && \
+    curl -sSfO "${TF_BASE_URL}/terraform_${TERRAFORM_VERSION}_SHA256SUMS" && \
+    curl -sSfO "${TF_BASE_URL}/terraform_${TERRAFORM_VERSION}_SHA256SUMS.sig" && \
+    gpg --batch --keyserver keyserver.ubuntu.com --recv-keys \
+      C874011F0AB405110D02105534365D9472D7468F || \
+    gpg --batch --keyserver keys.openpgp.org --recv-keys \
+      C874011F0AB405110D02105534365D9472D7468F || \
+    gpg --batch --keyserver pgp.mit.edu --recv-keys \
+      C874011F0AB405110D02105534365D9472D7468F && \
+    gpg --batch --verify "terraform_${TERRAFORM_VERSION}_SHA256SUMS.sig" \
+      "terraform_${TERRAFORM_VERSION}_SHA256SUMS" && \
+    grep "${TF_PACKAGE}" "terraform_${TERRAFORM_VERSION}_SHA256SUMS" | sha256sum -c - && \
+    unzip -o "${TF_PACKAGE}" -d /tmp/tf-bin && \
+    mv /tmp/tf-bin/terraform /usr/local/bin/ && \
+    rm -rf "${TF_PACKAGE}" "terraform_${TERRAFORM_VERSION}_SHA256SUMS" \
+      "terraform_${TERRAFORM_VERSION}_SHA256SUMS.sig" /tmp/tf-bin
 
 # Run as non-root
 RUN mkdir -p /opt/platform && chown 65534:65534 /opt/platform

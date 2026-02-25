@@ -60,12 +60,4 @@ source "$(dirname "${BASH_SOURCE[0]}")/assume-target-role.sh" "target account op
 export TF_VAR_target_account_id="${TARGET_ACCOUNT_ID}"
 export TF_VAR_target_alias="${TARGET_ALIAS}"
 
-# Build platform image (uses target account credentials to push to target ECR)
-echo "Building platform image (if needed)..."
-AWS_ACCESS_KEY_ID="$TARGET_AWS_ACCESS_KEY_ID" \
-AWS_SECRET_ACCESS_KEY="$TARGET_AWS_SECRET_ACCESS_KEY" \
-AWS_SESSION_TOKEN="$TARGET_AWS_SESSION_TOKEN" \
-make build-platform-image
-echo ""
-
 echo "✅ Pre-flight setup complete"

@@ -93,3 +93,8 @@ variable "enable_bastion" {
   description = "Enable ECS Fargate bastion for break-glass/development access to the cluster"
   default     = false
 }
+
+variable "codebuild_image" {
+  type        = string
+  description = "ECR image URI for CodeBuild projects (platform image with pre-installed tools)"
+}

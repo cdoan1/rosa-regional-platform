@@ -33,3 +33,13 @@ variable "github_connection_arn" {
   type        = string
   description = "ARN of the shared GitHub CodeStar connection"
 }
+
+variable "codebuild_image" {
+  type        = string
+  description = "ECR image URI for CodeBuild projects (platform image with pre-installed tools)"
+
+  validation {
+    condition     = length(var.codebuild_image) > 0
+    error_message = "codebuild_image must be a non-empty ECR image URI"
+  }
+}

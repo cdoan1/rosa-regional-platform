@@ -37,6 +37,10 @@ help:
 # Discover all directories containing Terraform files (excluding .terraform subdirectories)
 TERRAFORM_DIRS := $(shell find ./terraform -name "*.tf" -type f -not -path "*/.terraform/*" | xargs dirname | sort -u)
 
+# Root configurations only (terraform/config/*) — used for validate, which can't run on
+# standalone child modules that declare provider configuration_aliases.
+TERRAFORM_ROOT_DIRS := $(shell find ./terraform/config -name "*.tf" -type f -not -path "*/.terraform/*" | xargs dirname | sort -u)
+
 # Format all Terraform files
 terraform-fmt:
 	@echo "🔧 Formatting Terraform files..."
@@ -294,10 +298,10 @@ build-platform-image:
 # Validation & Testing Targets
 # =============================================================================
 
-# Initialize all Terraform configurations (no backend)
+# Initialize root Terraform configurations (no backend)
 terraform-init:
 	@echo "🔧 Initializing Terraform configurations..."
-	@for dir in $(TERRAFORM_DIRS); do \
+	@for dir in $(TERRAFORM_ROOT_DIRS); do \
 		echo "   Initializing $$dir"; \
 		if ! terraform -chdir=$$dir init -backend=false; then \
 			echo "   ❌ Init failed in $$dir"; \
@@ -307,6 +311,9 @@ terraform-init:
 	@echo "✅ Terraform initialization complete"
 
 # Check formatting and validate all Terraform configurations
+# Note: fmt runs on all dirs (modules + configs), but validate only runs on
+# root configs because child modules with provider configuration_aliases
+# cannot be validated in isolation.
 terraform-validate: terraform-init
 	@echo "🔍 Checking Terraform formatting..."
 	@failed=0; \
@@ -324,7 +331,7 @@ terraform-validate: terraform-init
 	fi
 	@echo "🔍 Validating Terraform configurations..."
 	@failed=0; \
-	for dir in $(TERRAFORM_DIRS); do \
+	for dir in $(TERRAFORM_ROOT_DIRS); do \
 		echo "   Validating $$dir"; \
 		if ! terraform -chdir=$$dir validate; then \
 			echo "   ❌ Validation failed in $$dir"; \

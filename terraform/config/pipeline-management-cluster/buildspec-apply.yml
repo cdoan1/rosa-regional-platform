@@ -4,10 +4,6 @@ env:
   shell: bash
 
 phases:
-  install:
-    commands:
-      - ./scripts/pipeline-common/terraform-install.sh
-
   pre_build:
     commands:
       - source scripts/pipeline-common/setup-apply-preflight.sh
@@ -79,6 +75,13 @@ phases:
 
         export TF_VAR_target_account_id="${TARGET_ACCOUNT_ID}"
 
+        # Set container image for ECS tasks (bastion and bootstrap)
+        if [ -z "${PLATFORM_IMAGE:-}" ]; then
+            echo "❌ ERROR: PLATFORM_IMAGE is not set or empty; cannot set TF_VAR_container_image" >&2
+            exit 1
+        fi
+        export TF_VAR_container_image="${PLATFORM_IMAGE}"
+
         # Set enable_bastion variable (default to false if not set)
         ENABLE_BASTION="${ENABLE_BASTION:-false}"
         if [ "$ENABLE_BASTION" == "true" ] || [ "$ENABLE_BASTION" == "1" ]; then
@@ -103,7 +106,8 @@ phases:
         # Create placeholder Maestro agent secrets in target account (using assumed credentials from pre_build)
         echo "Ensuring Maestro agent secrets exist in account ${TARGET_ACCOUNT_ID}..."
 
-        for SECRET_NAME in "maestro/agent-cert" "maestro/agent-config"; do
+        CLUSTER_ID_VAL="${CLUSTER_ID:-mgmt-cluster-01}"
+        for SECRET_NAME in "${CLUSTER_ID_VAL}/maestro/agent-cert" "${CLUSTER_ID_VAL}/maestro/agent-config"; do
             # Check if secret exists (using target account credentials)
             if ! AWS_ACCESS_KEY_ID="$TARGET_AWS_ACCESS_KEY_ID" \
                  AWS_SECRET_ACCESS_KEY="$TARGET_AWS_SECRET_ACCESS_KEY" \
