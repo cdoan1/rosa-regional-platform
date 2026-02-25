@@ -294,7 +294,8 @@ resource "aws_s3_bucket" "pipeline_artifact" {
 }
 
 resource "aws_s3_bucket_versioning" "pipeline_artifact" {
-  bucket = aws_s3_bucket.pipeline_artifact.id
+  bucket        = local.artifact_bucket_name
+  force_destroy = true # Allow deletion even if bucket contains objects
 
   versioning_configuration {
     status = "Enabled"

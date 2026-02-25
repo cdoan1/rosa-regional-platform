@@ -144,7 +144,8 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
 
 # S3 Bucket for Artifacts
 resource "aws_s3_bucket" "pipeline_artifact" {
-  bucket = "pipeline-provisioner-artifacts-${data.aws_caller_identity.current.account_id}"
+  bucket        = "pipeline-provisioner-artifacts-${data.aws_caller_identity.current.account_id}"
+  force_destroy = true # Allow deletion even if bucket contains objects
 }
 
 resource "aws_s3_bucket_versioning" "pipeline_artifact" {
