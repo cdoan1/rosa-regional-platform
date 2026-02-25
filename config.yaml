@@ -4,6 +4,22 @@
 # Templating:  Jinja2 on all strings, resolved after merge. e.g. "{{ aws_region }}"
 
 sectors:
+  - name: "e2e"
+    environment: "e2e"
+    terraform_vars:
+      app_code: "infra"
+      service_phase: "dev"
+      cost_center: "000"
+      environment: "{{ environment }}"
+    values:
+      management-cluster:
+        hypershift:
+          oidcStorageS3Bucket:
+            name: "hypershift-mc-{{ aws_region }}"
+            region: "{{ aws_region }}"
+          externalDns:
+            domain: "dev.{{ aws_region }}.rosa.example.com"
+
   - name: "psav-central"
     environment: "psav-central"
     terraform_vars:
@@ -86,6 +102,24 @@ sectors:
             domain: "dev.{{ aws_region }}.rosa.example.com"
 
 region_deployments:
+  - name: "us-east-1"
+    aws_region: "us-east-1"
+    sector: "e2e"
+    account_id: "633630779107"
+    terraform_vars:
+      account_id: "{{ account_id }}"
+      region: "{{ aws_region }}"
+      alias: "regional-{{region_alias}}"
+      region_alias: "{{ region_alias }}"
+    management_clusters:
+      - cluster_id: "mc01-{{ region_alias }}"
+        account_id: "018092638725"
+    values:
+      regional-cluster:
+        maestro:
+          mqttEndpoint: "xxx.iot.{{ aws_region }}.amazonaws.com"
+        someOtherSetting: "value"
+
   - name: "us-east-2"
     aws_region: "us-east-2"
     sector: "cdoan-central"
