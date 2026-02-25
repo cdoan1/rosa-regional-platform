@@ -43,3 +43,11 @@ echo "Using MANAGEMENT_ACCOUNT_ID: ${MANAGEMENT_ACCOUNT_ID}"
 ## Run any e2e tests
 
 echo "TODO: Implement me - run e2e tests"
+
+echo "==== Regional E2E Tests ===="
+export AWS_SHARED_CREDENTIALS_FILE="${REGIONAL_CREDS}"
+aws sts get-caller-identity
+REGIONAL_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+echo "Using REGIONAL_ACCOUNT_ID: ${REGIONAL_ACCOUNT_ID}"
+
+./e2e-platform-api-test.sh
