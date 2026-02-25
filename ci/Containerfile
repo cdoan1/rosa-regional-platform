@@ -77,4 +77,4 @@ ENV UV_PYTHON_INSTALL_DIR=/tmp/.uv-python
 ENV UV_NO_PROGRESS=true
 
 # Python packages (awscurl for API Gateway testing)
-RUN uv pip install --system awscurl
+# RUN uv pip install --system awscurl
