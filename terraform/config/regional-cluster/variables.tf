@@ -10,6 +10,11 @@ variable "region" {
 variable "container_image" {
   description = "Public ECR image URI for platform container (used by bastion and ECS bootstrap)"
   type        = string
+
+  validation {
+    condition     = length(var.container_image) > 0
+    error_message = "container_image must be a non-empty ECR image URI"
+  }
 }
 
 variable "target_account_id" {

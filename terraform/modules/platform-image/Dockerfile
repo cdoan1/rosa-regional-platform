@@ -28,7 +28,7 @@ RUN microdnf install -y \
       python3 \
       python3-pip \
       gnupg2 && \
-    pip3 install --no-cache-dir boto3 pyyaml && \
+    pip3 install --no-cache-dir boto3==1.35.86 pyyaml==6.0.2 && \
     microdnf clean all && \
     rm -rf /var/cache/yum
 

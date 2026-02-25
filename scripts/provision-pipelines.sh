@@ -21,6 +21,29 @@ TF_STATE_BUCKET="terraform-state-${CENTRAL_ACCOUNT_ID}"
 # Determine which environment to process (prefer existing, fall back to TARGET_ENVIRONMENT, then staging)
 ENVIRONMENT="${ENVIRONMENT:-${TARGET_ENVIRONMENT:-staging}}"
 
+# Validate and sanitize ENVIRONMENT to prevent path traversal and injection
+if [[ -z "$ENVIRONMENT" ]]; then
+    echo "❌ ERROR: ENVIRONMENT is empty" >&2
+    exit 1
+fi
+if [[ "$ENVIRONMENT" == *"/"* ]]; then
+    echo "❌ ERROR: ENVIRONMENT contains invalid character '/': $ENVIRONMENT" >&2
+    exit 1
+fi
+if [[ "$ENVIRONMENT" == *".."* ]]; then
+    echo "❌ ERROR: ENVIRONMENT contains path traversal sequence '..': $ENVIRONMENT" >&2
+    exit 1
+fi
+if [[ "$ENVIRONMENT" =~ [[:space:]] ]]; then
+    echo "❌ ERROR: ENVIRONMENT contains whitespace: $ENVIRONMENT" >&2
+    exit 1
+fi
+if [[ ! "$ENVIRONMENT" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    echo "❌ ERROR: ENVIRONMENT contains invalid characters: $ENVIRONMENT" >&2
+    echo "   Only alphanumeric, dot (.), underscore (_), and hyphen (-) are allowed" >&2
+    exit 1
+fi
+
 # Try to read tf_state_region from config.yaml via the first regional.json file found
 # This allows sectors to configure tf_state_region in their terraform_vars
 TF_STATE_REGION=""
@@ -47,17 +70,16 @@ echo "Using state bucket region: $TF_STATE_REGION"
 echo "Using lockfile-based state locking"
 
 # Helper function: Retry terraform apply with exponential backoff
+# Usage: retry_terraform_apply "${TF_ARGS[@]}"
 retry_terraform_apply() {
-    local state_key="$1"
     local max_attempts=3
     local attempt=1
     local wait_time=30
 
     while [ $attempt -le $max_attempts ]; do
         echo "📝 Attempt $attempt/$max_attempts: Running terraform apply..."
-        echo "🔍 DEBUG: terraform apply -auto-approve $TF_VARS"
 
-        if terraform apply -auto-approve $TF_VARS; then
+        if terraform apply -auto-approve "$@"; then
             echo "✅ Terraform apply succeeded"
             return 0
         else
@@ -91,39 +113,6 @@ resolve_ssm_param() {
         echo "$value"
     fi
 }
-
-# Determine which environment to process (prefer existing, fall back to TARGET_ENVIRONMENT, then staging)
-ENVIRONMENT="${ENVIRONMENT:-${TARGET_ENVIRONMENT:-staging}}"
-
-# Validate and sanitize ENVIRONMENT to prevent path traversal and injection
-if [[ -z "$ENVIRONMENT" ]]; then
-    echo "❌ ERROR: ENVIRONMENT is empty" >&2
-    exit 1
-fi
-
-# Check for path traversal attempts
-if [[ "$ENVIRONMENT" == *"/"* ]]; then
-    echo "❌ ERROR: ENVIRONMENT contains invalid character '/': $ENVIRONMENT" >&2
-    exit 1
-fi
-
-if [[ "$ENVIRONMENT" == *".."* ]]; then
-    echo "❌ ERROR: ENVIRONMENT contains path traversal sequence '..': $ENVIRONMENT" >&2
-    exit 1
-fi
-
-# Check for whitespace
-if [[ "$ENVIRONMENT" =~ [[:space:]] ]]; then
-    echo "❌ ERROR: ENVIRONMENT contains whitespace: $ENVIRONMENT" >&2
-    exit 1
-fi
-
-# Enforce allowlist: only alphanumeric, dot, underscore, and hyphen
-if [[ ! "$ENVIRONMENT" =~ ^[A-Za-z0-9._-]+$ ]]; then
-    echo "❌ ERROR: ENVIRONMENT contains invalid characters: $ENVIRONMENT" >&2
-    echo "   Only alphanumeric, dot (.), underscore (_), and hyphen (-) are allowed" >&2
-    exit 1
-fi
 
 echo "Processing environment: $ENVIRONMENT"
 echo ""
@@ -197,29 +186,35 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             -backend-config="region=$TF_STATE_REGION" \
             -backend-config="use_lockfile=true"
 
-        # Build terraform apply command with variables
-        TF_VARS="-var=github_repository=${GITHUB_REPOSITORY} -var=github_branch=${GITHUB_BRANCH} -var=region=${AWS_REGION}"
-        [ -n "$GITHUB_CONNECTION_ARN" ] && TF_VARS="$TF_VARS -var=github_connection_arn=${GITHUB_CONNECTION_ARN}"
-        [ -n "$TARGET_ACCOUNT_ID" ] && TF_VARS="$TF_VARS -var=target_account_id=${TARGET_ACCOUNT_ID}"
-        [ -n "$AWS_REGION" ] && TF_VARS="$TF_VARS -var=target_region=${AWS_REGION}"
-        [ -n "$TARGET_ALIAS" ] && TF_VARS="$TF_VARS -var=target_alias=${TARGET_ALIAS}"
-        [ -n "$ENVIRONMENT" ] && TF_VARS="$TF_VARS -var=target_environment=${ENVIRONMENT}"
-        [ -n "$APP_CODE" ] && TF_VARS="$TF_VARS -var=app_code=${APP_CODE}"
-        [ -n "$SERVICE_PHASE" ] && TF_VARS="$TF_VARS -var=service_phase=${SERVICE_PHASE}"
-        [ -n "$COST_CENTER" ] && TF_VARS="$TF_VARS -var=cost_center=${COST_CENTER}"
+        # Build terraform apply command with variables (array for safe expansion)
+        TF_ARGS=(
+            -var="github_repository=${GITHUB_REPOSITORY}"
+            -var="github_branch=${GITHUB_BRANCH}"
+            -var="region=${AWS_REGION}"
+        )
+        [ -n "$GITHUB_CONNECTION_ARN" ] && TF_ARGS+=( -var="github_connection_arn=${GITHUB_CONNECTION_ARN}" )
+        [ -n "$TARGET_ACCOUNT_ID" ] && TF_ARGS+=( -var="target_account_id=${TARGET_ACCOUNT_ID}" )
+        [ -n "$AWS_REGION" ] && TF_ARGS+=( -var="target_region=${AWS_REGION}" )
+        [ -n "$TARGET_ALIAS" ] && TF_ARGS+=( -var="target_alias=${TARGET_ALIAS}" )
+        [ -n "$ENVIRONMENT" ] && TF_ARGS+=( -var="target_environment=${ENVIRONMENT}" )
+        [ -n "$APP_CODE" ] && TF_ARGS+=( -var="app_code=${APP_CODE}" )
+        [ -n "$SERVICE_PHASE" ] && TF_ARGS+=( -var="service_phase=${SERVICE_PHASE}" )
+        [ -n "$COST_CENTER" ] && TF_ARGS+=( -var="cost_center=${COST_CENTER}" )
         # Handle enable_bastion (boolean, convert to Terraform boolean)
         if [ "$ENABLE_BASTION" == "true" ] || [ "$ENABLE_BASTION" == "1" ]; then
-            TF_VARS="$TF_VARS -var=enable_bastion=true"
+            TF_ARGS+=( -var="enable_bastion=true" )
         else
-            TF_VARS="$TF_VARS -var=enable_bastion=false"
+            TF_ARGS+=( -var="enable_bastion=false" )
         fi
         # Repository URL and branch for cluster configuration
-        TF_VARS="$TF_VARS -var=repository_url=https://github.com/${GITHUB_REPOSITORY}.git"
-        TF_VARS="$TF_VARS -var=repository_branch=${GITHUB_BRANCH}"
-        TF_VARS="$TF_VARS -var=codebuild_image=${PLATFORM_IMAGE}"
+        TF_ARGS+=(
+            -var="repository_url=https://github.com/${GITHUB_REPOSITORY}.git"
+            -var="repository_branch=${GITHUB_BRANCH}"
+            -var="codebuild_image=${PLATFORM_IMAGE}"
+        )
 
         # Apply with retry logic
-        if retry_terraform_apply "pipelines/regional-${ENVIRONMENT}-${REGION_ALIAS}.tfstate"; then
+        if retry_terraform_apply "${TF_ARGS[@]}"; then
             cd ../../..
             echo "✅ Regional pipeline created for ${ENVIRONMENT}-${REGION_ALIAS}"
         else
@@ -287,31 +282,37 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
                 -backend-config="region=$TF_STATE_REGION" \
                 -backend-config="use_lockfile=true"
 
-            # Build terraform apply command with variables
-            TF_VARS="-var=github_repository=${GITHUB_REPOSITORY} -var=github_branch=${GITHUB_BRANCH} -var=region=${AWS_REGION}"
-            [ -n "$GITHUB_CONNECTION_ARN" ] && TF_VARS="$TF_VARS -var=github_connection_arn=${GITHUB_CONNECTION_ARN}"
-            [ -n "$TARGET_ACCOUNT_ID" ] && TF_VARS="$TF_VARS -var=target_account_id=${TARGET_ACCOUNT_ID}"
-            [ -n "$AWS_REGION" ] && TF_VARS="$TF_VARS -var=target_region=${AWS_REGION}"
-            [ -n "$TARGET_ALIAS" ] && TF_VARS="$TF_VARS -var=target_alias=${TARGET_ALIAS}"
-            [ -n "$ENVIRONMENT" ] && TF_VARS="$TF_VARS -var=target_environment=${ENVIRONMENT}"
-            [ -n "$APP_CODE" ] && TF_VARS="$TF_VARS -var=app_code=${APP_CODE}"
-            [ -n "$SERVICE_PHASE" ] && TF_VARS="$TF_VARS -var=service_phase=${SERVICE_PHASE}"
-            [ -n "$COST_CENTER" ] && TF_VARS="$TF_VARS -var=cost_center=${COST_CENTER}"
-            [ -n "$CLUSTER_ID" ] && TF_VARS="$TF_VARS -var=cluster_id=${CLUSTER_ID}"
-            [ -n "$REGIONAL_AWS_ACCOUNT_ID" ] && TF_VARS="$TF_VARS -var=regional_aws_account_id=${REGIONAL_AWS_ACCOUNT_ID}"
+            # Build terraform apply command with variables (array for safe expansion)
+            TF_ARGS=(
+                -var="github_repository=${GITHUB_REPOSITORY}"
+                -var="github_branch=${GITHUB_BRANCH}"
+                -var="region=${AWS_REGION}"
+            )
+            [ -n "$GITHUB_CONNECTION_ARN" ] && TF_ARGS+=( -var="github_connection_arn=${GITHUB_CONNECTION_ARN}" )
+            [ -n "$TARGET_ACCOUNT_ID" ] && TF_ARGS+=( -var="target_account_id=${TARGET_ACCOUNT_ID}" )
+            [ -n "$AWS_REGION" ] && TF_ARGS+=( -var="target_region=${AWS_REGION}" )
+            [ -n "$TARGET_ALIAS" ] && TF_ARGS+=( -var="target_alias=${TARGET_ALIAS}" )
+            [ -n "$ENVIRONMENT" ] && TF_ARGS+=( -var="target_environment=${ENVIRONMENT}" )
+            [ -n "$APP_CODE" ] && TF_ARGS+=( -var="app_code=${APP_CODE}" )
+            [ -n "$SERVICE_PHASE" ] && TF_ARGS+=( -var="service_phase=${SERVICE_PHASE}" )
+            [ -n "$COST_CENTER" ] && TF_ARGS+=( -var="cost_center=${COST_CENTER}" )
+            [ -n "$CLUSTER_ID" ] && TF_ARGS+=( -var="cluster_id=${CLUSTER_ID}" )
+            [ -n "$REGIONAL_AWS_ACCOUNT_ID" ] && TF_ARGS+=( -var="regional_aws_account_id=${REGIONAL_AWS_ACCOUNT_ID}" )
             # Handle enable_bastion (boolean, convert to Terraform boolean)
             if [ "$ENABLE_BASTION" == "true" ] || [ "$ENABLE_BASTION" == "1" ]; then
-                TF_VARS="$TF_VARS -var=enable_bastion=true"
+                TF_ARGS+=( -var="enable_bastion=true" )
             else
-                TF_VARS="$TF_VARS -var=enable_bastion=false"
+                TF_ARGS+=( -var="enable_bastion=false" )
             fi
             # Repository URL and branch for cluster configuration
-            TF_VARS="$TF_VARS -var=repository_url=https://github.com/${GITHUB_REPOSITORY}.git"
-            TF_VARS="$TF_VARS -var=repository_branch=${GITHUB_BRANCH}"
-            TF_VARS="$TF_VARS -var=codebuild_image=${PLATFORM_IMAGE}"
+            TF_ARGS+=(
+                -var="repository_url=https://github.com/${GITHUB_REPOSITORY}.git"
+                -var="repository_branch=${GITHUB_BRANCH}"
+                -var="codebuild_image=${PLATFORM_IMAGE}"
+            )
 
             # Apply with retry logic
-            if retry_terraform_apply "pipelines/management-${ENVIRONMENT}-${REGION_ALIAS}-${CLUSTER_NAME}.tfstate"; then
+            if retry_terraform_apply "${TF_ARGS[@]}"; then
                 cd ../../..
                 echo "✅ Management pipeline created for $CLUSTER_NAME in ${ENVIRONMENT}-${REGION_ALIAS}"
             else

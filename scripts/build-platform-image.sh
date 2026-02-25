@@ -52,15 +52,38 @@ fi
 
 # Find the platform public ECR repository in the current account
 echo "Looking up platform public ECR repository..."
-ECR_URL=$(aws ecr-public describe-repositories \
-  --region us-east-1 \
-  --query "repositories[?ends_with(repositoryName, '/platform')].repositoryUri | [0]" \
-  --output text 2>/dev/null)
 
-if [ -z "$ECR_URL" ] || [ "$ECR_URL" = "None" ]; then
-  echo "Error: No platform public ECR repository found in this account."
-  echo "Make sure 'terraform apply' has been run first."
-  exit 1
+if [ -n "${PLATFORM_ECR_REPO:-}" ]; then
+  # Explicit override via environment variable
+  ECR_URL="${PLATFORM_ECR_REPO}"
+  echo "Using PLATFORM_ECR_REPO from environment: $ECR_URL"
+else
+  # Query for repositories ending with '/platform' and validate uniqueness
+  ECR_MATCHES=$(aws ecr-public describe-repositories \
+    --region us-east-1 \
+    --query "repositories[?ends_with(repositoryName, '/platform')].[repositoryUri, repositoryName]" \
+    --output json 2>/dev/null || echo "[]")
+
+  MATCH_COUNT=$(echo "$ECR_MATCHES" | jq 'length')
+
+  if [ "$MATCH_COUNT" -eq 0 ]; then
+    echo "Error: No platform public ECR repository found in this account."
+    echo "Make sure 'terraform apply' has been run first."
+    exit 1
+  elif [ "$MATCH_COUNT" -gt 1 ]; then
+    echo "Error: Multiple repositories matching '/platform' found:"
+    echo "$ECR_MATCHES" | jq -r '.[] | "  - \(.[1]): \(.[0])"'
+    echo ""
+    echo "Set PLATFORM_ECR_REPO to the desired repository URI to disambiguate."
+    exit 1
+  fi
+
+  ECR_URL=$(echo "$ECR_MATCHES" | jq -r '.[0][0]')
+
+  if [ -z "$ECR_URL" ] || [ "$ECR_URL" = "null" ]; then
+    echo "Error: Failed to determine ECR repository URI."
+    exit 1
+  fi
 fi
 
 echo "ECR Repository: $ECR_URL"

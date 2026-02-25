@@ -76,6 +76,10 @@ phases:
         export TF_VAR_target_account_id="${TARGET_ACCOUNT_ID}"
 
         # Set container image for ECS tasks (bastion and bootstrap)
+        if [ -z "${PLATFORM_IMAGE:-}" ]; then
+            echo "❌ ERROR: PLATFORM_IMAGE is not set or empty; cannot set TF_VAR_container_image" >&2
+            exit 1
+        fi
         export TF_VAR_container_image="${PLATFORM_IMAGE}"
 
         # Set enable_bastion variable (default to false if not set)

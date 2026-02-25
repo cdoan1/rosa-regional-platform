@@ -100,6 +100,74 @@ resource "aws_iam_role_policy" "codebuild_policy" {
   })
 }
 
+# IAM Role for Build Platform Image CodeBuild Project
+# Scoped to minimum permissions for building and pushing container images
+resource "aws_iam_role" "build_platform_image_role" {
+  name = "pipeline-provisioner-build-image"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "codebuild.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "build_platform_image_policy" {
+  role = aws_iam_role.build_platform_image_role.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "CloudWatchLogs"
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:${var.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/pipeline-provisioner-build-image*"
+      },
+      {
+        Sid    = "S3PipelineArtifacts"
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:GetObjectVersion",
+          "s3:PutObject"
+        ]
+        Resource = [
+          aws_s3_bucket.pipeline_artifact.arn,
+          "${aws_s3_bucket.pipeline_artifact.arn}/*"
+        ]
+      },
+      {
+        Sid    = "ECRPublicAccess"
+        Effect = "Allow"
+        Action = [
+          "ecr-public:GetAuthorizationToken",
+          "ecr-public:DescribeRepositories",
+          "ecr-public:DescribeImages",
+          "ecr-public:BatchCheckLayerAvailability",
+          "ecr-public:PutImage",
+          "ecr-public:InitiateLayerUpload",
+          "ecr-public:UploadLayerPart",
+          "ecr-public:CompleteLayerUpload",
+          "sts:GetServiceBearerToken"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
 # IAM Role for CodePipeline
 resource "aws_iam_role" "codepipeline_role" {
   name = "pipeline-provisioner-pipeline"
@@ -256,7 +324,7 @@ resource "aws_codebuild_project" "provisioner" {
 # CodeBuild Project - Build Platform Image
 resource "aws_codebuild_project" "build_platform_image" {
   name          = "pipeline-provisioner-build-image"
-  service_role  = aws_iam_role.codebuild_role.arn
+  service_role  = aws_iam_role.build_platform_image_role.arn
   build_timeout = 30
 
   artifacts {
@@ -302,7 +370,9 @@ resource "aws_codepipeline" "provisioner" {
             "deploy/${var.environment}/*/terraform/regional.json",
             "deploy/${var.environment}/*/terraform/management/*.json",
             "terraform/config/pipeline-regional-cluster/**",
-            "terraform/config/pipeline-management-cluster/**"
+            "terraform/config/pipeline-management-cluster/**",
+            "terraform/modules/platform-image/**",
+            "scripts/build-platform-image.sh"
           ]
         }
       }

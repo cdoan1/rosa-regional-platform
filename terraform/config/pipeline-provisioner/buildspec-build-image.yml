@@ -9,6 +9,3 @@ phases:
       - echo "Building platform image..."
       - chmod +x ./scripts/build-platform-image.sh
       - ./scripts/build-platform-image.sh
-
-artifacts:
-  files: []
