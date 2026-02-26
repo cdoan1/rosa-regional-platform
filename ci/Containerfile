@@ -8,6 +8,7 @@ ARG TERRAFORM_VERSION=1.14.3
 ARG HELM_VERSION=v3.16.0
 ARG UV_VERSION=0.6.0
 ARG AWS_CLI_VERSION=2.33.19
+ARG AWS_NUKE_VERSION=3.63.4
 
 # System packages
 RUN dnf install -y \
@@ -67,6 +68,22 @@ RUN arch=$(uname -m) && \
     ./aws/install && \
     rm -rf awscliv2.zip ./aws && \
     aws --version
+
+# aws-nuke v3 (account purge tool for CI cleanup, checksum-verified)
+RUN arch=$(uname -m) && \
+    case "${arch}" in \
+        x86_64)  NUKE_ARCH="amd64" ;; \
+        aarch64) NUKE_ARCH="arm64" ;; \
+    esac && \
+    NUKE_BASE="https://github.com/ekristen/aws-nuke/releases/download/v${AWS_NUKE_VERSION}" && \
+    NUKE_TAR="aws-nuke-v${AWS_NUKE_VERSION}-linux-${NUKE_ARCH}.tar.gz" && \
+    curl -fsSLO "${NUKE_BASE}/${NUKE_TAR}" && \
+    curl -fsSLO "${NUKE_BASE}/checksums.txt" && \
+    grep "${NUKE_TAR}" checksums.txt | sha256sum -c - && \
+    tar -xzf "${NUKE_TAR}" -C /usr/local/bin aws-nuke && \
+    chmod +x /usr/local/bin/aws-nuke && \
+    rm -f "${NUKE_TAR}" checksums.txt && \
+    aws-nuke --version
 
 # Pre-create cache directories writable by any UID (OpenShift runs as random UID)
 RUN mkdir -p /tmp/.uv-cache /tmp/.uv-python /tmp/.terraform.d && \
