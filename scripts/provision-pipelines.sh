@@ -114,6 +114,33 @@ resolve_ssm_param() {
     fi
 }
 
+# Helper function: Trigger pipeline destruction
+# Arguments: pipeline_type (regional/management)
+destroy_pipeline() {
+    local pipeline_type="$1"
+    
+    echo "⚠️  Processing DELETE request for $pipeline_type pipeline..."
+
+    # Note: We skip triggering infrastructure destruction via CodeBuild because
+    # CodeBuild projects with CODEPIPELINE artifacts can't be started directly.
+    # The actual infrastructure (EKS cluster, VPC, etc.) should be destroyed
+    # separately using the pipeline's destroy mode or manual cleanup.
+
+    echo "⚠️  WARNING: This will only destroy the pipeline resources (CodePipeline, CodeBuild, S3)."
+    echo "   The actual infrastructure (EKS cluster, VPC, etc.) must be destroyed separately."
+    echo "   To destroy infrastructure, trigger the pipeline with IS_DESTROY=true or use manual cleanup."
+    
+    # Destroy the pipeline resources
+    echo "Destroying pipeline resources (CodePipeline, CodeBuild, S3)..."
+    if terraform destroy -auto-approve "${TF_ARGS[@]}"; then
+        echo "✅ Pipeline resources destroyed."
+        return 0
+    else
+        echo "❌ Failed to destroy pipeline resources."
+        return 1
+    fi
+}
+
 echo "Processing environment: $ENVIRONMENT"
 echo ""
 
@@ -169,13 +196,15 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
         SERVICE_PHASE=$(jq -r '.service_phase // "dev"' "$REGIONAL_CONFIG")
         COST_CENTER=$(jq -r '.cost_center // "000"' "$REGIONAL_CONFIG")
         ENABLE_BASTION=$(jq -r '.enable_bastion // false' "$REGIONAL_CONFIG")
+        DELETE_FLAG=$(jq -r '.delete // false' "$REGIONAL_CONFIG")
 
         echo "  AWS Region: $AWS_REGION"
         [ -n "$TARGET_ACCOUNT_ID" ] && echo "  Target Account ID: $TARGET_ACCOUNT_ID"
         [ -n "$TARGET_ALIAS" ] && echo "  Target Alias: $TARGET_ALIAS"
         echo "  Terraform Vars: app_code=$APP_CODE, service_phase=$SERVICE_PHASE, cost_center=$COST_CENTER, enable_bastion=$ENABLE_BASTION"
+        echo "  Delete Flag: $DELETE_FLAG"
 
-        echo "Provisioning Regional Cluster Pipeline for ${ENVIRONMENT}-${REGION_ALIAS}..."
+        echo "Processing Regional Cluster Pipeline for ${ENVIRONMENT}-${REGION_ALIAS}..."
 
         cd terraform/config/pipeline-regional-cluster
 
@@ -213,15 +242,27 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             -var="codebuild_image=${PLATFORM_IMAGE}"
         )
 
-        # Apply with retry logic
-        if retry_terraform_apply "${TF_ARGS[@]}"; then
-            cd ../../..
-            echo "✅ Regional pipeline created for ${ENVIRONMENT}-${REGION_ALIAS}"
+        if [ "$DELETE_FLAG" == "true" ]; then
+            if destroy_pipeline "regional"; then
+                cd ../../..
+                echo "✅ Regional pipeline cleanup complete for ${ENVIRONMENT}-${REGION_ALIAS}"
+            else
+                cd ../../..
+                echo "❌ Failed to destroy regional pipeline for ${ENVIRONMENT}-${REGION_ALIAS}"
+                echo "   Destroy failure requires manual intervention. Aborting."
+                exit 1
+            fi
         else
-            cd ../../..
-            echo "❌ Failed to create regional pipeline for ${ENVIRONMENT}-${REGION_ALIAS} after retries"
-            echo "⏭️  Continuing with next region..."
-            continue
+            # Apply with retry logic
+            if retry_terraform_apply "${TF_ARGS[@]}"; then
+                cd ../../..
+                echo "✅ Regional pipeline created for ${ENVIRONMENT}-${REGION_ALIAS}"
+            else
+                cd ../../..
+                echo "❌ Failed to create regional pipeline for ${ENVIRONMENT}-${REGION_ALIAS} after retries"
+                echo "⏭️  Continuing with next region..."
+                continue
+            fi
         fi
     else
         echo "No terraform/regional.json found in $region_dir, skipping regional pipeline..."
@@ -252,6 +293,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             CLUSTER_ID=$(jq -r '.cluster_id // ""' "$mc_config")
             REGIONAL_AWS_ACCOUNT_ID=$(jq -r '.regional_aws_account_id // ""' "$mc_config")
             ENABLE_BASTION=$(jq -r '.enable_bastion // false' "$mc_config")
+            DELETE_FLAG=$(jq -r '.delete // false' "$mc_config")
 
             # Use TARGET_ALIAS as cluster_id default if not specified
             [ -z "$CLUSTER_ID" ] && CLUSTER_ID="${TARGET_ALIAS}"
@@ -270,8 +312,9 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             [ -n "$TARGET_ACCOUNT_ID" ] && echo "  Target Account ID: $TARGET_ACCOUNT_ID"
             [ -n "$TARGET_ALIAS" ] && echo "  Target Alias: $TARGET_ALIAS"
             echo "  Terraform Vars: app_code=$APP_CODE, service_phase=$SERVICE_PHASE, cost_center=$COST_CENTER, cluster_id=$CLUSTER_ID, regional_aws_account_id=$REGIONAL_AWS_ACCOUNT_ID, enable_bastion=$ENABLE_BASTION"
+            echo "  Delete Flag: $DELETE_FLAG"
 
-            echo "Provisioning Management Cluster Pipeline for $CLUSTER_NAME in ${ENVIRONMENT}-${REGION_ALIAS}..."
+            echo "Processing Management Cluster Pipeline for $CLUSTER_NAME in ${ENVIRONMENT}-${REGION_ALIAS}..."
 
             cd terraform/config/pipeline-management-cluster
 
@@ -311,15 +354,27 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
                 -var="codebuild_image=${PLATFORM_IMAGE}"
             )
 
-            # Apply with retry logic
-            if retry_terraform_apply "${TF_ARGS[@]}"; then
-                cd ../../..
-                echo "✅ Management pipeline created for $CLUSTER_NAME in ${ENVIRONMENT}-${REGION_ALIAS}"
+            if [ "$DELETE_FLAG" == "true" ]; then
+                if destroy_pipeline "management"; then
+                    cd ../../..
+                    echo "✅ Management pipeline cleanup complete for $CLUSTER_NAME"
+                else
+                    cd ../../..
+                    echo "❌ Failed to destroy management pipeline for $CLUSTER_NAME"
+                    echo "   Destroy failure requires manual intervention. Aborting."
+                    exit 1
+                fi
             else
-                cd ../../..
-                echo "❌ Failed to create management pipeline for $CLUSTER_NAME after retries"
-                echo "⏭️  Continuing with next management cluster..."
-                continue
+                # Apply with retry logic
+                if retry_terraform_apply "${TF_ARGS[@]}"; then
+                    cd ../../..
+                    echo "✅ Management pipeline created for $CLUSTER_NAME in ${ENVIRONMENT}-${REGION_ALIAS}"
+                else
+                    cd ../../..
+                    echo "❌ Failed to create management pipeline for $CLUSTER_NAME after retries"
+                    echo "⏭️  Continuing with next management cluster..."
+                    continue
+                fi
             fi
         done
     else

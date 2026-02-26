@@ -204,6 +204,7 @@ region_deployments:
     sector: "brian"
     account_id: "ssm:/infra/staging/us-east-1/account_id"
     terraform_vars:
+      delete: true
       account_id: "{{ account_id }}"
       region: "{{ aws_region }}"
       alias: "regional-{{region_alias}}"

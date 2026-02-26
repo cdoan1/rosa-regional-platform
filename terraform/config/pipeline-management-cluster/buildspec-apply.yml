@@ -171,17 +171,26 @@ phases:
         export ENVIRONMENT="${ENVIRONMENT:-staging}"
 
         set +e
-        make pipeline-provision-management
+        if [ "${IS_DESTROY:-false}" == "true" ]; then
+            echo "⚠️ DESTRUCTION MODE ENABLED"
+            make pipeline-destroy-management
+        else
+            make pipeline-provision-management
+        fi
         PROVISION_STATUS=$?
         set -e
 
         if [ $PROVISION_STATUS -ne 0 ]; then
-            echo "❌ Infrastructure provisioning failed with exit code $PROVISION_STATUS"
+            echo "❌ Infrastructure action failed with exit code $PROVISION_STATUS"
             exit $PROVISION_STATUS
         fi
 
-        echo "✅ Infrastructure provisioning complete."
-        echo "✅ Management cluster provisioned successfully."
+        echo "✅ Infrastructure action complete."
+        if [ "${IS_DESTROY:-false}" == "true" ]; then
+             echo "✅ Management cluster destroyed successfully."
+        else
+             echo "✅ Management cluster provisioned successfully."
+        fi
 
   post_build:
     commands:

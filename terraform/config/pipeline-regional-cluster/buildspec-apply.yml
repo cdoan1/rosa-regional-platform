@@ -93,8 +93,14 @@ phases:
             exit 1
         fi
 
-        export REGION_ALIAS=$(jq -r '.region_alias' "$RC_CONFIG_FILE")
-        echo "Extracted REGION_ALIAS from config: $REGION_ALIAS"
+        if [ "${IS_DESTROY:-false}" == "true" ]; then
+            echo "⚠️ DESTRUCTION MODE ENABLED"
+            make pipeline-destroy-regional
+            echo "✅ Regional cluster destroyed successfully."
+        else
+            make pipeline-provision-regional
+            echo "✅ Regional cluster provisioned successfully."
+        fi
 
         # Run provisioning (in same shell to preserve exports)
         make pipeline-provision-regional
