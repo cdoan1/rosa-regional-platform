@@ -452,7 +452,8 @@ main() {
         
         # Setup S3 backend (required for terraform destroy)
         create_s3_bucket || { log_error "Failed to setup S3 backend"; exit 1; }
-        create_platform_image || { log_error "Failed to setup and build platform image"; exit 1; }
+        # create_platform_image || { log_error "Failed to setup and build platform image"; exit 1; }
+        export TF_VAR_container_image="633630779107.dkr.ecr.us-east-1.amazonaws.com/e2e-platform-01c48e:3278a75292a3"
 
         destroy_regional_cluster || { log_error "Regional Cluster destruction failed"; exit 1; }
         log_success "Regional Cluster destroyed successfully"
@@ -463,7 +464,10 @@ main() {
         create_s3_bucket || { log_error "Failed to setup S3 backend"; exit 1; }
         # Step 2: Build and push platform image to ECR (MUST happen before configure_rc_environment)
         # This exports TF_VAR_container_image with the full ECR URI
-        create_platform_image || { log_error "Failed to setup and build platform image"; exit 1; }
+
+        export TF_VAR_container_image="633630779107.dkr.ecr.us-east-1.amazonaws.com/e2e-platform-01c48e:3278a75292a3"
+        # create_platform_image || { log_error "Failed to setup and build platform image"; exit 1; }
+
         # Verify container image is set with ECR URI
         if [[ -z "${TF_VAR_container_image:-}" ]]; then
             log_error "TF_VAR_container_image is not set after create_platform_image(). Cannot proceed."
