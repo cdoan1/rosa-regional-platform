@@ -7,6 +7,20 @@ export AWS_PAGER=""
 
 CREDS_DIR="/var/run/rosa-credentials"
 
+# Function to setup AWS credentials and get account ID
+switch_aws_account() {
+  local creds_file="$1"
+  local account_type="$2"
+  
+  export AWS_SHARED_CREDENTIALS_FILE="${creds_file}"
+  aws sts get-caller-identity
+  
+  local account_id=$(aws sts get-caller-identity --query Account --output text)
+  echo "Using ${account_type}_ACCOUNT_ID: ${account_id}"
+  
+  echo "${account_id}"
+}
+
 ## ===============================
 ## Setup AWS Account 0 (regional)
 
@@ -17,11 +31,7 @@ aws_access_key_id = $(cat "${CREDS_DIR}/regional_access_key")
 aws_secret_access_key = $(cat "${CREDS_DIR}/regional_secret_key")
 EOF
 
-export AWS_SHARED_CREDENTIALS_FILE="${REGIONAL_CREDS}"
-aws sts get-caller-identity
-
-REGIONAL_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-echo "Using REGIONAL_ACCOUNT_ID: ${REGIONAL_ACCOUNT_ID}"
+REGIONAL_ACCOUNT_ID=$(switch_aws_account "${REGIONAL_CREDS}" "REGIONAL")
 
 ## ===============================
 ## Setup AWS Account 1 (management)
@@ -33,11 +43,7 @@ aws_access_key_id = $(cat "${CREDS_DIR}/management_access_key")
 aws_secret_access_key = $(cat "${CREDS_DIR}/management_secret_key")
 EOF
 
-export AWS_SHARED_CREDENTIALS_FILE="${MGMT_CREDS}"
-aws sts get-caller-identity
-
-MANAGEMENT_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-echo "Using MANAGEMENT_ACCOUNT_ID: ${MANAGEMENT_ACCOUNT_ID}"
+MANAGEMENT_ACCOUNT_ID=$(switch_aws_account "${MGMT_CREDS}" "MANAGEMENT")
 
 ## ===============================
 ## Run any e2e tests
@@ -48,12 +54,10 @@ aws sts get-caller-identity
 REGIONAL_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 echo "Using REGIONAL_ACCOUNT_ID: ${REGIONAL_ACCOUNT_ID}"
 
-# passing these bits in, but AWS_SHARED_CREDENTIALS_FILE is what is being used
 RC_ACCOUNT_ID=$REGIONAL_ACCOUNT_ID RC_CREDS_FILE=$REGIONAL_CREDS ./ci/e2e-rc-test.sh
 
 # ./e2e-platform-api-test.sh
-sleep 60
 
-## ===============================
-## Tear down the regional cluster
-RC_ACCOUNT_ID=$REGIONAL_ACCOUNT_ID MC_ACCOUNT_ID=$MANAGEMENT_ACCOUNT_ID RC_CREDS_FILE=$REGIONAL_CREDS MC_CREDS_FILE=$MGMT_CREDS ./ci/e2e-rc-test.sh --destroy-regional
+sleep 60
+RC_ACCOUNT_ID=$REGIONAL_ACCOUNT_ID RC_CREDS_FILE=$REGIONAL_CREDS ./ci/e2e-rc-test.sh --destroy-regional
+
