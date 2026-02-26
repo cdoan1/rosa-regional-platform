@@ -1,0 +1,78 @@
+# aws-nuke configuration for ROSA Regional Platform CI accounts.
+#
+# Reference: https://github.com/ekristen/aws-nuke (v3)
+
+regions:
+  - us-east-1
+  - global  # IAM, S3, Route53, etc.
+
+# Needed but not used.
+blocklist:
+ - prod
+
+# CI accounts don't have IAM aliases; skip that safety check.
+bypass-alias-check-accounts:
+  - "018092638725"
+  - "633630779107"
+
+accounts:
+  "018092638725":
+    filters: &preserve-filters
+      # ---------------------------------------------------------------
+      # Preserve CI identity: IAM User "nightly-e2e"
+      # ---------------------------------------------------------------
+      IAMUser:
+        - "nightly-e2e"
+
+      IAMUserAccessKey:
+        - property: UserName
+          value: "nightly-e2e"
+
+      IAMUserPolicyAttachment:
+        - property: UserName
+          value: "nightly-e2e"
+
+      IAMUserPolicy:
+        - property: UserName
+          value: "nightly-e2e"
+
+      IAMUserGroupAttachment:
+        - property: UserName
+          value: "nightly-e2e"
+
+      IAMLoginProfile:
+        - "nightly-e2e"
+
+      # ---------------------------------------------------------------
+      # Preserve OrganizationAccountAccessRole (AWS Organizations)
+      # ---------------------------------------------------------------
+      IAMRole:
+        - "OrganizationAccountAccessRole"
+        - property: Path
+          type: glob
+          value: "/aws-service-role/*"
+
+      IAMRolePolicyAttachment:
+        - property: RoleName
+          value: "OrganizationAccountAccessRole"
+        - property: RoleName
+          type: glob
+          value: "AWSServiceRoleFor*"
+
+      IAMRolePolicy:
+        - property: RoleName
+          value: "OrganizationAccountAccessRole"
+        - property: RoleName
+          type: glob
+          value: "AWSServiceRoleFor*"
+
+  "633630779107":
+    filters: *preserve-filters
+
+settings:
+  # Disable deletion protection on resources that may have it enabled
+  # from failed terraform runs, so aws-nuke can delete them.
+  RDSInstance:
+    DisableDeletionProtection: true
+  DynamoDBTable:
+    DisableDeletionProtection: true
