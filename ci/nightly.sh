@@ -42,12 +42,18 @@ echo "Using MANAGEMENT_ACCOUNT_ID: ${MANAGEMENT_ACCOUNT_ID}"
 ## ===============================
 ## Run any e2e tests
 
-echo "TODO: Implement me - run e2e tests"
-
 echo "==== Regional E2E Tests ===="
 export AWS_SHARED_CREDENTIALS_FILE="${REGIONAL_CREDS}"
 aws sts get-caller-identity
 REGIONAL_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 echo "Using REGIONAL_ACCOUNT_ID: ${REGIONAL_ACCOUNT_ID}"
 
-./e2e-platform-api-test.sh
+# passing these bits in, but AWS_SHARED_CREDENTIALS_FILE is what is being used
+RC_ACCOUNT_ID=$REGIONAL_ACCOUNT_ID RC_CREDS_FILE=$REGIONAL_CREDS ./ci/e2e-rc-test.sh
+
+# ./e2e-platform-api-test.sh
+sleep 60
+
+## ===============================
+## Tear down the regional cluster
+RC_ACCOUNT_ID=$REGIONAL_ACCOUNT_ID MC_ACCOUNT_ID=$MANAGEMENT_ACCOUNT_ID RC_CREDS_FILE=$REGIONAL_CREDS MC_CREDS_FILE=$MGMT_CREDS ./ci/e2e-rc-test.sh --destroy-regional
