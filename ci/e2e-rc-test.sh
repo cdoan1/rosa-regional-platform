@@ -10,7 +10,18 @@ readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Test identification
-readonly TIMESTAMP=$(date +%s)
+# readonly TIMESTAMP=$(date +%s)
+export HASH
+
+if [[ -z "${RC_ACCOUNT_ID:-}" ]]; then
+    HASH=$(date +%s)
+else
+    # use a unique hash, but not a timestamp
+    # this will allow resources to not recreate if they exist
+    HASH=$(echo $RC_ACCOUNT_ID | sha256sum | cut -c1-12)
+fi
+
+echo "Unique Hash: $HASH"
 
 # Git configuration
 export GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-openshift-online/rosa-regional-platform}"
@@ -182,7 +193,7 @@ create_platform_image() {
     
     local region="${TEST_REGION}"
     # Use a stable repository name for e2e tests (not timestamp-based) so images can be reused
-    local repo_name="e2e-platform"
+    local repo_name="e2e-platform-${HASH}"
     local account_id=$(aws sts get-caller-identity --query Account --output text)
     local repo_uri="${account_id}.dkr.ecr.${region}.amazonaws.com/${repo_name}"
     
@@ -321,12 +332,12 @@ configure_rc_environment() {
     export TF_VAR_cost_center="000"
     export TF_VAR_repository_url="https://github.com/openshift-online/rosa-regional-platform.git"
     export TF_VAR_repository_branch="main"
-    export TF_STATE_BUCKET="e2e-rosa-regional-platform-1234567890"
+    export TF_STATE_BUCKET="e2e-rosa-regional-platform-${HASH}"
     export TF_STATE_REGION="us-east-1"
-    export TF_STATE_KEY="e2e-rosa-regional-platform-1234567890.tfstate"
+    export TF_STATE_KEY="e2e-rosa-regional-platform-${HASH}.tfstate"
 
     # export TF_VAR_target_account_id="${RC_ACCOUNT_ID:-}"
-    export TF_VAR_target_alias="e2e-rc-${TIMESTAMP}"
+    export TF_VAR_target_alias="e2e-rc-${HASH}"
 
     # Database optimizations for test (smallest/cheapest instances)
     export TF_VAR_maestro_db_instance_class="db.t4g.micro"
@@ -342,7 +353,7 @@ configure_rc_environment() {
     export TF_VAR_authz_deletion_protection="false"
 
     # Store cluster name for later use
-    export RC_CLUSTER_NAME="e2e-rc-1234567890"
+    export RC_CLUSTER_NAME="e2e-rc-${HASH}"
 
     log_success "RC environment configured"
     log_info "Cluster Name: ${RC_CLUSTER_NAME}"
@@ -360,6 +371,10 @@ create_regional_cluster() {
     export ENVIRONMENT="e2e"
     export REGION_ALIAS="us-east-1"
     export CLUSTER_TYPE="regional-cluster"
+    log_info "State Bucket: ${TF_STATE_BUCKET}"
+    log_info "State Key: ${TF_STATE_KEY}"
+    log_info "Region: ${TF_VAR_region}"
+    log_info "Target Alias: ${TF_VAR_target_alias}"
 
     $REPO_ROOT/scripts/dev/validate-argocd-config.sh regional-cluster
 
@@ -390,7 +405,7 @@ destroy_regional_cluster() {
         -backend-config="bucket=${TF_STATE_BUCKET}" \
         -backend-config="key=${TF_STATE_KEY}" \
         -backend-config="region=${TF_STATE_REGION}" \
-        -backend-config="use_lockfile=true"
+        -backend-config="use_lockfile=false"
 
     terraform destroy -auto-approve || { log_error "RC destruction failed"; return 1; }
     cd $REPO_ROOT
@@ -433,7 +448,7 @@ main() {
     
     if [[ "$destroy_mode" == "true" ]]; then
         log_phase "Starting E2E Regional Cluster Destruction"
-        log_info "Timestamp: $TIMESTAMP"
+        log_info "Hash: $HASH"
         
         # Setup S3 backend (required for terraform destroy)
         create_s3_bucket || { log_error "Failed to setup S3 backend"; exit 1; }
@@ -443,7 +458,7 @@ main() {
         log_success "Regional Cluster destroyed successfully"
     else
         log_phase "Starting E2E Regional Cluster Test"
-        log_info "Timestamp: $TIMESTAMP"
+        log_info "Hash: $HASH"
         
         # Step 1: Setup S3 backend
         create_s3_bucket || { log_error "Failed to setup S3 backend"; exit 1; }
