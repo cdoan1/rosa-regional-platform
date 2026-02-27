@@ -4,7 +4,6 @@ set -euo pipefail
 export AWS_PAGER=""
 
 # Credentials mounted at /var/run/rosa-credentials/ via ci-operator credentials mount
-
 CREDS_DIR="/var/run/rosa-credentials"
 
 ## ===============================
