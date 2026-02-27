@@ -101,7 +101,7 @@ echo ""
 
 log_info "Verifying AWS credentials..."
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text 2>/dev/null || echo "")
-AWS_REGION=$(aws configure get region || echo "")
+AWS_REGION="${AWS_REGION:-$(aws configure get region 2>/dev/null || echo "")}"
 
 if [ -z "$AWS_ACCOUNT_ID" ]; then
   log_error "Unable to verify AWS credentials. Ensure you're authenticated."
