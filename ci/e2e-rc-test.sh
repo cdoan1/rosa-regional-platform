@@ -144,7 +144,7 @@ create_iot_resources() {
         return 1
     fi    
     log_info "Creating management cluster terraform.tfvars..."
-    cat > "$REPO_ROOT/terraform/config/management-cluster/terraform.tfvars" <<EOF
+    cat > "${SHARED_DIR}/terraform/config/management-cluster/terraform.tfvars" <<EOF
 cluster_id = "management-01"
 app_code = "e2e"
 service_phase = "test"
@@ -158,7 +158,7 @@ EOF
     log_info "Running IoT provisioning script..."
     # Set AUTO_APPROVE to avoid interactive prompts
     export AUTO_APPROVE=true
-    if ! "$REPO_ROOT/scripts/provision-maestro-agent-iot-regional.sh" "$REPO_ROOT/terraform/config/management-cluster/terraform.tfvars"; then
+    if ! "$REPO_ROOT/scripts/provision-maestro-agent-iot-regional.sh" "${SHARED_DIR}/terraform/config/management-cluster/terraform.tfvars"; then
         log_error "IoT provisioning script failed"
         return 1
     fi
@@ -167,7 +167,7 @@ EOF
 destroy_iot_resources() {
     export AUTO_APPROVE=true
     export AWS_REGION="us-east-1"
-    $REPO_ROOT/scripts/cleanup-maestro-agent-iot.sh $REPO_ROOT/terraform/config/management-cluster/terraform.tfvars \
+    $REPO_ROOT/scripts/cleanup-maestro-agent-iot.sh ${SHARED_DIR}/terraform/config/management-cluster/terraform.tfvars \
         || { log_error "Failed to cleanup IoT resources"; return 1; }
 }
 
