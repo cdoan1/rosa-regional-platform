@@ -86,7 +86,7 @@ resource "aws_ecs_task_definition" "bootstrap" {
           echo "Creating/updating cluster identity secret with values:"
           echo "  ENVIRONMENT: $ENVIRONMENT"
           echo "  AWS_REGION: $AWS_REGION"
-          echo "  REGION_ALIAS: $REGION_ALIAS"
+          echo "  REGION_DEPLOYMENT: $REGION_DEPLOYMENT"
           echo "  CLUSTER_TYPE: $CLUSTER_TYPE"
           echo "  REPOSITORY_URL: $REPOSITORY_URL"
           echo "  REPOSITORY_BRANCH: $REPOSITORY_BRANCH"
@@ -100,7 +100,7 @@ resource "aws_ecs_task_definition" "bootstrap" {
             labels:
               argocd.argoproj.io/secret-type: cluster
               environment: "$ENVIRONMENT"
-              region_alias: "$REGION_ALIAS"
+              region_deployment: "$REGION_DEPLOYMENT"
               aws_region: "$AWS_REGION"
               cluster_type: "$CLUSTER_TYPE"
             annotations:

@@ -7,7 +7,7 @@
   "account_id": "REMOVED",
   "region": "us-east-2",
   "alias": "mc01-us-east-2",
-  "region_alias": "us-east-2",
+  "region_deployment": "us-east-2",
   "cluster_id": "mc01-us-east-2",
   "regional_aws_account_id": "REMOVED"
 }

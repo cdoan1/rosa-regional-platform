@@ -37,7 +37,7 @@ spec:
       labels:
         cluster_type: '{{ .metadata.labels.cluster_type }}'
         environment: '{{ .metadata.labels.environment }}'
-        region_alias: '{{ .metadata.labels.region_alias }}'
+        region_deployment: '{{ .metadata.labels.region_deployment }}'
         aws_region: '{{ .metadata.labels.aws_region }}'
     spec:
       project: default
@@ -55,7 +55,7 @@ spec:
       - helm:
           valueFiles:
           - values.yaml
-          - $values/deploy/{{ .metadata.labels.environment }}/{{ .metadata.labels.region_alias }}/argocd/{{ .metadata.labels.cluster_type }}-values.yaml
+          - $values/deploy/{{ .metadata.labels.environment }}/{{ .metadata.labels.region_deployment }}/argocd/{{ .metadata.labels.cluster_type }}-values.yaml
           valuesObject:
             global:
               cluster_type: '{{ .metadata.labels.cluster_type }}'

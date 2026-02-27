@@ -24,7 +24,7 @@ scripts/
 └── render.py                            # Generates values, ApplicationSets, and terraform configs
 
 deploy/                                  # Generated outputs (DO NOT EDIT)
-└── {environment}/{region_alias}/
+└── {environment}/{region_deployment}/
     ├── argocd/
     │   ├── {cluster_type}-values.yaml
     │   └── {cluster_type}-manifests/
@@ -128,4 +128,4 @@ The Git Generator gets either:
 
 **Application Sources:**
 - **Charts & Default Values**: From `argocd/config/` at pinned commit OR current git_revision
-- **Rendered Values**: From `deploy/<env>/<region_alias>/argocd/` at current git_revision (always latest environment config)
+- **Rendered Values**: From `deploy/<env>/<region_deployment>/argocd/` at current git_revision (always latest environment config)
