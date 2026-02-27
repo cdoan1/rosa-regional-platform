@@ -5,10 +5,6 @@
 
 set -euo pipefail
 
-# Default SHARED_DIR for local runs (CI sets this automatically)
-export SHARED_DIR="${SHARED_DIR:-/tmp/rosa-e2e-shared}"
-mkdir -p "${SHARED_DIR}"
-
 # Script directory and repository root
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -142,14 +138,15 @@ destroy_regional_cluster() {
     log_success "Regional Cluster destroyed"
 }
 
-create_iot_resources() {
+MC_TFVARS="${REPO_ROOT}/terraform/config/management-cluster/terraform.tfvars"
+
+write_mc_tfvars() {
     if [[ -z "${RC_ACCOUNT_ID:-}" ]]; then
-        log_error "RC_ACCOUNT_ID is required for IoT resource creation"
+        log_error "RC_ACCOUNT_ID is required for IoT operations"
         return 1
-    fi    
-    log_info "Creating management cluster terraform.tfvars..."
-    mkdir -p "${SHARED_DIR}/terraform/config/management-cluster"
-    cat > "${SHARED_DIR}/terraform/config/management-cluster/terraform.tfvars" <<EOF
+    fi
+    log_info "Writing management cluster terraform.tfvars..."
+    cat > "${MC_TFVARS}" <<EOF
 cluster_id = "management-01"
 app_code = "e2e"
 service_phase = "test"
@@ -160,19 +157,23 @@ enable_bastion = false
 region = "${TEST_REGION}"
 regional_aws_account_id = "${RC_ACCOUNT_ID}"
 EOF
+}
+
+create_iot_resources() {
+    write_mc_tfvars || return 1
     log_info "Running IoT provisioning script..."
-    # Set AUTO_APPROVE to avoid interactive prompts
     export AUTO_APPROVE=true
-    if ! "$REPO_ROOT/scripts/provision-maestro-agent-iot-regional.sh" "${SHARED_DIR}/terraform/config/management-cluster/terraform.tfvars"; then
+    if ! "$REPO_ROOT/scripts/provision-maestro-agent-iot-regional.sh" "${MC_TFVARS}"; then
         log_error "IoT provisioning script failed"
         return 1
     fi
 }
 
 destroy_iot_resources() {
+    write_mc_tfvars || return 1
     export AUTO_APPROVE=true
     export AWS_REGION="us-east-1"
-    $REPO_ROOT/scripts/cleanup-maestro-agent-iot.sh ${SHARED_DIR}/terraform/config/management-cluster/terraform.tfvars \
+    $REPO_ROOT/scripts/cleanup-maestro-agent-iot.sh "${MC_TFVARS}" \
         || { log_error "Failed to cleanup IoT resources"; return 1; }
 }
 
