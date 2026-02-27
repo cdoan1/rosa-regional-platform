@@ -6,20 +6,19 @@ CLUSTER_TYPE="${1:-}"
 
 # Set defaults from environment variables
 ENVIRONMENT="${ENVIRONMENT:-integration}"
-# Prefer existing REGION_ALIAS, then AWS CLI, then default (handles empty CLI output)
+# Prefer existing REGION_DEPLOYMENT, then AWS CLI, then default (handles empty CLI output)
 AWS_CLI_REGION=$(aws configure get region 2>/dev/null || true)
-REGION_ALIAS="${REGION_ALIAS:-${AWS_CLI_REGION:-us-east-1}}"
-AWS_REGION="${AWS_REGION:-$REGION_ALIAS}"
+AWS_REGION="${AWS_REGION:-us-east-1}"
 
 if [[ -z "$CLUSTER_TYPE" ]]; then
-    echo "Usage: ENVIRONMENT=<env> REGION_ALIAS=<alias> AWS_REGION=<region> $0 <cluster-type>"
+    echo "Usage: ENVIRONMENT=<env> REGION_DEPLOYMENT=<alias> AWS_REGION=<region> $0 <cluster-type>"
     echo ""
     echo "Arguments:"
     echo "  cluster-type: management-cluster or regional-cluster"
     echo ""
     echo "Required environment variables:"
     echo "  ENVIRONMENT - Environment name (integration, staging, production)"
-    echo "  REGION_ALIAS - Region directory identifier"
+    echo "  REGION_DEPLOYMENT - Region directory identifier"
     echo "  AWS_REGION - AWS region for operations"
     echo ""
     echo "All environment variables have defaults if not specified."
@@ -96,7 +95,7 @@ REPOSITORY_URL=$(echo "$OUTPUTS" | jq -r '.repository_url.value')
 REPOSITORY_BRANCH=$(echo "$OUTPUTS" | jq -r '.repository_branch.value')
 
 # Static values
-APPLICATIONSET_PATH="deploy/$ENVIRONMENT/$REGION_ALIAS/argocd/${CLUSTER_TYPE}-manifests"
+APPLICATIONSET_PATH="deploy/$ENVIRONMENT/$REGION_DEPLOYMENT/argocd/${CLUSTER_TYPE}-manifests"
 
 # Extract cluster-type specific outputs
 if [[ "$CLUSTER_TYPE" == "regional-cluster" ]]; then
@@ -127,7 +126,7 @@ RUN_TASK_OUTPUT=$(aws ecs run-task \
         {\"name\": \"REPOSITORY_BRANCH\", \"value\": \"$REPOSITORY_BRANCH\"},
         {\"name\": \"ENVIRONMENT\", \"value\": \"$ENVIRONMENT\"},
         {\"name\": \"AWS_REGION\", \"value\": \"$AWS_REGION\"},
-        {\"name\": \"REGION_ALIAS\", \"value\": \"$REGION_ALIAS\"},
+        {\"name\": \"REGION_DEPLOYMENT\", \"value\": \"$REGION_DEPLOYMENT\"},
         {\"name\": \"CLUSTER_TYPE\", \"value\": \"$CLUSTER_TYPE\"},
         {\"name\": \"API_TARGET_GROUP_ARN\", \"value\": \"$API_TARGET_GROUP_ARN\"}
       ]

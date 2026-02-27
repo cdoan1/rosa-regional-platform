@@ -8,8 +8,8 @@ data "aws_region" "current" {}
 
 # Secret names for Maestro Agent
 locals {
-  agent_cert_secret_name   = "maestro/agent-cert"
-  agent_config_secret_name = "maestro/agent-config"
+  agent_cert_secret_name   = "${var.cluster_id}/maestro/agent-cert"
+  agent_config_secret_name = "${var.cluster_id}/maestro/agent-config"
 
   common_tags = merge(
     var.tags,

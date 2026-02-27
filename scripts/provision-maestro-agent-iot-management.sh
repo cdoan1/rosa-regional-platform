@@ -95,7 +95,7 @@ fi
 
 log_info "Verifying AWS credentials (should be MANAGEMENT account)..."
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text 2>/dev/null || echo "")
-AWS_REGION=$(aws configure get region || echo "")
+AWS_REGION="${AWS_REGION:-$(aws configure get region 2>/dev/null || echo "")}"
 
 if [ -z "$AWS_ACCOUNT_ID" ]; then
   log_error "Unable to verify AWS credentials. Ensure you're authenticated."
@@ -161,8 +161,8 @@ echo ""
 # Create Secrets in AWS Secrets Manager
 # =============================================================================
 
-CERT_SECRET_NAME="maestro/agent-cert"
-CONFIG_SECRET_NAME="maestro/agent-config"
+CERT_SECRET_NAME="${CLUSTER_ID}/maestro/agent-cert"
+CONFIG_SECRET_NAME="${CLUSTER_ID}/maestro/agent-config"
 
 log_info "Creating secrets in AWS Secrets Manager..."
 log_info "  Region: ${AWS_REGION}"

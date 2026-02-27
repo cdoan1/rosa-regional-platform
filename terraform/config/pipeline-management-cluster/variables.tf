@@ -1,11 +1,10 @@
-variable "github_repo_owner" {
+variable "github_repository" {
   type        = string
-  description = "GitHub Repository Owner"
-}
-
-variable "github_repo_name" {
-  type        = string
-  description = "GitHub Repository Name"
+  description = "GitHub Repository in owner/name format (e.g., 'octocat/hello-world')"
+  validation {
+    condition     = can(regex("^[^/]+/[^/]+$", var.github_repository))
+    error_message = "github_repository must be in 'owner/name' format"
+  }
 }
 
 variable "github_branch" {
@@ -87,4 +86,15 @@ variable "cluster_id" {
 variable "regional_aws_account_id" {
   type        = string
   description = "AWS account ID where the regional cluster is hosted"
+}
+
+variable "enable_bastion" {
+  type        = bool
+  description = "Enable ECS Fargate bastion for break-glass/development access to the cluster"
+  default     = false
+}
+
+variable "codebuild_image" {
+  type        = string
+  description = "ECR image URI for CodeBuild projects (platform image with pre-installed tools)"
 }

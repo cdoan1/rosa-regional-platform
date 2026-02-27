@@ -19,10 +19,14 @@ locals {
   artifact_bucket_name   = "mc-${local.resource_hash}-${local.account_suffix}" # 24 chars
   codebuild_role_name    = "mc-cb-${local.resource_hash}"                      # 18 chars
   codepipeline_role_name = "mc-cp-${local.resource_hash}"                      # 18 chars
-  validate_project_name  = "mc-val-${local.resource_hash}"                     # 19 chars
   apply_project_name     = "mc-app-${local.resource_hash}"                     # 19 chars
   bootstrap_project_name = "mc-boot-${local.resource_hash}"                    # 21 chars
+  iot_mint_project_name  = "mc-iotm-${local.resource_hash}"                    # 21 chars
+  iot_apply_project_name = "mc-iota-${local.resource_hash}"                    # 21 chars
   pipeline_name          = "mc-pipe-${local.resource_hash}"                    # 20 chars
+
+  # Repository URL constructed from github_repository variable
+  repository_url = "https://github.com/${var.github_repository}.git"
 }
 
 # Use shared GitHub Connection (passed from pipeline-provisioner)
@@ -62,12 +66,14 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "logs:PutLogEvents"
         ]
         Resource = [
-          "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_validate.name}",
-          "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_validate.name}:*",
           "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_apply.name}",
           "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_apply.name}:*",
           "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_bootstrap.name}",
-          "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_bootstrap.name}:*"
+          "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_bootstrap.name}:*",
+          "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.iot_mint.name}",
+          "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.iot_mint.name}:*",
+          "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.iot_apply.name}",
+          "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.iot_apply.name}:*"
         ]
       },
       {
@@ -98,6 +104,8 @@ resource "aws_iam_role_policy" "codebuild_policy" {
       {
         Effect = "Allow"
         Action = [
+          # IoT - For minting Maestro agent certificates (same-account case)
+          "iot:*",
           # EC2/VPC - Full permissions for networking infrastructure
           "ec2:*",
           # EKS - Full permissions for cluster management
@@ -118,31 +126,6 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "ecs:StopTask",
           "ecs:DescribeTasks",
           "ecs:ListTasks",
-          # ECR - For platform image repository
-          "ecr:CreateRepository",
-          "ecr:DeleteRepository",
-          "ecr:DescribeRepositories",
-          "ecr:ListTagsForResource",
-          "ecr:TagResource",
-          "ecr:UntagResource",
-          "ecr:SetRepositoryPolicy",
-          "ecr:GetRepositoryPolicy",
-          "ecr:DeleteRepositoryPolicy",
-          "ecr:GetLifecyclePolicy",
-          "ecr:PutLifecyclePolicy",
-          "ecr:DeleteLifecyclePolicy",
-          "ecr:PutImageScanningConfiguration",
-          "ecr:PutImageTagMutability",
-          # ECR - For building and pushing platform images
-          "ecr:GetAuthorizationToken",
-          "ecr:DescribeImages",
-          "ecr:BatchGetImage",
-          "ecr:GetDownloadUrlForLayer",
-          "ecr:PutImage",
-          "ecr:InitiateLayerUpload",
-          "ecr:UploadLayerPart",
-          "ecr:CompleteLayerUpload",
-          "ecr:BatchCheckLayerAvailability",
           # Secrets Manager - For Maestro agent secrets
           "secretsmanager:*",
           # IAM - For creating cluster roles and policies
@@ -265,9 +248,10 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
           "codebuild:StartBuild"
         ]
         Resource = [
-          aws_codebuild_project.management_validate.arn,
           aws_codebuild_project.management_apply.arn,
-          aws_codebuild_project.management_bootstrap.arn
+          aws_codebuild_project.management_bootstrap.arn,
+          aws_codebuild_project.iot_mint.arn,
+          aws_codebuild_project.iot_apply.arn
         ]
       },
       {
@@ -276,9 +260,10 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
           "codebuild:StartBuild"
         ]
         Resource = [
-          "arn:aws:codebuild:*:*:project/${aws_codebuild_project.management_validate.name}",
           "arn:aws:codebuild:*:*:project/${aws_codebuild_project.management_apply.name}",
-          "arn:aws:codebuild:*:*:project/${aws_codebuild_project.management_bootstrap.name}"
+          "arn:aws:codebuild:*:*:project/${aws_codebuild_project.management_bootstrap.name}",
+          "arn:aws:codebuild:*:*:project/${aws_codebuild_project.iot_mint.name}",
+          "arn:aws:codebuild:*:*:project/${aws_codebuild_project.iot_apply.name}"
         ]
       }
     ]
@@ -287,7 +272,8 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
 
 # S3 Bucket for Artifacts
 resource "aws_s3_bucket" "pipeline_artifact" {
-  bucket = local.artifact_bucket_name
+  bucket        = local.artifact_bucket_name
+  force_destroy = true # Allow deletion even if bucket contains objects
 
   timeouts {
     create = "30s" # Fail fast if bucket creation hangs (explicit names should be instant)
@@ -329,70 +315,6 @@ resource "aws_s3_bucket_public_access_block" "pipeline_artifact" {
   restrict_public_buckets = true
 }
 
-# CodeBuild Project - Validate
-resource "aws_codebuild_project" "management_validate" {
-  name          = local.validate_project_name
-  service_role  = aws_iam_role.codebuild_role.arn
-  build_timeout = 30
-
-  artifacts {
-    type = "CODEPIPELINE"
-  }
-
-  environment {
-    compute_type                = "BUILD_GENERAL1_SMALL"
-    image                       = "aws/codebuild/amazonlinux2-x86_64-standard:4.0"
-    type                        = "LINUX_CONTAINER"
-    image_pull_credentials_type = "CODEBUILD"
-
-    environment_variable {
-      name  = "TARGET_ACCOUNT_ID"
-      value = var.target_account_id
-    }
-    environment_variable {
-      name  = "TARGET_REGION"
-      value = var.target_region
-    }
-    environment_variable {
-      name  = "TARGET_ALIAS"
-      value = var.target_alias
-    }
-    environment_variable {
-      name  = "APP_CODE"
-      value = var.app_code
-    }
-    environment_variable {
-      name  = "SERVICE_PHASE"
-      value = var.service_phase
-    }
-    environment_variable {
-      name  = "COST_CENTER"
-      value = var.cost_center
-    }
-    environment_variable {
-      name  = "REPOSITORY_URL"
-      value = var.repository_url
-    }
-    environment_variable {
-      name  = "REPOSITORY_BRANCH"
-      value = var.repository_branch
-    }
-    environment_variable {
-      name  = "CLUSTER_ID"
-      value = var.cluster_id
-    }
-    environment_variable {
-      name  = "REGIONAL_AWS_ACCOUNT_ID"
-      value = var.regional_aws_account_id
-    }
-  }
-
-  source {
-    type      = "CODEPIPELINE"
-    buildspec = "terraform/config/pipeline-management-cluster/buildspec-validate.yml"
-  }
-}
-
 # CodeBuild Project - Apply
 resource "aws_codebuild_project" "management_apply" {
   name          = local.apply_project_name
@@ -405,49 +327,73 @@ resource "aws_codebuild_project" "management_apply" {
 
   environment {
     compute_type                = "BUILD_GENERAL1_SMALL"
-    image                       = "aws/codebuild/amazonlinux2-x86_64-standard:4.0"
+    image                       = var.codebuild_image
     type                        = "LINUX_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
 
+    # AWS account where Management Cluster will be deployed
     environment_variable {
       name  = "TARGET_ACCOUNT_ID"
       value = var.target_account_id
     }
+    # AWS region for Management Cluster deployment
     environment_variable {
       name  = "TARGET_REGION"
       value = var.target_region
     }
+    # Unique identifier for deploying multiple clusters per region
     environment_variable {
       name  = "TARGET_ALIAS"
       value = var.target_alias
     }
+    # Application code for resource tagging
     environment_variable {
       name  = "APP_CODE"
       value = var.app_code
     }
+    # Service phase for resource tagging
     environment_variable {
       name  = "SERVICE_PHASE"
       value = var.service_phase
     }
+    # Cost center for resource tagging
     environment_variable {
       name  = "COST_CENTER"
       value = var.cost_center
     }
+    # Git repository URL for ArgoCD configuration
     environment_variable {
       name  = "REPOSITORY_URL"
       value = var.repository_url
     }
+    # Git branch for ArgoCD configuration
     environment_variable {
       name  = "REPOSITORY_BRANCH"
       value = var.repository_branch
     }
+    # Logical ID for registering with Regional Cluster
     environment_variable {
       name  = "CLUSTER_ID"
       value = var.cluster_id
     }
+    # AWS account hosting the Regional Cluster
     environment_variable {
       name  = "REGIONAL_AWS_ACCOUNT_ID"
       value = var.regional_aws_account_id
+    }
+    # Environment name (staging/production)
+    environment_variable {
+      name  = "ENVIRONMENT"
+      value = var.target_environment
+    }
+    # Whether to provision a bastion host
+    environment_variable {
+      name  = "ENABLE_BASTION"
+      value = var.enable_bastion ? "true" : "false"
+    }
+    environment_variable {
+      name  = "PLATFORM_IMAGE"
+      value = var.codebuild_image
     }
   }
 
@@ -469,36 +415,157 @@ resource "aws_codebuild_project" "management_bootstrap" {
 
   environment {
     compute_type                = "BUILD_GENERAL1_SMALL"
-    image                       = "aws/codebuild/amazonlinux2-x86_64-standard:4.0"
+    image                       = var.codebuild_image
     type                        = "LINUX_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
     privileged_mode             = true # Required for Docker builds
 
+    # AWS account where Management Cluster is deployed
     environment_variable {
       name  = "TARGET_ACCOUNT_ID"
       value = var.target_account_id
     }
+    # Unique identifier for the cluster
     environment_variable {
       name  = "TARGET_ALIAS"
       value = var.target_alias
     }
+    # AWS region for bootstrap operations
     environment_variable {
       name  = "TARGET_REGION"
       value = var.target_region
     }
+    # Environment name (staging/production)
     environment_variable {
       name  = "ENVIRONMENT"
       value = var.target_environment
     }
+    # Git repository URL for ArgoCD bootstrap
     environment_variable {
-      name  = "AWS_REGION"
-      value = var.target_region
+      name  = "REPOSITORY_URL"
+      value = var.repository_url
+    }
+    # Git branch for ArgoCD bootstrap
+    environment_variable {
+      name  = "REPOSITORY_BRANCH"
+      value = var.repository_branch
     }
   }
 
   source {
     type      = "CODEPIPELINE"
     buildspec = "terraform/config/pipeline-management-cluster/buildspec-bootstrap.yml"
+  }
+}
+
+# CodeBuild Project - IoT Certificate Mint (runs in RC account context)
+resource "aws_codebuild_project" "iot_mint" {
+  name          = local.iot_mint_project_name
+  service_role  = aws_iam_role.codebuild_role.arn
+  build_timeout = 30
+
+  artifacts {
+    type = "CODEPIPELINE"
+  }
+
+  environment {
+    compute_type                = "BUILD_GENERAL1_SMALL"
+    image                       = var.codebuild_image
+    type                        = "LINUX_CONTAINER"
+    image_pull_credentials_type = "CODEBUILD"
+
+    # Management cluster identifier (used for IoT policy naming and SM secret paths)
+    environment_variable {
+      name  = "CLUSTER_ID"
+      value = var.cluster_id
+    }
+    # AWS account hosting the Regional Cluster (where IoT resources are created)
+    environment_variable {
+      name  = "REGIONAL_AWS_ACCOUNT_ID"
+      value = var.regional_aws_account_id
+    }
+    # AWS region for the deployment
+    environment_variable {
+      name  = "TARGET_REGION"
+      value = var.target_region
+    }
+    # Unique identifier for this management cluster pipeline
+    environment_variable {
+      name  = "TARGET_ALIAS"
+      value = var.target_alias
+    }
+    # Application code for resource tagging
+    environment_variable {
+      name  = "APP_CODE"
+      value = var.app_code
+    }
+    # Service phase for resource tagging
+    environment_variable {
+      name  = "SERVICE_PHASE"
+      value = var.service_phase
+    }
+    # Cost center for resource tagging
+    environment_variable {
+      name  = "COST_CENTER"
+      value = var.cost_center
+    }
+    environment_variable {
+      name  = "PLATFORM_IMAGE"
+      value = var.codebuild_image
+    }
+  }
+
+  source {
+    type      = "CODEPIPELINE"
+    buildspec = "terraform/config/pipeline-management-cluster/buildspec-iot-mint.yml"
+  }
+}
+
+# CodeBuild Project - IoT Certificate Apply (reads from central SM, writes to MC)
+resource "aws_codebuild_project" "iot_apply" {
+  name          = local.iot_apply_project_name
+  service_role  = aws_iam_role.codebuild_role.arn
+  build_timeout = 15
+
+  artifacts {
+    type = "CODEPIPELINE"
+  }
+
+  environment {
+    compute_type                = "BUILD_GENERAL1_SMALL"
+    image                       = var.codebuild_image
+    type                        = "LINUX_CONTAINER"
+    image_pull_credentials_type = "CODEBUILD"
+
+    # Management cluster identifier (used for SM secret paths)
+    environment_variable {
+      name  = "CLUSTER_ID"
+      value = var.cluster_id
+    }
+    # AWS account where Management Cluster is deployed
+    environment_variable {
+      name  = "TARGET_ACCOUNT_ID"
+      value = var.target_account_id
+    }
+    # AWS region for the deployment
+    environment_variable {
+      name  = "TARGET_REGION"
+      value = var.target_region
+    }
+    # Unique identifier for this management cluster pipeline
+    environment_variable {
+      name  = "TARGET_ALIAS"
+      value = var.target_alias
+    }
+    environment_variable {
+      name  = "PLATFORM_IMAGE"
+      value = var.codebuild_image
+    }
+  }
+
+  source {
+    type      = "CODEPIPELINE"
+    buildspec = "terraform/config/pipeline-management-cluster/buildspec-iot-apply.yml"
   }
 }
 
@@ -525,7 +592,7 @@ resource "aws_codepipeline" "regional_pipeline" {
           includes = [var.github_branch]
         }
         file_paths {
-          includes = ["deploy/*/${local.name_suffix}/terraform/management/**", "terraform/config/pipeline-management-cluster/**"]
+          includes = ["deploy/${var.target_environment}/${var.target_region}/terraform/management/${local.name_suffix}.json", "terraform/config/pipeline-management-cluster/**"]
         }
       }
     }
@@ -544,26 +611,8 @@ resource "aws_codepipeline" "regional_pipeline" {
 
       configuration = {
         ConnectionArn    = data.aws_codestarconnections_connection.github.arn
-        FullRepositoryId = "${var.github_repo_owner}/${var.github_repo_name}"
+        FullRepositoryId = var.github_repository
         BranchName       = var.github_branch
-      }
-    }
-  }
-
-  stage {
-    name = "Validate"
-
-    action {
-      name             = "ValidateAndPlan"
-      category         = "Build"
-      owner            = "AWS"
-      provider         = "CodeBuild"
-      input_artifacts  = ["source_output"]
-      output_artifacts = ["validate_output"]
-      version          = "1"
-
-      configuration = {
-        ProjectName = aws_codebuild_project.management_validate.name
       }
     }
   }
@@ -576,12 +625,45 @@ resource "aws_codepipeline" "regional_pipeline" {
       category         = "Build"
       owner            = "AWS"
       provider         = "CodeBuild"
-      input_artifacts  = ["validate_output"]
+      input_artifacts  = ["source_output"]
       output_artifacts = ["apply_output"]
       version          = "1"
+      run_order        = 1
 
       configuration = {
         ProjectName = aws_codebuild_project.management_apply.name
+      }
+    }
+
+    action {
+      name             = "MintIoTCertificate"
+      category         = "Build"
+      owner            = "AWS"
+      provider         = "CodeBuild"
+      input_artifacts  = ["source_output"]
+      output_artifacts = ["iot_mint_output"]
+      version          = "1"
+      run_order        = 1 # Same run_order = parallel with ApplyInfrastructure
+
+      configuration = {
+        ProjectName = aws_codebuild_project.iot_mint.name
+      }
+    }
+  }
+
+  stage {
+    name = "Apply-IoT-Certs"
+
+    action {
+      name            = "ApplyIoTCertificates"
+      category        = "Build"
+      owner           = "AWS"
+      provider        = "CodeBuild"
+      input_artifacts = ["source_output"]
+      version         = "1"
+
+      configuration = {
+        ProjectName = aws_codebuild_project.iot_apply.name
       }
     }
   }
@@ -590,13 +672,12 @@ resource "aws_codepipeline" "regional_pipeline" {
     name = "Bootstrap-ArgoCD"
 
     action {
-      name             = "BootstrapArgoCD"
-      category         = "Build"
-      owner            = "AWS"
-      provider         = "CodeBuild"
-      input_artifacts  = ["apply_output"]
-      output_artifacts = ["bootstrap_output"]
-      version          = "1"
+      name            = "BootstrapArgoCD"
+      category        = "Build"
+      owner           = "AWS"
+      provider        = "CodeBuild"
+      input_artifacts = ["apply_output"]
+      version         = "1"
 
       configuration = {
         ProjectName = aws_codebuild_project.management_bootstrap.name

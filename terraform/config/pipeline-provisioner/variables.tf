@@ -1,11 +1,10 @@
-variable "github_repo_owner" {
+variable "github_repository" {
   type        = string
-  description = "GitHub Repository Owner"
-}
-
-variable "github_repo_name" {
-  type        = string
-  description = "GitHub Repository Name"
+  description = "GitHub Repository in owner/name format (e.g., 'octocat/hello-world')"
+  validation {
+    condition     = can(regex("^[^/]+/[^/]+$", var.github_repository))
+    error_message = "github_repository must be in 'owner/name' format"
+  }
 }
 
 variable "github_branch" {
@@ -33,4 +32,14 @@ variable "environment" {
 variable "github_connection_arn" {
   type        = string
   description = "ARN of the shared GitHub CodeStar connection"
+}
+
+variable "codebuild_image" {
+  type        = string
+  description = "ECR image URI for CodeBuild projects (platform image with pre-installed tools)"
+
+  validation {
+    condition     = length(var.codebuild_image) > 0
+    error_message = "codebuild_image must be a non-empty ECR image URI"
+  }
 }

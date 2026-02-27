@@ -1,0 +1,100 @@
+version: 0.2
+
+env:
+  shell: bash
+  exported-variables:
+    - CENTRAL_ACCOUNT_ID
+    - TF_STATE_REGION
+
+phases:
+  pre_build:
+    commands:
+      - source scripts/pipeline-common/detect-central-state.sh
+
+  build:
+    commands:
+      - echo "=========================================="
+      - echo "Applying IoT Certificates to MC Account"
+      - echo "=========================================="
+      - |
+        set -euo pipefail
+
+        echo "Cluster ID: ${CLUSTER_ID}"
+        echo "Target Account: ${TARGET_ACCOUNT_ID}"
+        echo "Target Region: ${TARGET_REGION}"
+        echo "Central Account: ${CENTRAL_ACCOUNT_ID}"
+        echo ""
+
+        # Pull cert files from central Secrets Manager to .maestro-certs/
+        # (the management script expects them on local disk)
+        CENTRAL_CERT_SECRET="pipeline/maestro-certs/${CLUSTER_ID}/agent-cert"
+        CENTRAL_CONFIG_SECRET="pipeline/maestro-certs/${CLUSTER_ID}/agent-config"
+        CENTRAL_REGION="${TF_STATE_REGION}"
+        CLUSTER_CERTS_DIR=".maestro-certs/${CLUSTER_ID}"
+
+        echo "Reading certificate data from central Secrets Manager..."
+        echo "  Cert secret: $CENTRAL_CERT_SECRET"
+        echo "  Config secret: $CENTRAL_CONFIG_SECRET"
+        echo "  Region: $CENTRAL_REGION"
+
+        mkdir -p "$CLUSTER_CERTS_DIR"
+
+        aws secretsmanager get-secret-value \
+            --secret-id "$CENTRAL_CERT_SECRET" \
+            --region "$CENTRAL_REGION" \
+            --query SecretString \
+            --output text > "$CLUSTER_CERTS_DIR/agent_cert.json"
+        chmod 600 "$CLUSTER_CERTS_DIR/agent_cert.json"
+        echo "Certificate data retrieved"
+
+        aws secretsmanager get-secret-value \
+            --secret-id "$CENTRAL_CONFIG_SECRET" \
+            --region "$CENTRAL_REGION" \
+            --query SecretString \
+            --output text > "$CLUSTER_CERTS_DIR/agent_config.json"
+        chmod 644 "$CLUSTER_CERTS_DIR/agent_config.json"
+        echo "Config data retrieved"
+        echo ""
+
+        # Assume role in MC account
+        if [ "$TARGET_ACCOUNT_ID" != "$CENTRAL_ACCOUNT_ID" ]; then
+            ROLE_ARN="arn:aws:iam::${TARGET_ACCOUNT_ID}:role/OrganizationAccountAccessRole"
+            echo "Assuming role in MC account: $ROLE_ARN"
+
+            TEMP_CREDS=$(aws sts assume-role \
+                --role-arn "$ROLE_ARN" \
+                --role-session-name "iot-apply-${TARGET_ALIAS}" \
+                --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
+                --output text)
+
+            export AWS_ACCESS_KEY_ID=$(echo "$TEMP_CREDS" | awk '{print $1}')
+            export AWS_SECRET_ACCESS_KEY=$(echo "$TEMP_CREDS" | awk '{print $2}')
+            export AWS_SESSION_TOKEN=$(echo "$TEMP_CREDS" | awk '{print $3}')
+
+            ASSUMED_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+            echo "Assumed role in MC account: $ASSUMED_ACCOUNT"
+        else
+            echo "MC account same as central - using current credentials"
+        fi
+
+        # Generate temporary tfvars for the management IoT provisioning script
+        TEMP_TFVARS=$(mktemp /tmp/maestro-iot-XXXXXX.tfvars)
+        cat > "$TEMP_TFVARS" <<EOF
+        cluster_id = "${CLUSTER_ID}"
+        EOF
+
+        # Run the management IoT provisioning script (reads .maestro-certs/, writes to MC SM)
+        export AWS_REGION="${TARGET_REGION}"
+        ./scripts/provision-maestro-agent-iot-management.sh "$TEMP_TFVARS"
+        rm -f "$TEMP_TFVARS"
+
+        echo ""
+        echo "IoT certificates applied to MC account"
+
+  post_build:
+    commands:
+      - echo "IoT apply stage complete."
+
+artifacts:
+  files:
+    - '**/*'

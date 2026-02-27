@@ -200,12 +200,15 @@ fi
 echo "=============================================================================="
 echo ""
 
-read -p "$(echo -e ${RED}Delete these resources? [y/N]:${NC} )" -n 1 -r
-echo ""
-
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-  log_warning "Cleanup cancelled"
-  exit 0
+if [[ "${AUTO_APPROVE:-false}" == "true" ]]; then
+  echo "Auto-approved"
+else
+  read -p "$(echo -e ${RED}Delete these resources? [y/N]:${NC} )" -n 1 -r
+  echo ""
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    log_warning "Cleanup cancelled"
+    exit 0
+  fi
 fi
 
 echo ""

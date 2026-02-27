@@ -36,16 +36,6 @@ module "regional_cluster" {
   cluster_type = "regional-cluster"
 }
 
-# =============================================================================
-# Platform Image (shared ECR repository for bastion and bootstrap)
-# =============================================================================
-
-module "platform_image" {
-  source = "../../modules/platform-image"
-
-  resource_name_base = module.regional_cluster.resource_name_base
-}
-
 # Call the ECS bootstrap module for external bootstrap execution
 module "ecs_bootstrap" {
   source = "../../modules/ecs-bootstrap"
@@ -56,7 +46,7 @@ module "ecs_bootstrap" {
   eks_cluster_name              = module.regional_cluster.cluster_name
   eks_cluster_security_group_id = module.regional_cluster.cluster_security_group_id
   resource_name_base            = module.regional_cluster.resource_name_base
-  container_image               = module.platform_image.container_image
+  container_image               = var.container_image
 
   # ArgoCD bootstrap configuration
   repository_url    = var.repository_url
@@ -77,7 +67,7 @@ module "bastion" {
   cluster_security_group_id = module.regional_cluster.cluster_security_group_id
   vpc_id                    = module.regional_cluster.vpc_id
   private_subnet_ids        = module.regional_cluster.private_subnets
-  container_image           = module.platform_image.container_image
+  container_image           = var.container_image
 }
 
 # =============================================================================

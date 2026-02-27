@@ -1,48 +1,33 @@
 # Platform Image Module
-# Manages the shared ECR repository and image tag for the platform container image.
+# Manages the shared public ECR repository and image tag for the platform container image.
 # This image is used by both the bastion and ecs-bootstrap modules.
+#
+# Public ECR repositories must be created in us-east-1. Callers must pass
+# an aws.us_east_1 provider alias pointing to us-east-1.
 
-data "aws_region" "current" {}
-data "aws_caller_identity" "current" {}
+terraform {
+  required_providers {
+    aws = {
+      source                = "hashicorp/aws"
+      configuration_aliases = [aws.us_east_1]
+    }
+  }
+}
 
 locals {
   dockerfile_hash = substr(sha256(file("${path.module}/Dockerfile")), 0, 12)
-  container_image = "${aws_ecr_repository.platform.repository_url}:${local.dockerfile_hash}"
+  container_image = "${aws_ecrpublic_repository.platform.repository_uri}:${local.dockerfile_hash}"
 }
 
 # =============================================================================
-# ECR Repository
+# Public ECR Repository
 # =============================================================================
 
-resource "aws_ecr_repository" "platform" {
-  name                 = "${var.resource_name_base}/platform"
-  image_tag_mutability = "IMMUTABLE"
-  force_delete         = true
+resource "aws_ecrpublic_repository" "platform" {
+  provider = aws.us_east_1
 
-  image_scanning_configuration {
-    scan_on_push = true
-  }
+  repository_name = "${var.resource_name_base}/platform"
+  force_destroy   = true
 
   tags = var.tags
-}
-
-resource "aws_ecr_lifecycle_policy" "platform" {
-  repository = aws_ecr_repository.platform.name
-
-  policy = jsonencode({
-    rules = [
-      {
-        rulePriority = 1
-        description  = "Keep last 2 images"
-        selection = {
-          tagStatus   = "any"
-          countType   = "imageCountMoreThan"
-          countNumber = 2
-        }
-        action = {
-          type = "expire"
-        }
-      }
-    ]
-  })
 }

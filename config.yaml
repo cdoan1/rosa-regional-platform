@@ -4,6 +4,55 @@
 # Templating:  Jinja2 on all strings, resolved after merge. e.g. "{{ aws_region }}"
 
 sectors:
+  - name: "e2e"
+    environment: "e2e"
+    terraform_vars:
+      app_code: "infra"
+      service_phase: "dev"
+      cost_center: "000"
+      environment: "{{ environment }}"
+    values:
+      management-cluster:
+        hypershift:
+          oidcStorageS3Bucket:
+            name: "hypershift-mc-{{ aws_region }}"
+            region: "{{ aws_region }}"
+          externalDns:
+            domain: "dev.{{ aws_region }}.rosa.example.com"
+
+  - name: "psav-central"
+    environment: "psav-central"
+    terraform_vars:
+      app_code: "infra"
+      service_phase: "dev"
+      cost_center: "000"
+      environment: "{{ environment }}"
+      enable_bastion: true
+    values:
+      management-cluster:
+        hypershift:
+          oidcStorageS3Bucket:
+            name: "hypershift-mc-{{ aws_region }}"
+            region: "{{ aws_region }}"
+          externalDns:
+            domain: "dev.{{ aws_region }}.rosa.example.com"
+
+  - name: "brian-testing"
+    environment: "brian"
+    terraform_vars:
+      app_code: "infra"
+      service_phase: "dev"
+      cost_center: "000"
+      environment: "{{ environment }}"
+    values:
+      management-cluster:
+        hypershift:
+          oidcStorageS3Bucket:
+            name: "hypershift-mc-{{ aws_region }}"
+            region: "{{ aws_region }}"
+          externalDns:
+            domain: "dev.{{ aws_region }}.rosa.example.com"
+
   - name: "integration"
     environment: "integration"
     terraform_vars:
@@ -20,6 +69,21 @@ sectors:
           externalDns:
             domain: "dev.{{ aws_region }}.rosa.example.com"
 
+  - name: "cdoan-central"
+    environment: "cdoan-central"
+    terraform_vars:
+      app_code: "infra"
+      service_phase: "dev"
+      cost_center: "000"
+      environment: "{{ environment }}"
+    values:
+      management-cluster:
+        hypershift:
+          oidcStorageS3Bucket:
+            name: "hypershift-mc-{{ aws_region }}"
+            region: "{{ aws_region }}"
+          externalDns:
+            domain: "dev.{{ aws_region }}.rosa.example.com"
 
   - name: "staging"
     environment: "staging"
@@ -40,15 +104,52 @@ sectors:
 region_deployments:
   - name: "us-east-1"
     aws_region: "us-east-1"
+    sector: "e2e"
+    account_id: "633630779107"
+    terraform_vars:
+      account_id: "{{ account_id }}"
+      region: "{{ aws_region }}"
+      alias: "regional-{{region_deployment}}"
+      region_deployment: "{{ region_deployment }}"
+    management_clusters:
+      - cluster_id: "mc01-{{ region_deployment }}"
+        account_id: "018092638725"
+    values:
+      regional-cluster:
+        maestro:
+          mqttEndpoint: "xxx.iot.{{ aws_region }}.amazonaws.com"
+        someOtherSetting: "value"
+
+  - name: "us-east-2"
+    aws_region: "us-east-2"
+    sector: "cdoan-central"
+    account_id: "754250776154"
+    terraform_vars:
+      account_id: "{{ account_id }}"
+      region: "{{ aws_region }}"
+      alias: "regional-{{region_deployment}}"
+      region_deployment: "{{ region_deployment }}"
+      enable_bastion: true
+    management_clusters:
+      - cluster_id: "mc01-{{ region_deployment }}"
+        account_id: "910485845704"
+    values:
+      regional-cluster:
+        maestro:
+          mqttEndpoint: "xxx.iot.{{ aws_region }}.amazonaws.com"
+        someOtherSetting: "value"
+
+  - name: "us-east-1"
+    aws_region: "us-east-1"
     sector: "integration"
     account_id: "REMOVED"
     terraform_vars:
       account_id: "{{ account_id }}"
       region: "{{ aws_region }}"
-      alias: "regional-{{region_alias}}"
-      region_alias: "{{ region_alias }}"
+      alias: "regional-{{region_deployment}}"
+      region_deployment: "{{ region_deployment }}"
     management_clusters:
-      - cluster_id: "mc01-{{ region_alias }}"
+      - cluster_id: "mc01-{{ region_deployment }}"
         account_id: "REMOVED"
 
   - name: "us-east-2"
@@ -58,10 +159,10 @@ region_deployments:
     terraform_vars:
       account_id: "{{ account_id }}"
       region: "{{ aws_region }}"
-      alias: "regional-{{region_alias}}"
-      region_alias: "{{ region_alias }}"
+      alias: "regional-{{region_deployment}}"
+      region_deployment: "{{ region_deployment }}"
     management_clusters:
-      - cluster_id: "mc01-{{ region_alias }}"
+      - cluster_id: "mc01-{{ region_deployment }}"
         account_id: "REMOVED"
     values:
       regional-cluster:
@@ -76,10 +177,10 @@ region_deployments:
     terraform_vars:
       account_id: "{{ account_id }}"
       region: "{{ aws_region }}"
-      alias: "regional-{{region_alias}}"
-      region_alias: "{{ region_alias }}"
+      alias: "regional-{{region_deployment}}"
+      region_deployment: "{{ region_deployment }}"
     management_clusters:
-      - cluster_id: "mc01-{{ region_alias }}"
+      - cluster_id: "mc01-{{ region_deployment }}"
         account_id: "REMOVED"
     config_revision:
       management-cluster: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"
@@ -92,8 +193,36 @@ region_deployments:
     terraform_vars:
       account_id: "{{ account_id }}"
       region: "{{ aws_region }}"
-      alias: "regional-{{region_alias}}"
-      region_alias: "{{ region_alias }}"
+      alias: "regional-{{region_deployment}}"
+      region_deployment: "{{ region_deployment }}"
     management_clusters:
-      - cluster_id: "mc01-{{ region_alias }}"
+      - cluster_id: "mc01-{{ region_deployment }}"
         account_id: "REMOVED"
+
+  - name: "us-east-1"
+    aws_region: "us-east-1"
+    sector: "brian"
+    account_id: "ssm:/infra/staging/us-east-1/account_id"
+    terraform_vars:
+      delete: true
+      account_id: "{{ account_id }}"
+      region: "{{ aws_region }}"
+      alias: "regional-{{region_deployment}}"
+      region_deployment: "{{ region_deployment }}"
+    management_clusters:
+      - cluster_id: "mc01-{{ region_deployment }}"
+        account_id: "ssm:/infra/staging/us-east-1/mc01/account_id"
+
+  - name: "us-east-1"
+    aws_region: "us-east-1"
+    sector: "psav-central"
+    account_id: "ssm:/infra/psav-central/us-east-1/account_id"
+    terraform_vars:
+      account_id: "{{ account_id }}"
+      region: "{{ aws_region }}"
+      alias: "regional-{{region_deployment}}"
+      region_deployment: "{{ region_deployment }}"
+      enable_bastion: true
+    management_clusters:
+      - cluster_id: "mc01-{{ region_deployment }}"
+        account_id: "ssm:/infra/psav-central/us-east-1/mc01/account_id"

@@ -1,0 +1,142 @@
+version: 0.2
+
+env:
+  shell: bash
+  exported-variables:
+    - CENTRAL_ACCOUNT_ID
+    - TF_STATE_REGION
+
+phases:
+  pre_build:
+    commands:
+      - source scripts/pipeline-common/detect-central-state.sh
+
+  build:
+    commands:
+      - echo "=========================================="
+      - echo "Minting IoT Certificate in RC Account"
+      - echo "=========================================="
+      - |
+        set -euo pipefail
+
+        echo "Cluster ID: ${CLUSTER_ID}"
+        echo "Regional Account: ${REGIONAL_AWS_ACCOUNT_ID}"
+        echo "Central Account: ${CENTRAL_ACCOUNT_ID}"
+        echo ""
+
+        # Resolve REGIONAL_AWS_ACCOUNT_ID (supports SSM parameter references)
+        RESOLVED_REGIONAL_ACCOUNT_ID="${REGIONAL_AWS_ACCOUNT_ID}"
+        if [[ "$RESOLVED_REGIONAL_ACCOUNT_ID" =~ ^ssm:/ ]]; then
+            SSM_PARAM_NAME="${RESOLVED_REGIONAL_ACCOUNT_ID#ssm:}"
+            echo "Resolving SSM parameter: $SSM_PARAM_NAME in region ${TARGET_REGION}"
+            RESOLVED_REGIONAL_ACCOUNT_ID=$(aws ssm get-parameter \
+                --name "$SSM_PARAM_NAME" \
+                --with-decryption \
+                --query 'Parameter.Value' \
+                --output text \
+                --region "${TARGET_REGION}")
+            echo "Resolved regional account ID: $RESOLVED_REGIONAL_ACCOUNT_ID"
+        fi
+
+        if [[ -z "$RESOLVED_REGIONAL_ACCOUNT_ID" ]]; then
+            echo "ERROR: REGIONAL_AWS_ACCOUNT_ID must be provided"
+            exit 1
+        fi
+
+        # Save central credentials (CodeBuild runs as central account)
+        CENTRAL_AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-}"
+        CENTRAL_AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-}"
+        CENTRAL_AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN:-}"
+
+        # Assume role in RC account for IoT operations
+        if [ "$RESOLVED_REGIONAL_ACCOUNT_ID" != "$CENTRAL_ACCOUNT_ID" ]; then
+            ROLE_ARN="arn:aws:iam::${RESOLVED_REGIONAL_ACCOUNT_ID}:role/OrganizationAccountAccessRole"
+            echo "Assuming role in RC account: $ROLE_ARN"
+
+            TEMP_CREDS=$(aws sts assume-role \
+                --role-arn "$ROLE_ARN" \
+                --role-session-name "iot-mint-${TARGET_ALIAS}" \
+                --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
+                --output text)
+
+            export AWS_ACCESS_KEY_ID=$(echo "$TEMP_CREDS" | awk '{print $1}')
+            export AWS_SECRET_ACCESS_KEY=$(echo "$TEMP_CREDS" | awk '{print $2}')
+            export AWS_SESSION_TOKEN=$(echo "$TEMP_CREDS" | awk '{print $3}')
+
+            ASSUMED_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+            echo "Assumed role in RC account: $ASSUMED_ACCOUNT"
+        else
+            echo "RC account same as central - using current credentials"
+        fi
+
+        # Generate temporary tfvars for the regional IoT provisioning script
+        TEMP_TFVARS=$(mktemp /tmp/maestro-iot-XXXXXX.tfvars)
+        cat > "$TEMP_TFVARS" <<EOF
+        cluster_id    = "${CLUSTER_ID}"
+        app_code      = "${APP_CODE}"
+        service_phase = "${SERVICE_PHASE}"
+        cost_center   = "${COST_CENTER}"
+        EOF
+
+        # Run the regional IoT provisioning script (mints cert, writes to .maestro-certs/)
+        export AWS_REGION="${TARGET_REGION}"
+        export AUTO_APPROVE=true
+        ./scripts/provision-maestro-agent-iot-regional.sh "$TEMP_TFVARS"
+        rm -f "$TEMP_TFVARS"
+
+        # Restore central account credentials to write to central Secrets Manager
+        export AWS_ACCESS_KEY_ID="${CENTRAL_AWS_ACCESS_KEY_ID}"
+        export AWS_SECRET_ACCESS_KEY="${CENTRAL_AWS_SECRET_ACCESS_KEY}"
+        export AWS_SESSION_TOKEN="${CENTRAL_AWS_SESSION_TOKEN}"
+
+        CURRENT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+        echo "Restored central credentials (account: $CURRENT_ACCOUNT)"
+        echo ""
+
+        # Push cert files from .maestro-certs/ to central Secrets Manager
+        CERT_FILE=".maestro-certs/${CLUSTER_ID}/agent_cert.json"
+        CONFIG_FILE=".maestro-certs/${CLUSTER_ID}/agent_config.json"
+        CENTRAL_CERT_SECRET="pipeline/maestro-certs/${CLUSTER_ID}/agent-cert"
+        CENTRAL_CONFIG_SECRET="pipeline/maestro-certs/${CLUSTER_ID}/agent-config"
+        CENTRAL_REGION="${TF_STATE_REGION}"
+
+        echo "Storing certificate data in central Secrets Manager..."
+        echo "  Cert secret: $CENTRAL_CERT_SECRET"
+        echo "  Config secret: $CENTRAL_CONFIG_SECRET"
+        echo "  Region: $CENTRAL_REGION"
+
+        for SECRET_NAME in "$CENTRAL_CERT_SECRET" "$CENTRAL_CONFIG_SECRET"; do
+            if [ "$SECRET_NAME" = "$CENTRAL_CERT_SECRET" ]; then
+                SECRET_FILE="$CERT_FILE"
+                SECRET_DESC="Maestro agent cert for ${CLUSTER_ID}"
+            else
+                SECRET_FILE="$CONFIG_FILE"
+                SECRET_DESC="Maestro agent config for ${CLUSTER_ID}"
+            fi
+
+            if aws secretsmanager describe-secret --secret-id "$SECRET_NAME" --region "$CENTRAL_REGION" 2>/dev/null; then
+                cat "$SECRET_FILE" | aws secretsmanager update-secret \
+                    --secret-id "$SECRET_NAME" \
+                    --secret-string file:///dev/stdin \
+                    --region "$CENTRAL_REGION"
+                echo "Updated: $SECRET_NAME"
+            else
+                cat "$SECRET_FILE" | aws secretsmanager create-secret \
+                    --name "$SECRET_NAME" \
+                    --description "Pipeline intermediate: ${SECRET_DESC}" \
+                    --secret-string file:///dev/stdin \
+                    --region "$CENTRAL_REGION"
+                echo "Created: $SECRET_NAME"
+            fi
+        done
+
+        echo ""
+        echo "IoT certificate minted and stored in central Secrets Manager"
+
+  post_build:
+    commands:
+      - echo "IoT mint stage complete."
+
+artifacts:
+  files:
+    - '**/*'
