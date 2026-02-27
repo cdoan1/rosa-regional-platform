@@ -5,6 +5,10 @@
 
 set -euo pipefail
 
+# Default SHARED_DIR for local runs (CI sets this automatically)
+export SHARED_DIR="${SHARED_DIR:-/tmp/rosa-e2e-shared}"
+mkdir -p "${SHARED_DIR}"
+
 # Script directory and repository root
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -144,6 +148,7 @@ create_iot_resources() {
         return 1
     fi    
     log_info "Creating management cluster terraform.tfvars..."
+    mkdir -p "${SHARED_DIR}/terraform/config/management-cluster"
     cat > "${SHARED_DIR}/terraform/config/management-cluster/terraform.tfvars" <<EOF
 cluster_id = "management-01"
 app_code = "e2e"
