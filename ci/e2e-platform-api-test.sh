@@ -14,6 +14,9 @@
 
 set -euo pipefail
 
+# Use AWS_REGION from environment or default
+REGION="${AWS_REGION:-${REGION:-us-east-1}}"
+
 # Logger functions
 log_error() {
   echo "❌ ERROR: $*" >&2
@@ -37,14 +40,14 @@ verify_iot_setup() {
   log_section "Verifying IoT Core Setup"
   
   echo "Checking IoT endpoint..."
-  if ! aws iot describe-endpoint --endpoint-type iot:Data-ATS; then
+  if ! aws iot describe-endpoint --endpoint-type iot:Data-ATS --region "$REGION"; then
     log_error "Failed to describe IoT endpoint"
     return 1
   fi
   
   echo ""
   echo "Checking certificates..."
-  if ! aws iot list-certificates; then
+  if ! aws iot list-certificates --region "$REGION"; then
     log_error "Failed to list IoT certificates"
     return 1
   fi
