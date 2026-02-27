@@ -84,7 +84,7 @@ phases:
         echo ""
 
         # Export required environment variables for Makefile target
-        # For regional clusters, extract region_deployment from generated terraform config
+        # For regional clusters, verify generated terraform config exists before provisioning
         export ENVIRONMENT="${ENVIRONMENT:-staging}"
         RC_CONFIG_FILE="deploy/${ENVIRONMENT}/${TARGET_REGION}/terraform/regional.json"
         if [ ! -f "$RC_CONFIG_FILE" ]; then

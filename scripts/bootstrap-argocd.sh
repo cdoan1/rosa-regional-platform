@@ -8,7 +8,6 @@ CLUSTER_TYPE="${1:-}"
 ENVIRONMENT="${ENVIRONMENT:-integration}"
 # Prefer existing REGION_DEPLOYMENT, then AWS CLI, then default (handles empty CLI output)
 AWS_CLI_REGION=$(aws configure get region 2>/dev/null || true)
-REGION_DEPLOYMENT="${REGION_DEPLOYMENT:-${AWS_CLI_REGION:-us-east-1}}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 
 if [[ -z "$CLUSTER_TYPE" ]]; then

@@ -595,7 +595,7 @@ def main() -> int:
         region_deployment = rd.get('region_deployment')
 
         if not (environment and region_deployment):
-            print(f"Error: config.yaml entry does not require environment and region_deployment: {rd}", file=sys.stderr)
+            print(f"Error: config.yaml entry must include environment and region_deployment: {rd}", file=sys.stderr)
             return 1
 
         render_region_deployment_values(rd, cluster_types, base_dir, deploy_dir)
