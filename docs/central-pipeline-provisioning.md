@@ -111,11 +111,11 @@ region_deployments:
     terraform_vars:
       account_id: "{{ account_id }}"
       region: "{{ aws_region }}"
-      alias: "regional-{{region_alias}}"
-      region_alias: "{{ region_alias }}"
+      alias: "regional-{{region_deployment}}"
+      region_deployment: "{{ region_deployment }}"
       enable_bastion: true
     management_clusters:
-      - cluster_id: "mc01-{{ region_alias }}"
+      - cluster_id: "mc01-{{ region_deployment }}"
         account_id: "<Management Account>"
 ```
 

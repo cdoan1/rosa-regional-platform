@@ -167,21 +167,21 @@ fi
 echo "Found ${#region_dirs[@]} region(s) in environment '${ENVIRONMENT}'"
 echo ""
 
-# Process each region_alias directory in the target environment
+# Process each region_deployment directory in the target environment
 for region_dir in deploy/${ENVIRONMENT}/*/; do
     [ -d "$region_dir" ] || continue
 
-    # Extract region_alias from directory path
-    # e.g., deploy/integration/us-east-1/ -> REGION_ALIAS=us-east-1
-    REGION_ALIAS=$(basename "$region_dir")
+    # Extract region_deployment from directory path
+    # e.g., deploy/integration/us-east-1/ -> REGION_DEPLOYMENT=us-east-1
+    REGION_DEPLOYMENT=$(basename "$region_dir")
 
     echo "=========================================="
-    echo "Processing: $ENVIRONMENT / $REGION_ALIAS"
+    echo "Processing: $ENVIRONMENT / $REGION_DEPLOYMENT"
     echo "=========================================="
 
     # 1. Check for regional.json in this region
     if [ -f "${region_dir}terraform/regional.json" ]; then
-        echo "Found regional.json for ${ENVIRONMENT}-${REGION_ALIAS}"
+        echo "Found regional.json for ${ENVIRONMENT}-${REGION_DEPLOYMENT}"
 
         REGIONAL_CONFIG="${region_dir}terraform/regional.json"
 
@@ -204,14 +204,14 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
         echo "  Terraform Vars: app_code=$APP_CODE, service_phase=$SERVICE_PHASE, cost_center=$COST_CENTER, enable_bastion=$ENABLE_BASTION"
         echo "  Delete Flag: $DELETE_FLAG"
 
-        echo "Processing Regional Cluster Pipeline for ${ENVIRONMENT}-${REGION_ALIAS}..."
+        echo "Processing Regional Cluster Pipeline for ${ENVIRONMENT}-${REGION_DEPLOYMENT}..."
 
         cd terraform/config/pipeline-regional-cluster
 
         terraform init \
             -reconfigure \
             -backend-config="bucket=$TF_STATE_BUCKET" \
-            -backend-config="key=pipelines/regional-${ENVIRONMENT}-${REGION_ALIAS}.tfstate" \
+            -backend-config="key=pipelines/regional-${ENVIRONMENT}-${REGION_DEPLOYMENT}.tfstate" \
             -backend-config="region=$TF_STATE_REGION" \
             -backend-config="use_lockfile=true"
 
@@ -245,10 +245,10 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
         if [ "$DELETE_FLAG" == "true" ]; then
             if destroy_pipeline "regional"; then
                 cd ../../..
-                echo "✅ Regional pipeline cleanup complete for ${ENVIRONMENT}-${REGION_ALIAS}"
+                echo "✅ Regional pipeline cleanup complete for ${ENVIRONMENT}-${REGION_DEPLOYMENT}"
             else
                 cd ../../..
-                echo "❌ Failed to destroy regional pipeline for ${ENVIRONMENT}-${REGION_ALIAS}"
+                echo "❌ Failed to destroy regional pipeline for ${ENVIRONMENT}-${REGION_DEPLOYMENT}"
                 echo "   Destroy failure requires manual intervention. Aborting."
                 exit 1
             fi
@@ -256,10 +256,10 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             # Apply with retry logic
             if retry_terraform_apply "${TF_ARGS[@]}"; then
                 cd ../../..
-                echo "✅ Regional pipeline created for ${ENVIRONMENT}-${REGION_ALIAS}"
+                echo "✅ Regional pipeline created for ${ENVIRONMENT}-${REGION_DEPLOYMENT}"
             else
                 cd ../../..
-                echo "❌ Failed to create regional pipeline for ${ENVIRONMENT}-${REGION_ALIAS} after retries"
+                echo "❌ Failed to create regional pipeline for ${ENVIRONMENT}-${REGION_DEPLOYMENT} after retries"
                 echo "⏭️  Continuing with next region..."
                 continue
             fi
@@ -270,7 +270,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
 
     # 2. Check for management/*.json files in this region
     if [ -d "${region_dir}terraform/management" ]; then
-        echo "Checking for management cluster configs in ${ENVIRONMENT}-${REGION_ALIAS}..."
+        echo "Checking for management cluster configs in ${ENVIRONMENT}-${REGION_DEPLOYMENT}..."
 
         for mc_config in ${region_dir}terraform/management/*.json; do
             [ -e "$mc_config" ] || continue
@@ -314,14 +314,14 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             echo "  Terraform Vars: app_code=$APP_CODE, service_phase=$SERVICE_PHASE, cost_center=$COST_CENTER, cluster_id=$CLUSTER_ID, regional_aws_account_id=$REGIONAL_AWS_ACCOUNT_ID, enable_bastion=$ENABLE_BASTION"
             echo "  Delete Flag: $DELETE_FLAG"
 
-            echo "Processing Management Cluster Pipeline for $CLUSTER_NAME in ${ENVIRONMENT}-${REGION_ALIAS}..."
+            echo "Processing Management Cluster Pipeline for $CLUSTER_NAME in ${ENVIRONMENT}-${REGION_DEPLOYMENT}..."
 
             cd terraform/config/pipeline-management-cluster
 
             terraform init \
                 -reconfigure \
                 -backend-config="bucket=$TF_STATE_BUCKET" \
-                -backend-config="key=pipelines/management-${ENVIRONMENT}-${REGION_ALIAS}-${CLUSTER_NAME}.tfstate" \
+                -backend-config="key=pipelines/management-${ENVIRONMENT}-${REGION_DEPLOYMENT}-${CLUSTER_NAME}.tfstate" \
                 -backend-config="region=$TF_STATE_REGION" \
                 -backend-config="use_lockfile=true"
 
@@ -368,7 +368,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
                 # Apply with retry logic
                 if retry_terraform_apply "${TF_ARGS[@]}"; then
                     cd ../../..
-                    echo "✅ Management pipeline created for $CLUSTER_NAME in ${ENVIRONMENT}-${REGION_ALIAS}"
+                    echo "✅ Management pipeline created for $CLUSTER_NAME in ${ENVIRONMENT}-${REGION_DEPLOYMENT}"
                 else
                     cd ../../..
                     echo "❌ Failed to create management pipeline for $CLUSTER_NAME after retries"

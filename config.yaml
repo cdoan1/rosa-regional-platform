@@ -109,10 +109,10 @@ region_deployments:
     terraform_vars:
       account_id: "{{ account_id }}"
       region: "{{ aws_region }}"
-      alias: "regional-{{region_alias}}"
-      region_alias: "{{ region_alias }}"
+      alias: "regional-{{region_deployment}}"
+      region_deployment: "{{ region_deployment }}"
     management_clusters:
-      - cluster_id: "mc01-{{ region_alias }}"
+      - cluster_id: "mc01-{{ region_deployment }}"
         account_id: "018092638725"
     values:
       regional-cluster:
@@ -127,11 +127,11 @@ region_deployments:
     terraform_vars:
       account_id: "{{ account_id }}"
       region: "{{ aws_region }}"
-      alias: "regional-{{region_alias}}"
-      region_alias: "{{ region_alias }}"
+      alias: "regional-{{region_deployment}}"
+      region_deployment: "{{ region_deployment }}"
       enable_bastion: true
     management_clusters:
-      - cluster_id: "mc01-{{ region_alias }}"
+      - cluster_id: "mc01-{{ region_deployment }}"
         account_id: "910485845704"
     values:
       regional-cluster:
@@ -146,10 +146,10 @@ region_deployments:
     terraform_vars:
       account_id: "{{ account_id }}"
       region: "{{ aws_region }}"
-      alias: "regional-{{region_alias}}"
-      region_alias: "{{ region_alias }}"
+      alias: "regional-{{region_deployment}}"
+      region_deployment: "{{ region_deployment }}"
     management_clusters:
-      - cluster_id: "mc01-{{ region_alias }}"
+      - cluster_id: "mc01-{{ region_deployment }}"
         account_id: "REMOVED"
 
   - name: "us-east-2"
@@ -159,10 +159,10 @@ region_deployments:
     terraform_vars:
       account_id: "{{ account_id }}"
       region: "{{ aws_region }}"
-      alias: "regional-{{region_alias}}"
-      region_alias: "{{ region_alias }}"
+      alias: "regional-{{region_deployment}}"
+      region_deployment: "{{ region_deployment }}"
     management_clusters:
-      - cluster_id: "mc01-{{ region_alias }}"
+      - cluster_id: "mc01-{{ region_deployment }}"
         account_id: "REMOVED"
     values:
       regional-cluster:
@@ -177,10 +177,10 @@ region_deployments:
     terraform_vars:
       account_id: "{{ account_id }}"
       region: "{{ aws_region }}"
-      alias: "regional-{{region_alias}}"
-      region_alias: "{{ region_alias }}"
+      alias: "regional-{{region_deployment}}"
+      region_deployment: "{{ region_deployment }}"
     management_clusters:
-      - cluster_id: "mc01-{{ region_alias }}"
+      - cluster_id: "mc01-{{ region_deployment }}"
         account_id: "REMOVED"
     config_revision:
       management-cluster: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"
@@ -193,10 +193,10 @@ region_deployments:
     terraform_vars:
       account_id: "{{ account_id }}"
       region: "{{ aws_region }}"
-      alias: "regional-{{region_alias}}"
-      region_alias: "{{ region_alias }}"
+      alias: "regional-{{region_deployment}}"
+      region_deployment: "{{ region_deployment }}"
     management_clusters:
-      - cluster_id: "mc01-{{ region_alias }}"
+      - cluster_id: "mc01-{{ region_deployment }}"
         account_id: "REMOVED"
 
   - name: "us-east-1"
@@ -207,10 +207,10 @@ region_deployments:
       delete: true
       account_id: "{{ account_id }}"
       region: "{{ aws_region }}"
-      alias: "regional-{{region_alias}}"
-      region_alias: "{{ region_alias }}"
+      alias: "regional-{{region_deployment}}"
+      region_deployment: "{{ region_deployment }}"
     management_clusters:
-      - cluster_id: "mc01-{{ region_alias }}"
+      - cluster_id: "mc01-{{ region_deployment }}"
         account_id: "ssm:/infra/staging/us-east-1/mc01/account_id"
 
   - name: "us-east-1"
@@ -220,9 +220,9 @@ region_deployments:
     terraform_vars:
       account_id: "{{ account_id }}"
       region: "{{ aws_region }}"
-      alias: "regional-{{region_alias}}"
-      region_alias: "{{ region_alias }}"
+      alias: "regional-{{region_deployment}}"
+      region_deployment: "{{ region_deployment }}"
       enable_bastion: true
     management_clusters:
-      - cluster_id: "mc01-{{ region_alias }}"
+      - cluster_id: "mc01-{{ region_deployment }}"
         account_id: "ssm:/infra/psav-central/us-east-1/mc01/account_id"

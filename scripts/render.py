@@ -13,8 +13,8 @@ This script renders configuration values by:
 1. Reading config.yaml to get the list of region deployments and their configurations
 2. For each region deployment and cluster type, loading defaults from existing values files
 3. Merging region deployment-specific overrides with defaults
-4. Outputting merged values files to deploy/{environment}/{region_alias}/argocd/{clustertype}-values.yaml
-5. Generating terraform pipeline configs to deploy/{environment}/{region_alias}/terraform/
+4. Outputting merged values files to deploy/{environment}/{region_deployment}/argocd/{clustertype}-values.yaml
+5. Generating terraform pipeline configs to deploy/{environment}/{region_deployment}/terraform/
 """
 
 import json
@@ -44,19 +44,19 @@ def load_yaml(file_path: Path) -> Dict[str, Any]:
 
 
 def validate_region_deployment_uniqueness(region_deployments):
-    """Ensure environment + region_alias combinations are unique across region deployments.
+    """Ensure environment + region_deployment combinations are unique across region deployments.
 
     Args:
         region_deployments: List of region deployment configurations
 
     Raises:
-        ValueError: If duplicate environment + region_alias combinations are found
+        ValueError: If duplicate environment + region_deployment combinations are found
     """
     seen_combinations = set()
     for rd in region_deployments:
-        combination = (rd.get('environment'), rd.get('region_alias'))
+        combination = (rd.get('environment'), rd.get('region_deployment'))
         if combination in seen_combinations:
-            raise ValueError(f"Duplicate environment + region_alias combination: {combination}")
+            raise ValueError(f"Duplicate environment + region_deployment combination: {combination}")
         seen_combinations.add(combination)
 
 
@@ -75,7 +75,7 @@ def validate_config_revisions(region_deployments):
     commit_hash_pattern = re.compile(r'^[a-f0-9]{7,40}$')
 
     for rd in region_deployments:
-        region_alias = rd.get('region_alias', 'unknown')
+        region_deployment = rd.get('region_deployment', 'unknown')
         environment = rd.get('environment', 'unknown')
         config_revisions = rd.get('config_revision', {})
 
@@ -83,7 +83,7 @@ def validate_config_revisions(region_deployments):
             if revision:  # Only validate if revision is specified
                 if not commit_hash_pattern.match(revision):
                     raise ValueError(
-                        f"Invalid commit hash for region deployment {region_alias} ({environment}): "
+                        f"Invalid commit hash for region deployment {region_deployment} ({environment}): "
                         f"'{revision}' (cluster_type: {cluster_type}). "
                         f"Expected 7-40 character hexadecimal string."
                     )
@@ -101,7 +101,7 @@ def save_yaml(data: Dict[str, Any], file_path: Path, cluster_type: str, rd: Dict
     file_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Generate header
-    region_alias = rd['region_alias']
+    region_deployment = rd['region_deployment']
     environment = rd['environment']
 
     header = f"""# GENERATED FILE - DO NOT EDIT MANUALLY
@@ -113,7 +113,7 @@ def save_yaml(data: Dict[str, Any], file_path: Path, cluster_type: str, rd: Dict
 # - Then run: scripts/render.py
 #
 # Cluster Type: {cluster_type}
-# Region Deployment: {region_alias} ({environment})
+# Region Deployment: {region_deployment} ({environment})
 # Generated: {Path(__file__).name}
 #
 
@@ -191,10 +191,10 @@ def resolve_region_deployments(config: Dict[str, Any]) -> List[Dict[str, Any]]:
         # Inherit environment from sector
         rd['environment'] = sector.get('environment', sector_name)
 
-        # Derive region_alias from name (backward compat for templates & K8s labels)
+        # Derive region_deployment from name (backward compat for templates & K8s labels)
         rd['name'] = rd.get('name', rd.get('region', ''))
-        rd['region_alias'] = rd['name']
-        rd['aws_region'] = rd.get('aws_region', rd.get('region_alias', ''))
+        rd['region_deployment'] = rd['name']
+        rd['aws_region'] = rd.get('aws_region', rd.get('region_deployment', ''))
 
         # Keep 'region' in template context as alias for aws_region (backward compat)
         rd['region'] = rd['aws_region']
@@ -235,13 +235,13 @@ def get_cluster_types(base_dir: Path) -> List[str]:
     return cluster_types
 
 
-def create_applicationset_template(cluster_type: str, environment: str, region_alias: str, config_revision: str = None, base_dir: Path = None) -> Dict[str, Any]:
+def create_applicationset_template(cluster_type: str, environment: str, region_deployment: str, config_revision: str = None, base_dir: Path = None) -> Dict[str, Any]:
     """Create ApplicationSet YAML template with specific commit hash or default revision.
 
     Args:
         cluster_type: Type of cluster (management-cluster, regional-cluster, etc.)
         environment: Environment name
-        region_alias: Region alias identifier
+        region_deployment: Region alias identifier
         config_revision: Optional commit hash for versioned deployments
         base_dir: Base directory path (for loading base ApplicationSet)
 
@@ -291,18 +291,18 @@ def render_region_deployment_applicationsets(
         base_dir: Base directory path (for loading base ApplicationSet)
     """
     environment = rd['environment']
-    region_alias = rd['region_alias']
+    region_deployment = rd['region_deployment']
     config_revisions = rd.get('config_revision', {})
 
     # Create output directory
-    output_dir = deploy_dir / environment / region_alias / 'argocd'
+    output_dir = deploy_dir / environment / region_deployment / 'argocd'
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Process each cluster type
     for cluster_type in cluster_types:
         config_revision = config_revisions.get(cluster_type)  # Get cluster-specific commit hash (may be None)
 
-        applicationset_data = create_applicationset_template(cluster_type, environment, region_alias, config_revision, base_dir)
+        applicationset_data = create_applicationset_template(cluster_type, environment, region_deployment, config_revision, base_dir)
 
         # Create cluster-type manifests directory (simplified structure)
         manifests_dir = output_dir / f'{cluster_type}-manifests'
@@ -321,7 +321,7 @@ def render_region_deployment_applicationsets(
 # - Then run: scripts/render.py
 #
 # Cluster Type: {cluster_type}
-# Region Deployment: {region_alias} ({environment})
+# Region Deployment: {region_deployment} ({environment})
 # Config Revision: {revision_info}
 # Generated: {Path(__file__).name}
 #
@@ -329,7 +329,7 @@ def render_region_deployment_applicationsets(
 """)
             yaml.dump(applicationset_data, f, default_flow_style=False, sort_keys=False, allow_unicode=True, width=float('inf'))
 
-        print(f"  [OK] deploy/{environment}/{region_alias}/argocd/{cluster_type}-manifests/applicationset.yaml (Config Revision: {revision_info})")
+        print(f"  [OK] deploy/{environment}/{region_deployment}/argocd/{cluster_type}-manifests/applicationset.yaml (Config Revision: {revision_info})")
 
 
 def render_region_deployment_values(
@@ -347,12 +347,12 @@ def render_region_deployment_values(
         deploy_dir: Path to the deploy output directory
     """
     environment = rd['environment']
-    region_alias = rd['region_alias']
+    region_deployment = rd['region_deployment']
 
-    print(f"Processing region deployment: {region_alias} ({environment})")
+    print(f"Processing region deployment: {region_deployment} ({environment})")
 
     # Create output directory
-    output_dir = deploy_dir / environment / region_alias / 'argocd'
+    output_dir = deploy_dir / environment / region_deployment / 'argocd'
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Process each cluster type
@@ -376,9 +376,9 @@ def render_region_deployment_values(
         output_file = output_dir / f'{cluster_type}-values.yaml'
         save_yaml(override_values, output_file, cluster_type, rd)
         if override_values:
-            print(f"  [OK] deploy/{environment}/{region_alias}/argocd/{cluster_type}-values.yaml")
+            print(f"  [OK] deploy/{environment}/{region_deployment}/argocd/{cluster_type}-values.yaml")
         else:
-            print(f"  [OK] deploy/{environment}/{region_alias}/argocd/{cluster_type}-values.yaml (empty - no overrides)")
+            print(f"  [OK] deploy/{environment}/{region_deployment}/argocd/{cluster_type}-values.yaml (empty - no overrides)")
 
 
 def render_region_deployment_terraform(
@@ -388,17 +388,17 @@ def render_region_deployment_terraform(
     """Generate terraform pipeline config files for a region deployment.
 
     Creates:
-    - deploy/<env>/<region_alias>/terraform/regional.json
-    - deploy/<env>/<region_alias>/terraform/management/<cluster_id>.json
+    - deploy/<env>/<region_deployment>/terraform/regional.json
+    - deploy/<env>/<region_deployment>/terraform/management/<cluster_id>.json
 
     Args:
         rd: Region deployment configuration
         deploy_dir: Path to the deploy output directory
     """
     environment = rd['environment']
-    region_alias = rd['region_alias']
+    region_deployment = rd['region_deployment']
 
-    terraform_dir = deploy_dir / environment / region_alias / 'terraform'
+    terraform_dir = deploy_dir / environment / region_deployment / 'terraform'
     terraform_dir.mkdir(parents=True, exist_ok=True)
 
     # Generate regional.json from region deployment terraform_vars (already merged with sector)
@@ -423,7 +423,7 @@ def render_region_deployment_terraform(
         json.dump(regional_data_with_metadata, f, indent=2)
         f.write('\n')  # Add trailing newline
 
-    print(f"  [OK] deploy/{environment}/{region_alias}/terraform/regional.json")
+    print(f"  [OK] deploy/{environment}/{region_deployment}/terraform/regional.json")
 
     # Generate management cluster configs
     management_clusters = rd.get('management_clusters', [])
@@ -436,7 +436,7 @@ def render_region_deployment_terraform(
             cluster_id = mc.get('cluster_id')
             if not cluster_id:
                 raise ValueError(
-                    f"Management cluster missing 'cluster_id' in region deployment {environment}/{region_alias}. "
+                    f"Management cluster missing 'cluster_id' in region deployment {environment}/{region_deployment}. "
                     f"Management cluster config: {mc}"
                 )
 
@@ -469,7 +469,7 @@ def render_region_deployment_terraform(
                 json.dump(mc_data_with_metadata, f, indent=2)
                 f.write('\n')  # Add trailing newline
 
-            print(f"  [OK] deploy/{environment}/{region_alias}/terraform/management/{cluster_id}.json")
+            print(f"  [OK] deploy/{environment}/{region_deployment}/terraform/management/{cluster_id}.json")
 
 
 def cleanup_stale_files(region_deployments: List[Dict[str, Any]], deploy_dir: Path) -> None:
@@ -482,13 +482,13 @@ def cleanup_stale_files(region_deployments: List[Dict[str, Any]], deploy_dir: Pa
     if not deploy_dir.exists():
         return
 
-    # Build a set of valid region deployment paths (environment/region_alias)
-    valid_rd_paths = {(rd['environment'], rd['region_alias']) for rd in region_deployments}
+    # Build a set of valid region deployment paths (environment/region_deployment)
+    valid_rd_paths = {(rd['environment'], rd['region_deployment']) for rd in region_deployments}
 
     # Build a mapping of region deployment -> set of management cluster IDs
     rd_mc_map = {}
     for rd in region_deployments:
-        key = (rd['environment'], rd['region_alias'])
+        key = (rd['environment'], rd['region_deployment'])
         # Only include non-empty cluster IDs
         mc_ids = {mc['cluster_id'] for mc in rd.get('management_clusters', []) if mc.get('cluster_id')}
         rd_mc_map[key] = mc_ids
@@ -507,12 +507,12 @@ def cleanup_stale_files(region_deployments: List[Dict[str, Any]], deploy_dir: Pa
             if not region_dir.is_dir() or region_dir.name.startswith('.'):
                 continue
 
-            region_alias = region_dir.name
-            rd_key = (environment, region_alias)
+            region_deployment = region_dir.name
+            rd_key = (environment, region_deployment)
 
             # If this region deployment no longer exists in config.yaml, remove the entire directory
             if rd_key not in valid_rd_paths:
-                print(f"  [CLEANUP] Removing stale region deployment: deploy/{environment}/{region_alias}/")
+                print(f"  [CLEANUP] Removing stale region deployment: deploy/{environment}/{region_deployment}/")
                 shutil.rmtree(region_dir)
                 removed_count += 1
                 continue
@@ -527,7 +527,7 @@ def cleanup_stale_files(region_deployments: List[Dict[str, Any]], deploy_dir: Pa
                     cluster_id = mc_file.stem
 
                     if cluster_id not in valid_mc_ids:
-                        print(f"  [CLEANUP] Removing stale MC: deploy/{environment}/{region_alias}/terraform/management/{mc_file.name}")
+                        print(f"  [CLEANUP] Removing stale MC: deploy/{environment}/{region_deployment}/terraform/management/{mc_file.name}")
                         mc_file.unlink()
                         removed_count += 1
 
@@ -562,7 +562,7 @@ def main() -> int:
         print("Error: No region deployments found in config.yaml", file=sys.stderr)
         return 1
 
-    # Validate environment + region_alias uniqueness
+    # Validate environment + region_deployment uniqueness
     try:
         validate_region_deployment_uniqueness(region_deployments)
     except ValueError as e:
@@ -592,10 +592,10 @@ def main() -> int:
     # Process each region deployment
     for rd in region_deployments:
         environment = rd.get('environment')
-        region_alias = rd.get('region_alias')
+        region_deployment = rd.get('region_deployment')
 
-        if not (environment and region_alias):
-            print(f"Error: config.yaml entry does not require environment and region_alias: {rd}", file=sys.stderr)
+        if not (environment and region_deployment):
+            print(f"Error: config.yaml entry must include environment and region_deployment: {rd}", file=sys.stderr)
             return 1
 
         render_region_deployment_values(rd, cluster_types, base_dir, deploy_dir)
