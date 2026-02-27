@@ -172,7 +172,7 @@ create_iot_resources() {
 destroy_iot_resources() {
     write_mc_tfvars || return 1
     export AUTO_APPROVE=true
-    export AWS_REGION="us-east-1"
+    export AWS_REGION="${TEST_REGION}"
     $REPO_ROOT/scripts/cleanup-maestro-agent-iot.sh "${MC_TFVARS}" \
         || { log_error "Failed to cleanup IoT resources"; return 1; }
 }
