@@ -98,7 +98,16 @@ resource "aws_iot_policy" "maestro_agent" {
 # Attach Policy to Certificate
 # =============================================================================
 
+# AWS IoT policy creation is eventually consistent; a brief pause avoids
+# "empty result" errors on the immediate read-back after attachment.
+resource "time_sleep" "wait_for_iot_policy" {
+  depends_on      = [aws_iot_policy.maestro_agent]
+  create_duration = "10s"
+}
+
 resource "aws_iot_policy_attachment" "maestro_agent" {
   policy = aws_iot_policy.maestro_agent.name
   target = aws_iot_certificate.maestro_agent.arn
+
+  depends_on = [time_sleep.wait_for_iot_policy]
 }

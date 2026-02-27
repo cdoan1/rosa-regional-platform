@@ -1,4 +1,4 @@
-.PHONY: help terraform-fmt terraform-init terraform-validate terraform-upgrade terraform-output-management terraform-output-regional provision-management provision-regional apply-infra-management apply-infra-regional provision-maestro-agent-iot-regional provision-maestro-agent-iot-management cleanup-maestro-agent-iot destroy-management destroy-regional build-platform-image test-e2e helm-lint check-rendered-files
+.PHONY: help terraform-fmt terraform-init terraform-validate terraform-upgrade terraform-output-management terraform-output-regional provision-management provision-regional apply-infra-management apply-infra-regional provision-maestro-agent-iot-regional cleanup-maestro-agent-iot destroy-management destroy-regional build-platform-image test-e2e helm-lint check-rendered-files
 
 # Default target
 help:
@@ -12,9 +12,8 @@ help:
 	@echo "  apply-infra-management                - Apply only management cluster infrastructure"
 	@echo "  apply-infra-regional                  - Apply only regional cluster infrastructure"
 	@echo ""
-	@echo "📡 Maestro Agent IoT Provisioning (2-step process):"
-	@echo "  provision-maestro-agent-iot-regional   - Step 1: Provision IoT in regional account"
-	@echo "  provision-maestro-agent-iot-management - Step 2: Create secret in management account"
+	@echo "📡 Maestro Agent IoT Provisioning:"
+	@echo "  provision-maestro-agent-iot-regional   - Provision IoT cert in regional account (state persisted)"
 	@echo "  cleanup-maestro-agent-iot              - Cleanup IoT resources before re-provisioning"
 	@echo ""
 	@echo "🐳 Platform Image:"
@@ -277,21 +276,6 @@ provision-maestro-agent-iot-regional:
 		exit 1; \
 	fi
 	@./scripts/provision-maestro-agent-iot-regional.sh $(MGMT_TFVARS)
-
-# Create secret in management account (Step 2)
-provision-maestro-agent-iot-management:
-	@if [ -z "$(MGMT_TFVARS)" ]; then \
-		echo "❌ Error: MGMT_TFVARS not set"; \
-		echo ""; \
-		echo "Usage: make provision-maestro-agent-iot-management MGMT_TFVARS=<path-to-tfvars>"; \
-		echo ""; \
-		echo "Example:"; \
-		echo "  make provision-maestro-agent-iot-management MGMT_TFVARS=terraform/config/management-cluster/terraform.tfvars"; \
-		echo ""; \
-		echo "⚠️  Ensure you are authenticated with MANAGEMENT AWS account credentials!"; \
-		exit 1; \
-	fi
-	@./scripts/provision-maestro-agent-iot-management.sh $(MGMT_TFVARS)
 
 # Cleanup IoT resources (run before re-provisioning)
 cleanup-maestro-agent-iot:

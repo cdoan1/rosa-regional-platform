@@ -14,12 +14,12 @@ output "maestro_agent_role_arn" {
 
 output "maestro_agent_cert_secret_name" {
   description = "Secrets Manager secret name for agent MQTT certificate"
-  value       = data.aws_secretsmanager_secret.maestro_agent_cert.name
+  value       = aws_secretsmanager_secret.maestro_agent_cert.name
 }
 
 output "maestro_agent_config_secret_name" {
   description = "Secrets Manager secret name for agent MQTT configuration"
-  value       = data.aws_secretsmanager_secret.maestro_agent_config.name
+  value       = aws_secretsmanager_secret.maestro_agent_config.name
 }
 
 output "cluster_id" {

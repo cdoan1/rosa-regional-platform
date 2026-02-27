@@ -100,6 +100,31 @@ resource "aws_iam_role_policy" "codebuild_policy" {
   })
 }
 
+# Policy: Bootstrap state buckets in target accounts
+# Scoped to assume OrganizationAccountAccessRole for state bucket creation
+resource "aws_iam_role_policy" "codebuild_state_bootstrap" {
+  name = "pipeline-provisioner-state-bootstrap"
+  role = aws_iam_role.codebuild_role.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "AssumeTargetAccountRole"
+        Effect   = "Allow"
+        Action   = "sts:AssumeRole"
+        Resource = "arn:aws:iam::*:role/OrganizationAccountAccessRole"
+      },
+      {
+        Sid      = "DescribeOrganization"
+        Effect   = "Allow"
+        Action   = "organizations:DescribeOrganization"
+        Resource = "*"
+      }
+    ]
+  })
+}
+
 # IAM Role for Build Platform Image CodeBuild Project
 # Scoped to minimum permissions for building and pushing container images
 resource "aws_iam_role" "build_platform_image_role" {

@@ -33,6 +33,17 @@ variable "mqtt_topic_prefix" {
   default     = "sources/maestro/consumers"
 }
 
+variable "maestro_agent_cert_json" {
+  description = "Maestro agent certificate material as JSON string (from IoT Mint outputs)"
+  type        = string
+  sensitive   = true
+}
+
+variable "maestro_agent_config_json" {
+  description = "Maestro agent MQTT configuration as JSON string (from IoT Mint outputs)"
+  type        = string
+}
+
 variable "tags" {
   description = "Additional tags to apply to resources"
   type        = map(string)

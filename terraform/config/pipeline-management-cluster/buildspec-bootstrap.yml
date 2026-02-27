@@ -2,17 +2,6 @@ version: 0.2
 
 env:
   shell: bash
-  exported-variables:
-    - CENTRAL_ACCOUNT_ID
-    - TF_STATE_REGION
-    - TARGET_AWS_ACCESS_KEY_ID
-    - TARGET_AWS_SECRET_ACCESS_KEY
-    - TARGET_AWS_SESSION_TOKEN
-    - CENTRAL_AWS_ACCESS_KEY_ID
-    - CENTRAL_AWS_SECRET_ACCESS_KEY
-    - CENTRAL_AWS_SESSION_TOKEN
-    - TF_VAR_target_account_id
-    - TF_VAR_target_alias
 
 phases:
   install:
@@ -20,13 +9,8 @@ phases:
       - |
         chmod +x \
           ./scripts/bootstrap-argocd.sh \
-          ./scripts/pipeline-common/argo-bootstrap-preflight.sh \
           ./scripts/pipeline-common/init-terraform-backend.sh \
           ./scripts/pipeline-common/bootstrap-argocd-wrapper.sh
-
-  pre_build:
-    commands:
-      - source ./scripts/pipeline-common/argo-bootstrap-preflight.sh
 
   build:
     commands:
@@ -36,15 +20,20 @@ phases:
       - |
         set -euo pipefail
 
+        # Pre-flight setup (validates env vars, inits account helpers)
+        source scripts/pipeline-common/setup-apply-preflight.sh
+
+        # Assume target account role for state and resource operations
+        use_mc_account
+        echo ""
+
         echo "Bootstrapping ArgoCD: ${TARGET_ALIAS} (${TARGET_ACCOUNT_ID}) in ${TARGET_REGION}"
-        echo "  Central Account (for S3 state): ${CENTRAL_ACCOUNT_ID}"
         echo ""
 
         # Initialize Terraform backend and verify outputs
-        # (restore credentials, configure backend, run terraform init, verify outputs)
         ./scripts/pipeline-common/init-terraform-backend.sh management-cluster "${TARGET_REGION}" "${TARGET_ALIAS}"
 
-        # Bootstrap ArgoCD (setup environment, call bootstrap script, handle logging)
+        # Bootstrap ArgoCD (already in target account, no cross-account assume needed)
         ./scripts/pipeline-common/bootstrap-argocd-wrapper.sh management-cluster "${TARGET_ACCOUNT_ID}"
 
   post_build:

@@ -18,6 +18,55 @@ trap 'echo "FAILED: line $LINENO, exit code $?" >&2' ERR
 CENTRAL_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 TF_STATE_BUCKET="terraform-state-${CENTRAL_ACCOUNT_ID}"
 
+# Save central credentials for account switching
+_CENTRAL_AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-}"
+_CENTRAL_AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-}"
+_CENTRAL_AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN:-}"
+
+# Track which target accounts have had state buckets bootstrapped (avoid duplicates)
+BOOTSTRAPPED_ACCOUNTS=""
+
+# Bootstrap state bucket in a target account (idempotent)
+bootstrap_target_state_bucket() {
+    local target_account_id="$1"
+    local target_region="$2"
+
+    # Skip if already bootstrapped this account in this run
+    if echo "$BOOTSTRAPPED_ACCOUNTS" | grep -q "|${target_account_id}|"; then
+        echo "State bucket already bootstrapped for account $target_account_id (skipping)"
+        return 0
+    fi
+
+    echo "Bootstrapping state bucket in target account $target_account_id..."
+
+    if [ "$target_account_id" = "$CENTRAL_ACCOUNT_ID" ]; then
+        # Same account - run bootstrap directly
+        ./scripts/bootstrap-state.sh "$target_region"
+    else
+        # Cross-account - assume role first
+        local creds
+        if ! creds=$(aws sts assume-role \
+            --role-arn "arn:aws:iam::${target_account_id}:role/OrganizationAccountAccessRole" \
+            --role-session-name "bootstrap-state-${target_account_id}" \
+            --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
+            --output text 2>&1); then
+            echo "ERROR: Failed to assume role in account $target_account_id for state bootstrap"
+            echo "Error: $creds"
+            return 1
+        fi
+
+        # Run bootstrap with target credentials
+        AWS_ACCESS_KEY_ID=$(echo "$creds" | awk '{print $1}') \
+        AWS_SECRET_ACCESS_KEY=$(echo "$creds" | awk '{print $2}') \
+        AWS_SESSION_TOKEN=$(echo "$creds" | awk '{print $3}') \
+        ./scripts/bootstrap-state.sh "$target_region"
+    fi
+
+    BOOTSTRAPPED_ACCOUNTS="${BOOTSTRAPPED_ACCOUNTS}|${target_account_id}|"
+    echo "State bucket ready in account $target_account_id"
+    echo ""
+}
+
 # Determine which environment to process (prefer existing, fall back to TARGET_ENVIRONMENT, then staging)
 ENVIRONMENT="${ENVIRONMENT:-${TARGET_ENVIRONMENT:-staging}}"
 
@@ -204,7 +253,17 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
         echo "  Terraform Vars: app_code=$APP_CODE, service_phase=$SERVICE_PHASE, cost_center=$COST_CENTER, enable_bastion=$ENABLE_BASTION"
         echo "  Delete Flag: $DELETE_FLAG"
 
-        echo "Processing Regional Cluster Pipeline for ${ENVIRONMENT}-${REGION_DEPLOYMENT}..."
+        # Validate TARGET_ACCOUNT_ID before using it
+        if [[ -z "$TARGET_ACCOUNT_ID" ]]; then
+            echo "❌ ERROR: TARGET_ACCOUNT_ID (account_id) must be provided for region ${AWS_REGION}"
+            echo "   Set account_id in your regional config (either direct account ID or ssm:/path/to/param)"
+            exit 1
+        fi
+
+        # Bootstrap state bucket in target account (idempotent)
+        bootstrap_target_state_bucket "$TARGET_ACCOUNT_ID" "$AWS_REGION"
+
+        echo "Processing Regional Cluster Pipeline for ${ENVIRONMENT}-${REGION_ALIAS}..."
 
         cd terraform/config/pipeline-regional-cluster
 
@@ -314,7 +373,18 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             echo "  Terraform Vars: app_code=$APP_CODE, service_phase=$SERVICE_PHASE, cost_center=$COST_CENTER, cluster_id=$CLUSTER_ID, regional_aws_account_id=$REGIONAL_AWS_ACCOUNT_ID, enable_bastion=$ENABLE_BASTION"
             echo "  Delete Flag: $DELETE_FLAG"
 
-            echo "Processing Management Cluster Pipeline for $CLUSTER_NAME in ${ENVIRONMENT}-${REGION_DEPLOYMENT}..."
+            # Validate TARGET_ACCOUNT_ID before using it
+            if [[ -z "$TARGET_ACCOUNT_ID" ]]; then
+                echo "❌ ERROR: TARGET_ACCOUNT_ID (account_id) must be provided for management cluster ${CLUSTER_NAME}"
+                echo "   Set account_id in your management cluster config (either direct account ID or ssm:/path/to/param)"
+                exit 1
+            fi
+
+            # Bootstrap state buckets in both MC and RC target accounts (idempotent)
+            bootstrap_target_state_bucket "$TARGET_ACCOUNT_ID" "$AWS_REGION"
+            bootstrap_target_state_bucket "$REGIONAL_AWS_ACCOUNT_ID" "$AWS_REGION"
+
+            echo "Processing Management Cluster Pipeline for $CLUSTER_NAME in ${ENVIRONMENT}-${REGION_ALIAS}..."
 
             cd terraform/config/pipeline-management-cluster
 

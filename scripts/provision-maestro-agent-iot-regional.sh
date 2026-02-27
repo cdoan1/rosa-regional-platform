@@ -5,12 +5,14 @@ set -euo pipefail
 # Provision IoT Resources for Management Cluster (REGIONAL CONTEXT)
 # =============================================================================
 # This script provisions AWS IoT Thing, Certificate, and Policy for a
-# management cluster in the REGIONAL AWS account.
+# management cluster in the REGIONAL AWS account. State is stored persistently
+# in the regional account's S3 state bucket.
 #
 # Prerequisites:
 # - AWS credentials configured for REGIONAL account
 # - Terraform installed
 # - jq installed (for JSON parsing)
+# - State bucket exists in regional account (run bootstrap-state.sh first)
 #
 # Usage:
 #   ./scripts/provision-maestro-agent-iot-regional.sh <path-to-management-cluster-tfvars>
@@ -20,7 +22,7 @@ set -euo pipefail
 #     terraform/config/management-cluster/terraform.tfvars
 #
 # Output:
-#   Certificate data written to: .maestro-certs/{cluster_id}/certificate_data.json
+#   IoT resources provisioned with state stored in S3
 # =============================================================================
 
 # Color codes for output
@@ -34,7 +36,6 @@ readonly NC='\033[0m' # No Color
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 readonly TERRAFORM_DIR="${REPO_ROOT}/terraform/config/maestro-agent-iot-provisioning"
-readonly OUTPUT_DIR="${REPO_ROOT}/.maestro-certs"
 
 # =============================================================================
 # Helper Functions
@@ -116,7 +117,7 @@ fi
 log_success "AWS credentials verified"
 log_info "  Account ID: ${AWS_ACCOUNT_ID}"
 log_info "  Region:     ${AWS_REGION}"
-log_warning "  ⚠️  Ensure this is your REGIONAL account!"
+log_warning "  Ensure this is your REGIONAL account!"
 echo ""
 
 # =============================================================================
@@ -146,6 +147,20 @@ log_info "  Management Cluster: ${CLUSTER_ID}"
 echo ""
 
 # =============================================================================
+# Configure State Backend
+# =============================================================================
+
+IOT_STATE_BUCKET="${IOT_STATE_BUCKET:-terraform-state-${AWS_ACCOUNT_ID}}"
+IOT_STATE_KEY="${IOT_STATE_KEY:-maestro-agent-iot/${CLUSTER_ID}.tfstate}"
+IOT_STATE_REGION="${IOT_STATE_REGION:-${AWS_REGION}}"
+
+log_info "State backend:"
+log_info "  Bucket: ${IOT_STATE_BUCKET}"
+log_info "  Key:    ${IOT_STATE_KEY}"
+log_info "  Region: ${IOT_STATE_REGION}"
+echo ""
+
+# =============================================================================
 # Generate Terraform Variables
 # =============================================================================
 
@@ -171,8 +186,12 @@ echo ""
 # Run Terraform
 # =============================================================================
 
-log_info "Initializing Terraform..."
-terraform init -upgrade
+log_info "Initializing Terraform with remote backend..."
+terraform init -reconfigure \
+    -backend-config="bucket=${IOT_STATE_BUCKET}" \
+    -backend-config="key=${IOT_STATE_KEY}" \
+    -backend-config="region=${IOT_STATE_REGION}" \
+    -backend-config="use_lockfile=true"
 
 log_info "Running Terraform plan..."
 terraform plan -out=tfplan
@@ -199,53 +218,7 @@ log_success "IoT resources provisioned in regional account"
 echo ""
 
 # =============================================================================
-# Extract and Save Certificate and Config Data
-# =============================================================================
-
-log_info "Extracting certificate and configuration data..."
-
-AGENT_CERT=$(terraform output -json agent_cert)
-AGENT_CONFIG=$(terraform output -json agent_config)
-
-if [ -z "$AGENT_CERT" ] || [ "$AGENT_CERT" == "null" ]; then
-  log_error "Failed to extract agent certificate from Terraform output"
-  exit 1
-fi
-
-if [ -z "$AGENT_CONFIG" ] || [ "$AGENT_CONFIG" == "null" ]; then
-  log_error "Failed to extract agent configuration from Terraform output"
-  exit 1
-fi
-
-# Create output directory
-CLUSTER_OUTPUT_DIR="${OUTPUT_DIR}/${CLUSTER_ID}"
-mkdir -p "$CLUSTER_OUTPUT_DIR"
-
-# Write certificate data
-CERT_FILE="${CLUSTER_OUTPUT_DIR}/agent_cert.json"
-echo "$AGENT_CERT" > "$CERT_FILE"
-chmod 600 "$CERT_FILE"  # Restrict permissions (sensitive)
-
-# Write configuration data
-CONFIG_FILE="${CLUSTER_OUTPUT_DIR}/agent_config.json"
-echo "$AGENT_CONFIG" > "$CONFIG_FILE"
-chmod 644 "$CONFIG_FILE"  # Normal permissions (non-sensitive)
-
-log_success "Certificate saved to: ${CERT_FILE}"
-log_success "Configuration saved to: ${CONFIG_FILE}"
-echo ""
-
-# =============================================================================
-# Clean Up Terraform State (Ephemeral)
-# =============================================================================
-
-log_info "Cleaning up local Terraform state (ephemeral)..."
-rm -f terraform.tfstate terraform.tfstate.backup
-log_success "Terraform state cleaned up"
-echo ""
-
-# =============================================================================
-# Display Next Steps
+# Display Summary
 # =============================================================================
 
 echo "=============================================================================="
@@ -253,25 +226,22 @@ echo -e "${GREEN}Regional Provisioning Complete!${NC}"
 echo "=============================================================================="
 echo ""
 echo "Resources created in REGIONAL account (${AWS_ACCOUNT_ID}):"
-echo "  IoT Thing:  ${CLUSTER_ID}-maestro-agent"
+echo "  IoT Policy: ${CLUSTER_ID}-maestro-agent-policy"
 echo "  Region:     ${AWS_REGION}"
 echo ""
-echo "Data saved to:"
-echo "  Certificate:   ${CERT_FILE}"
-echo "  Configuration: ${CONFIG_FILE}"
+echo "State stored in:"
+echo "  Bucket: ${IOT_STATE_BUCKET}"
+echo "  Key:    ${IOT_STATE_KEY}"
 echo ""
 echo "=============================================================================="
 echo "NEXT STEP"
 echo "=============================================================================="
 echo ""
-echo "Switch to MANAGEMENT account credentials, then run:"
+echo "Deploy the management cluster infrastructure:"
 echo ""
-echo -e "${YELLOW}make provision-maestro-agent-iot-management \\"
-echo -e "  MGMT_TFVARS=${MGMT_TFVARS}${NC}"
+echo -e "${YELLOW}make provision-management${NC}"
 echo ""
-echo "Or directly:"
-echo ""
-echo -e "${YELLOW}./scripts/provision-maestro-agent-iot-management.sh \\"
-echo -e "  ${MGMT_TFVARS}${NC}"
+echo "The management cluster terraform will read IoT outputs from the"
+echo "regional state and create the Maestro agent secrets automatically."
 echo ""
 echo "=============================================================================="

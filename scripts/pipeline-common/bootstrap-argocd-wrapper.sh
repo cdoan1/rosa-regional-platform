@@ -57,13 +57,10 @@ export ENVIRONMENT="${ENVIRONMENT}"
 export REGION_DEPLOYMENT="${TARGET_REGION}"
 export AWS_REGION="${TARGET_REGION}"
 
-# Set ASSUME_ROLE_ARN for cross-account bootstrap (if needed)
-# The script will read terraform outputs with current (central) creds,
-# then assume this role for ECS/EKS operations
-if [ "$TARGET_ACCOUNT_ID" != "$CENTRAL_ACCOUNT_ID" ]; then
-    export ASSUME_ROLE_ARN="arn:aws:iam::${TARGET_ACCOUNT_ID}:role/OrganizationAccountAccessRole"
-    echo "Bootstrap will assume role for target account operations: $ASSUME_ROLE_ARN"
-fi
+# No cross-account assume needed — the caller (buildspec) has already
+# assumed the target account role via use_mc_account/use_rc_account.
+# State and resources are both in the target account, accessible via ambient creds.
+unset ASSUME_ROLE_ARN
 
 echo "Bootstrap environment configuration:"
 echo "  ENVIRONMENT: ${ENVIRONMENT}"
@@ -71,10 +68,13 @@ echo "  REGION_DEPLOYMENT: ${REGION_DEPLOYMENT}"
 echo "  AWS_REGION: ${AWS_REGION}"
 echo ""
 
-# Call bootstrap script with central account credentials (for terraform output reading)
-# The script will internally assume ASSUME_ROLE_ARN for ECS/EKS operations
+# Call bootstrap script (ambient creds are already target account)
+# Temporarily disable errexit so we can capture the exit code from PIPESTATUS
+# before set -e terminates the script on a non-zero pipeline status.
+set +e
 ./scripts/bootstrap-argocd.sh "$CLUSTER_TYPE" 2>&1 | tee /tmp/bootstrap.log
 BOOTSTRAP_EXIT_CODE=${PIPESTATUS[0]}
+set -e
 
 echo ""
 echo "=== Bootstrap Script Log ==="

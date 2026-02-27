@@ -88,3 +88,14 @@ variable "regional_aws_account_id" {
     error_message = "regional_aws_account_id must be a 12-digit AWS account ID"
   }
 }
+
+variable "maestro_agent_cert_json" {
+  description = "Maestro agent certificate material as JSON string (from IoT Mint outputs)"
+  type        = string
+  sensitive   = true
+}
+
+variable "maestro_agent_config_json" {
+  description = "Maestro agent MQTT configuration as JSON string (from IoT Mint outputs)"
+  type        = string
+}

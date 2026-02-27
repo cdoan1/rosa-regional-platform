@@ -1,10 +1,9 @@
 provider "aws" {
   region = var.region
 
-  # Conditionally assume role for cross-account deployment
+  # Conditionally assume role for cross-account deployment (local dev only)
   # When target_account_id is set, assume OrganizationAccountAccessRole in target account
-  # Backend (state) uses default CodeBuild credentials (central account)
-  # Provider (resources) uses assumed role credentials (target account)
+  # In pipelines, target_account_id is empty - ambient creds are already the target account
   dynamic "assume_role" {
     for_each = var.target_account_id != "" ? [1] : []
     content {
@@ -76,4 +75,7 @@ module "maestro_agent" {
   cluster_id              = var.cluster_id
   regional_aws_account_id = var.regional_aws_account_id
   eks_cluster_name        = module.management_cluster.cluster_name
+
+  maestro_agent_cert_json   = var.maestro_agent_cert_json
+  maestro_agent_config_json = var.maestro_agent_config_json
 }

@@ -8,8 +8,8 @@ data "aws_region" "current" {}
 
 # Secret names for Maestro Agent
 locals {
-  agent_cert_secret_name   = "${var.cluster_id}/maestro/agent-cert"
-  agent_config_secret_name = "${var.cluster_id}/maestro/agent-config"
+  agent_cert_secret_name   = "maestro/agent-cert"
+  agent_config_secret_name = "maestro/agent-config"
 
   common_tags = merge(
     var.tags,
@@ -21,11 +21,28 @@ locals {
   )
 }
 
-# Reference existing secrets (created by provision-maestro-agent-iot-management.sh)
-data "aws_secretsmanager_secret" "maestro_agent_cert" {
-  name = local.agent_cert_secret_name
+# =============================================================================
+# Maestro Agent Secrets (managed by terraform, populated from IoT Mint outputs)
+# =============================================================================
+
+resource "aws_secretsmanager_secret" "maestro_agent_cert" {
+  name        = local.agent_cert_secret_name
+  description = "Maestro Agent MQTT certificate material for ${var.cluster_id}"
+  tags        = local.common_tags
 }
 
-data "aws_secretsmanager_secret" "maestro_agent_config" {
-  name = local.agent_config_secret_name
+resource "aws_secretsmanager_secret_version" "maestro_agent_cert" {
+  secret_id     = aws_secretsmanager_secret.maestro_agent_cert.id
+  secret_string = var.maestro_agent_cert_json
+}
+
+resource "aws_secretsmanager_secret" "maestro_agent_config" {
+  name        = local.agent_config_secret_name
+  description = "Maestro Agent MQTT configuration for ${var.cluster_id}"
+  tags        = local.common_tags
+}
+
+resource "aws_secretsmanager_secret_version" "maestro_agent_config" {
+  secret_id     = aws_secretsmanager_secret.maestro_agent_config.id
+  secret_string = var.maestro_agent_config_json
 }

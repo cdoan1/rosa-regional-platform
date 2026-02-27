@@ -43,8 +43,8 @@ resource "aws_iam_role_policy" "maestro_agent_secrets" {
         "secretsmanager:DescribeSecret"
       ]
       Resource = [
-        data.aws_secretsmanager_secret.maestro_agent_cert.arn,
-        data.aws_secretsmanager_secret.maestro_agent_config.arn
+        aws_secretsmanager_secret.maestro_agent_cert.arn,
+        aws_secretsmanager_secret.maestro_agent_config.arn
       ]
     }]
   })
