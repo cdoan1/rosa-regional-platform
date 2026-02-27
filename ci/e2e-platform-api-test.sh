@@ -30,6 +30,10 @@ log_info() {
   echo "ℹ️  $*"
 }
 
+log_msg() {
+  echo "ℹ   $*"
+}
+
 log_section() {
   echo ""
   echo "=== $* ==="
@@ -39,14 +43,13 @@ log_section() {
 verify_iot_setup() {
   log_section "Verifying IoT Core Setup"
   
-  echo "Checking IoT endpoint..."
+  log_msg "Checking IoT endpoint..."
   if ! aws iot describe-endpoint --endpoint-type iot:Data-ATS --region "$REGION"; then
     log_error "Failed to describe IoT endpoint"
     return 1
   fi
   
-  echo ""
-  echo "Checking certificates..."
+  log_msg "Checking certificates..."
   if ! aws iot list-certificates --region "$REGION"; then
     log_error "Failed to list IoT certificates"
     return 1
@@ -66,7 +69,7 @@ test_platform_api() {
   log_section "Testing Platform API"
   
   # 1. Get all matching API IDs
-  local API_IDS=$(aws apigateway get-rest-apis --query "items[?starts_with(name, 'regional-cluster-')].id" --output text)
+  local API_IDS=$(aws apigateway get-rest-apis --region "$REGION" --query "items[?starts_with(name, 'regional-cluster-')].id" --output text)
   if [ -z "$API_IDS" ] || [ "$API_IDS" == "None" ]; then
     log_error "Failed to get API IDs"
     return 1
@@ -83,7 +86,7 @@ test_platform_api() {
   local API_ID="$API_IDS"
 
   # 2. Get all stages for the API
-  local STAGES_JSON=$(aws apigateway get-stages --rest-api-id "$API_ID" --output json)
+  local STAGES_JSON=$(aws apigateway get-stages --region "$REGION" --rest-api-id "$API_ID" --output json)
   if [ -z "$STAGES_JSON" ]; then
     log_error "Failed to get stages for API ID: $API_ID"
     return 1
@@ -103,19 +106,17 @@ test_platform_api() {
     return 1
   fi
 
-  # 3. Get the Region (from your local config)
-  local REGION=$(aws configure get region)
-  if [ -z "$REGION" ]; then
-    log_error "Failed to get AWS region"
-    return 1
-  fi
+  # # 3. Get the Region (from your local config)
+  # local REGION=$(aws configure get region)
+  # if [ -z "$REGION" ]; then
+  #   log_error "Failed to get AWS region"
+  #   return 1
+  # fi
 
   # Final URL
   local API_URL="https://$API_ID.execute-api.$REGION.amazonaws.com/$STAGE_NAME"
 
-  echo "Testing API URL: $API_URL with region: $REGION and API ID: $API_ID and Stage Name: $STAGE_NAME"
-  echo ""
-
+  log_msg "Testing API URL: $API_URL with region: $REGION and API ID: $API_ID and Stage Name: $STAGE_NAME"
   # Test basic API endpoints
   log_section "Testing API Health Endpoints"
   awscurl --fail-with-body --service execute-api --region "$REGION" "$API_URL/v0/live"
@@ -124,8 +125,6 @@ test_platform_api() {
   awscurl --fail-with-body --service execute-api --region "$REGION" "$API_URL/api/v0/resource_bundles"
   # awscurl --fail-with-body --service execute-api --region "$REGION" "$API_URL/api/v0/work"
   # awscurl --fail-with-body --service execute-api --region "$REGION" "$API_URL/api/v0/clusters"
-  echo ""
-
   # Create or verify management cluster
   log_section "Creating/Verifying Management Cluster"
   local RESPONSE=$(awscurl --fail-with-body -X POST "$API_URL/api/v0/management_clusters" \
@@ -159,7 +158,7 @@ test_platform_api() {
   local TIMESTAMP
   TIMESTAMP="$(date +%s)"
 
-  echo "Creating test manifestwork file: $TEST_FILE_MANIFESTWORK"
+  log_msg "Creating test manifestwork file: $TEST_FILE_MANIFESTWORK"
   cat > "$TEST_FILE_MANIFESTWORK" << EOF
 {
   "apiVersion": "work.open-cluster-management.io/v1",
@@ -224,8 +223,7 @@ test_platform_api() {
 EOF
 
   awscurl --fail-with-body --service execute-api --region "$REGION" "$API_URL/api/v0/management_clusters"
-  echo "Created ManifestWork file: maestro-payload-test-${TIMESTAMP}"
-  echo ""
+  log_msg "Created ManifestWork file: maestro-payload-test-${TIMESTAMP}"
 
   # Create payload and post work
   log_section "Posting Work to API"
@@ -247,13 +245,11 @@ EOF
 
   # Verify resource distribution
   log_section "Verifying Resource Distribution"
-  echo "Checking management cluster..."
+  log_msg "Checking management cluster..."
   awscurl --fail-with-body --service execute-api --region "$REGION" "$API_URL/api/v0/management_clusters"
-  echo ""
 
-  echo "Checking resource bundles..."
+  log_msg "Checking resource bundles..."
   awscurl --fail-with-body --service execute-api --region "$REGION" "$API_URL/api/v0/resource_bundles" | jq -r '.'
-  echo ""
 
   # local RESOURCE_STATUS=$(awscurl --fail-with-body --service execute-api --region "$REGION" "$API_URL/api/v0/resource_bundles" 2>/dev/null | \
   #   jq -r '.items[] | select(.metadata.name == "maestro-payload-test-'"${TIMESTAMP}"'")' | jq -r '.status.resourceStatus[]' 2>/dev/null || echo "")

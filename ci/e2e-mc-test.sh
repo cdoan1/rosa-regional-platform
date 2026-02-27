@@ -15,12 +15,12 @@ source $REPO_ROOT/ci/utils.sh
 # readonly TIMESTAMP=$(date +%s)
 export HASH
 
-if [[ -z "${RC_ACCOUNT_ID:-}" ]]; then
+if [[ -z "${MC_ACCOUNT_ID:-}" ]]; then
     HASH=$(date +%s)
 else
     # use a unique hash, but not a timestamp
     # this will allow resources to not recreate if they exist
-    HASH=$(echo $RC_ACCOUNT_ID | sha256sum | cut -c1-6)
+    HASH=$(echo $MC_ACCOUNT_ID | sha256sum | cut -c1-6)
 fi
 
 echo "Unique Hash: $HASH"
@@ -33,15 +33,15 @@ export REGION="${TEST_REGION}"
 export AWS_REGION="${TEST_REGION}"
 
 # Logging functions
-log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] rc-test:$*"; }
+log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] mc-test:$*"; }
 log_info() { log "ℹ️ $1"; }
 log_success() { log "✅ $1"; }
 log_error() { log "❌ $1" >&2; }
 log_phase() { echo ""; echo "=========================================="; log "$1"; echo "=========================================="; }
 
 
-configure_rc_environment() {
-    log_phase "Configuring Regional Cluster Environment Variables"
+configure_mc_environment() {
+    log_phase "Configuring Management Cluster Environment Variables"
 
     # Verify container_image is set (required for ECS bootstrap task)
     # This should have been set by create_platform_image() before this function is called
@@ -79,134 +79,94 @@ configure_rc_environment() {
     export TF_VAR_authz_deletion_protection="false"
 
     # Store cluster name for later use
-    export RC_CLUSTER_NAME="e2e-rc-${HASH}"
+    export MC_CLUSTER_NAME="e2e-mc-${HASH}"
 
-    log_success "RC environment configured"
-    log_info "Cluster Name: ${RC_CLUSTER_NAME}"
+    log_success "MC environment configured"
     # log_info "Target Account: ${TF_VAR_target_account_id:-<not set>}"
     log_info "State Bucket: ${TF_STATE_BUCKET}"
     log_info "State Key: ${TF_STATE_KEY}"
 }
 
-create_regional_cluster() {
-    log_phase "Provisioning Regional Cluster"
-
-    configure_rc_environment
-
+create_management_cluster() {
+    log_phase "Provisioning Management Cluster"
+    configure_mc_environment
     # Set environment variables for ArgoCD validation and bootstrap
     export ENVIRONMENT="e2e"
     export REGION_ALIAS="us-east-1"
-    export CLUSTER_TYPE="regional-cluster"
+    export CLUSTER_TYPE="management-cluster"
     log_info "State Bucket: ${TF_STATE_BUCKET}"
     log_info "State Key: ${TF_STATE_KEY}"
     log_info "Region: ${TF_VAR_region}"
     log_info "Target Alias: ${TF_VAR_target_alias}"
 
-    $REPO_ROOT/scripts/dev/validate-argocd-config.sh regional-cluster
+    $REPO_ROOT/scripts/dev/validate-argocd-config.sh management-cluster
 
-    cd terraform/config/regional-cluster
+    cd terraform/config/management-cluster
 
     terraform init -reconfigure \
         -backend-config="bucket=${TF_STATE_BUCKET}" \
         -backend-config="key=${TF_STATE_KEY}" \
         -backend-config="region=${TF_STATE_REGION}" \
-        -backend-config="use_lockfile=true"
+        -backend-config="use_lockfile=false"
 
     terraform apply -auto-approve
     cd "$REPO_ROOT"
-    $REPO_ROOT/scripts/bootstrap-argocd.sh regional-cluster || { log_error "RC ArgoCD bootstrap failed"; return 1; }
+    $REPO_ROOT/scripts/bootstrap-argocd.sh management-cluster || { log_error "MC ArgoCD bootstrap failed"; return 1; }
 }
 
-destroy_regional_cluster() {
-    log_phase "Destroying Regional Cluster"
-    configure_rc_environment
+destroy_management_cluster() {
+    log_phase "Destroying Management Cluster"
+    configure_mc_environment
     # Set environment variables for ArgoCD validation
     export ENVIRONMENT="e2e"
     export REGION_ALIAS="us-east-1"
-    export CLUSTER_TYPE="regional-cluster"
+    export CLUSTER_TYPE="management-cluster"
 
     log_info "Destroying infrastructure..."
-    cd terraform/config/regional-cluster
+    cd $REPO_ROOT/terraform/config/management-cluster
     terraform init -reconfigure \
         -backend-config="bucket=${TF_STATE_BUCKET}" \
         -backend-config="key=${TF_STATE_KEY}" \
         -backend-config="region=${TF_STATE_REGION}" \
-        -backend-config="use_lockfile=true"
+        -backend-config="use_lockfile=false"
 
     terraform destroy -auto-approve || { log_error "RC destruction failed"; return 1; }
     cd "$REPO_ROOT"
-    log_success "Regional Cluster destroyed"
-}
-
-create_iot_resources() {
-    if [[ -z "${RC_ACCOUNT_ID:-}" ]]; then
-        log_error "RC_ACCOUNT_ID is required for IoT resource creation"
-        return 1
-    fi    
-    log_info "Creating management cluster terraform.tfvars..."
-    cat > "$REPO_ROOT/terraform/config/management-cluster/terraform.tfvars" <<EOF
-cluster_id = "management-01"
-app_code = "e2e"
-service_phase = "test"
-cost_center = "000"
-repository_url = "https://github.com/openshift-online/rosa-regional-platform.git"
-repository_branch = "main"
-enable_bastion = false
-region = "${TEST_REGION}"
-regional_aws_account_id = "${RC_ACCOUNT_ID}"
-EOF
-    log_info "Running IoT provisioning script..."
-    # Set AUTO_APPROVE to avoid interactive prompts
-    export AUTO_APPROVE=true
-    if ! "$REPO_ROOT/scripts/provision-maestro-agent-iot-regional.sh" "$REPO_ROOT/terraform/config/management-cluster/terraform.tfvars"; then
-        log_error "IoT provisioning script failed"
-        return 1
-    fi
-}
-
-destroy_iot_resources() {
-    export AUTO_APPROVE=true
-    export AWS_REGION="us-east-1"
-    $REPO_ROOT/scripts/cleanup-maestro-agent-iot.sh $REPO_ROOT/terraform/config/management-cluster/terraform.tfvars \
-        || { log_error "Failed to cleanup IoT resources"; return 1; }
+    log_success "Management Cluster destroyed"
 }
 
 TEARDOWN=false
 for arg in "$@"; do
   case "$arg" in
-    --destroy-regional) TEARDOWN=true ;;
+    --destroy-management) TEARDOWN=true ;;
     *)
       echo "Unknown argument: $arg" >&2
-      echo "Usage: $0 [--destroy-regional]" >&2
+      echo "Usage: $0 [--destroy-management]" >&2
       exit 1
       ;;
   esac
 done
 
-# todo: codepipeline will be able to build the platform for each or use public image
-export TF_VAR_container_image="633630779107.dkr.ecr.us-east-1.amazonaws.com/e2e-platform-01c48e:3278a75292a3"
+export TF_VAR_container_image="018092638725.dkr.ecr.us-east-1.amazonaws.com/e2e-platform-7f0b54:3278a75292a3"
+# create_platform_image || { log_error "Failed to create platform image"; exit 1; }
 
 aws configure set region "${TEST_REGION}"
 
 if [[ "$TEARDOWN" == "true" ]]; then
-    log_phase "Starting E2E Regional Cluster Destruction"        
-    # Setup S3 backend (required for terraform destroy)
+    log_phase "Starting E2E Management Cluster Destruction"
     create_s3_bucket || { log_error "Failed to setup S3 backend"; exit 1; }
-    destroy_iot_resources || { log_error "IoT resources cleanup failed"; exit 1; }
-    destroy_regional_cluster || { log_error "Regional Cluster destruction failed"; exit 1; }
-    log_success "Regional Cluster destroyed successfully"
+    destroy_management_cluster || { log_error "Management Cluster destruction failed"; exit 1; }
+    log_success "Management Cluster destroyed successfully"
     exit 0
 fi
 
-log_phase "Starting E2E Regional Cluster Test"
-# Step 1: Setup S3 backend
+log_phase "Starting E2E Management Cluster Test"
 create_s3_bucket || { log_error "Failed to setup S3 backend"; exit 1; }
-# Step 2: Build and push platform image to ECR (MUST happen before configure_rc_environment)
-# This exports TF_VAR_container_image with the full ECR URI
 log_success "Container image configured: ${TF_VAR_container_image}"
-# Step 3: Provision regional cluster (calls configure_rc_environment which uses TF_VAR_container_image)
-create_regional_cluster || { log_error "Regional cluster provisioning failed"; exit 1; }
-log_success "Regional Cluster creation completed successfully"
-create_iot_resources || { log_error "IoT resources creation failed"; exit 1; }
-log_success "IoT resources creation completed successfully"
-log "Done creating e2e regional cluster test"
+# Step 3: Provision management cluster (calls configure_rc_environment which uses TF_VAR_container_image)
+create_management_cluster || { log_error "Management cluster provisioning failed"; exit 1; }
+log_success "E2E Management Cluster Test completed successfully"
+$REPO_ROOT/scripts/provision-maestro-agent-iot-management.sh \
+    $REPO_ROOT/terraform/config/management-cluster/terraform.tfvars || { log_error "Failed to provision IoT resources"; exit 1; }
+log_success "IoT resources provisioned successfully"
+log "Done creating e2e management cluster test"

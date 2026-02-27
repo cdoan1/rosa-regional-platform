@@ -68,6 +68,9 @@ if [ "${TEARDOWN}" = true ]; then
 
   # TODO: Add management cluster teardown when MC tests are added
 
+  export AWS_SHARED_CREDENTIALS_FILE="${MGMT_CREDS}"
+  MC_ACCOUNT_ID=$MANAGEMENT_ACCOUNT_ID ./ci/e2e-mc-test.sh --destroy-management
+
   echo "==== Teardown complete ===="
   exit 0
 fi
@@ -80,16 +83,17 @@ echo "TODO: Implement me - run e2e tests"
 echo "==== Regional E2E Tests ===="
 export AWS_SHARED_CREDENTIALS_FILE="${REGIONAL_CREDS}"
 aws sts get-caller-identity
-REGIONAL_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 echo "Using REGIONAL_ACCOUNT_ID: ${REGIONAL_ACCOUNT_ID}"
-
 # provision the regional cluster
 RC_ACCOUNT_ID=$REGIONAL_ACCOUNT_ID ./ci/e2e-rc-test.sh
+
+export AWS_SHARED_CREDENTIALS_FILE="${MGMT_CREDS}"
+aws sts get-caller-identity
+echo "Using MANAGEMENT_ACCOUNT_ID: ${MANAGEMENT_ACCOUNT_ID}"
+MC_ACCOUNT_ID=$MANAGEMENT_ACCOUNT_ID RC_ACCOUNT_ID=$REGIONAL_ACCOUNT_ID ./ci/e2e-mc-test.sh
 
 sleep 60
 
 # trigger simple rc api test, no mc just yet
+export AWS_SHARED_CREDENTIALS_FILE="${REGIONAL_CREDS}"
 ./ci/e2e-platform-api-test.sh
-
-# tear down the regional cluster
-RC_ACCOUNT_ID=$REGIONAL_ACCOUNT_ID ./ci/e2e-rc-test.sh --destroy-regional
