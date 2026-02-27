@@ -163,10 +163,10 @@ fi
 log_phase "Starting E2E Management Cluster Test"
 create_s3_bucket || { log_error "Failed to setup S3 backend"; exit 1; }
 log_success "Container image configured: ${TF_VAR_container_image}"
-# Step 3: Provision management cluster (calls configure_rc_environment which uses TF_VAR_container_image)
-create_management_cluster || { log_error "Management cluster provisioning failed"; exit 1; }
-log_success "E2E Management Cluster Test completed successfully"
+# IoT management secrets must exist before terraform apply (MC terraform reads them via data sources)
 $REPO_ROOT/scripts/provision-maestro-agent-iot-management.sh \
     $REPO_ROOT/terraform/config/management-cluster/terraform.tfvars || { log_error "Failed to provision IoT resources"; exit 1; }
 log_success "IoT resources provisioned successfully"
+create_management_cluster || { log_error "Management cluster provisioning failed"; exit 1; }
+log_success "E2E Management Cluster Test completed successfully"
 log "Done creating e2e management cluster test"
