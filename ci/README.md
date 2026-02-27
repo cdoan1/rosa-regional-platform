@@ -13,6 +13,16 @@ curl -X POST \
     -d '{"job_name": "periodic-ci-openshift-online-rosa-regional-platform-main-nightly", "job_execution_type": "1"}'
 ```
 
+4. Copy the `id` from the response and check the execution to get the Prow URL:
+
+```bash
+curl -X GET \
+    -H "Authorization: Bearer $(oc whoami -t)" \
+    'https://gangway-ci.apps.ci.l2s4.p1.openshiftapps.com/v1/executions/<id>'
+```
+
+Open the `job_url` from the response to watch the job in Prow.
+
 ## AWS Credentials
 
 The nightly job (`periodic-ci-openshift-online-rosa-regional-platform-main-nightly`) uses two AWS accounts (regional and management). It runs on a daily cron (`0 7 * * *`).
