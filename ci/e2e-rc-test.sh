@@ -144,6 +144,7 @@ create_iot_resources() {
         return 1
     fi    
     log_info "Creating management cluster terraform.tfvars..."
+    mkdir -p "${SHARED_DIR}/terraform/config/management-cluster"
     cat > "${SHARED_DIR}/terraform/config/management-cluster/terraform.tfvars" <<EOF
 cluster_id = "management-01"
 app_code = "e2e"
