@@ -399,7 +399,7 @@ resource "aws_codebuild_project" "management_apply" {
 
   source {
     type      = "CODEPIPELINE"
-    buildspec = "terraform/config/pipeline-management-cluster/buildspec-apply.yml"
+    buildspec = "terraform/config/pipeline-management-cluster/buildspec-provision-infra.yml"
   }
 }
 
@@ -454,7 +454,7 @@ resource "aws_codebuild_project" "management_bootstrap" {
 
   source {
     type      = "CODEPIPELINE"
-    buildspec = "terraform/config/pipeline-management-cluster/buildspec-bootstrap.yml"
+    buildspec = "terraform/config/pipeline-management-cluster/buildspec-bootstrap-argocd.yml"
   }
 }
 

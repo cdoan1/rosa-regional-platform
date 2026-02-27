@@ -104,10 +104,17 @@ phases:
         echo ""
 
         # Use curl with AWS SigV4 signing (built into curl, no extra deps)
+        # Session token header is required when using assumed-role (temporary)
+        # credentials but must be omitted for static IAM user credentials.
+        SECURITY_TOKEN_HEADER=()
+        if [ -n "${AWS_SESSION_TOKEN:-}" ]; then
+            SECURITY_TOKEN_HEADER=(-H "x-amz-security-token: ${AWS_SESSION_TOKEN}")
+        fi
+
         HTTP_CODE=$(curl -s -o /tmp/register-response.json -w "%{http_code}" \
             --aws-sigv4 "aws:amz:${TARGET_REGION}:execute-api" \
             --user "${AWS_ACCESS_KEY_ID}:${AWS_SECRET_ACCESS_KEY}" \
-            -H "x-amz-security-token: ${AWS_SESSION_TOKEN}" \
+            "${SECURITY_TOKEN_HEADER[@]}" \
             -X POST "$REGISTER_URL" \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD")

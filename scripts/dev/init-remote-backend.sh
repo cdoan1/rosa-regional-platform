@@ -13,21 +13,20 @@
 # bastion-port-forward.sh, etc.) will work locally.
 #
 # Usage:
-#   ./scripts/dev/init-remote-backend.sh <cluster-type> <environment> [region] [--profile <aws-profile>]
+#   ./scripts/dev/init-remote-backend.sh <cluster-type> <environment> <region> [--mc <name>]
 #
 # Arguments:
-#   cluster-type   - regional or management
-#   environment    - Sector/environment name (e.g. psav-central, integration)
-#   region         - AWS region (optional if environment has only one region)
+#   cluster-type        - regional or management
+#   environment         - Sector/environment name (e.g. psav-central, integration)
+#   region-deployment   - Region deployment
 #
 # Options:
-#   --profile        AWS profile for the target account (default: current credentials)
 #   --mc <name>      Management cluster name (for management type, default: auto-detect)
 #
 # Examples:
-#   ./scripts/dev/init-remote-backend.sh regional psav-central
+#   ./scripts/dev/init-remote-backend.sh regional psav-central us-east-1
 #   ./scripts/dev/init-remote-backend.sh regional integration us-east-1
-#   ./scripts/dev/init-remote-backend.sh management psav-central --profile central
+#   ./scripts/dev/init-remote-backend.sh management psav-central us-east-1
 #   ./scripts/dev/init-remote-backend.sh management integration us-east-2 --mc mc01-us-east-2
 
 set -euo pipefail
@@ -40,17 +39,16 @@ DEPLOY_DIR="$REPO_ROOT/deploy"
 
 usage() {
     cat <<EOF
-Usage: $0 <cluster-type> <environment> [region] [options]
+Usage: $0 <cluster-type> <environment> <region> [options]
 
 Initialize Terraform backend against remote S3 state in the central account.
 
 Arguments:
   cluster-type   regional or management
   environment    Sector/environment name (e.g. psav-central, integration)
-  region         AWS region (optional if environment has only one region)
+  region         AWS region
 
 Options:
-  --profile <p>  AWS profile for the target account
   --mc <name>    Management cluster name (default: auto-detect single MC)
 
 Available environments:
@@ -60,14 +58,14 @@ EOF
         for env_dir in "$DEPLOY_DIR"/*/; do
             [ -d "$env_dir" ] || continue
             env_name=$(basename "$env_dir")
-            regions=$(ls -d "$env_dir"*/ 2>/dev/null | xargs -I{} basename {} | tr '\n' ', ' | sed 's/,$//')
-            echo "  $env_name  ($regions)"
+            region_deployments=$(ls -d "$env_dir"*/ 2>/dev/null | xargs -I{} basename {} | tr '\n' ', ' | sed 's/,$//')
+            echo "  $env_name  ($region_deployments)"
         done
     fi
     exit 1
 }
 
-if [ $# -lt 2 ]; then
+if [ $# -lt 3 ]; then
     usage
 fi
 
@@ -85,20 +83,14 @@ case "$CLUSTER_TYPE" in
 esac
 
 ENVIRONMENT="$1"
-shift
+REGION="$2"
+shift 2
 
-# Parse remaining args (region is positional-optional, then flags)
-REGION=""
-AWS_PROFILE_ARG=""
+# Parse optional flags
 MC_NAME=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --profile)
-            AWS_PROFILE_ARG="--profile $2"
-            export AWS_PROFILE="$2"
-            shift 2
-            ;;
         --mc)
             MC_NAME="$2"
             shift 2
@@ -106,13 +98,9 @@ while [ $# -gt 0 ]; do
         -h|--help)
             usage
             ;;
-        -*)
+        *)
             echo "Error: Unknown option '$1'"
             usage
-            ;;
-        *)
-            REGION="$1"
-            shift
             ;;
     esac
 done
@@ -128,24 +116,9 @@ if [ ! -d "$ENV_DIR" ]; then
     exit 1
 fi
 
-# Auto-detect region if not specified
-if [ -z "$REGION" ]; then
-    REGION_DIRS=("$ENV_DIR"/*/)
-    if [ ${#REGION_DIRS[@]} -eq 1 ]; then
-        REGION=$(basename "${REGION_DIRS[0]}")
-        echo "==> Auto-detected region: $REGION"
-    else
-        echo "Error: Multiple regions found for '$ENVIRONMENT', please specify one:"
-        for d in "${REGION_DIRS[@]}"; do
-            echo "  $(basename "$d")"
-        done
-        exit 1
-    fi
-fi
-
-REGION_DIR="$ENV_DIR/$REGION"
-if [ ! -d "$REGION_DIR" ]; then
-    echo "Error: Region '$REGION' not found in deploy/$ENVIRONMENT/"
+REGION_DEPLOYMENT_DIR="$ENV_DIR/$REGION_DEPLOYMENT"
+if [ ! -d "$REGION_DEPLOYMENT_DIR" ]; then
+    echo "Error: Region '$REGION_DEPLOYMENT' not found in deploy/$ENVIRONMENT/"
     echo ""
     echo "Available regions:"
     ls -d "$ENV_DIR"/*/ 2>/dev/null | xargs -I{} basename {}
@@ -158,7 +131,7 @@ CONFIG_DIR="$REPO_ROOT/terraform/config/${CLUSTER_TYPE}-cluster"
 STATE_PREFIX="${CLUSTER_TYPE}-cluster"
 
 if [ "$CLUSTER_TYPE" = "regional" ]; then
-    CONFIG_FILE="$REGION_DIR/terraform/regional.json"
+    CONFIG_FILE="$REGION_DEPLOYMENT_DIR/terraform/regional.json"
     if [ ! -f "$CONFIG_FILE" ]; then
         echo "Error: Regional config not found: $CONFIG_FILE"
         exit 1
@@ -171,7 +144,7 @@ if [ "$CLUSTER_TYPE" = "regional" ]; then
     echo "==> Resolved alias from regional.json: $ALIAS"
 else
     # Management cluster — find the right MC config
-    MC_DIR="$REGION_DIR/terraform/management"
+    MC_DIR="$REGION_DEPLOYMENT_DIR/terraform/management"
     if [ ! -d "$MC_DIR" ]; then
         echo "Error: No management cluster configs in $MC_DIR"
         exit 1
@@ -220,13 +193,13 @@ echo ""
 # For local dev, authenticate directly to the target account.
 
 echo "==> Detecting target account..."
-TARGET_ACCOUNT_ID=$(aws $AWS_PROFILE_ARG sts get-caller-identity --query Account --output text)
+TARGET_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 TF_STATE_BUCKET="terraform-state-${TARGET_ACCOUNT_ID}"
 echo "    Account:  $TARGET_ACCOUNT_ID"
 echo "    Bucket:   $TF_STATE_BUCKET"
 
 # Detect bucket region
-BUCKET_REGION=$(aws $AWS_PROFILE_ARG s3api get-bucket-location \
+BUCKET_REGION=$(aws s3api get-bucket-location \
     --bucket "$TF_STATE_BUCKET" \
     --region us-east-1 \
     --query LocationConstraint --output text)
@@ -247,11 +220,11 @@ fi
 # ── Verify state exists ──────────────────────────────────────────────────
 
 STATE_KEY="${STATE_PREFIX}/${ALIAS}.tfstate"
-if ! aws $AWS_PROFILE_ARG s3 ls "s3://${TF_STATE_BUCKET}/${STATE_KEY}" > /dev/null 2>&1; then
+if ! aws s3 ls "s3://${TF_STATE_BUCKET}/${STATE_KEY}" > /dev/null 2>&1; then
     echo "Warning: State file not found: s3://${TF_STATE_BUCKET}/${STATE_KEY}"
     echo ""
     echo "Available state files for ${STATE_PREFIX}/:"
-    aws $AWS_PROFILE_ARG s3 ls "s3://${TF_STATE_BUCKET}/${STATE_PREFIX}/" \
+    aws s3 ls "s3://${TF_STATE_BUCKET}/${STATE_PREFIX}/" \
         | grep '\.tfstate$' \
         | awk '{print $NF}' \
         | sed 's/\.tfstate$//' \
@@ -301,7 +274,3 @@ echo "    Region:       $REGION"
 echo "    Alias:        $ALIAS"
 echo "    State:        s3://${TF_STATE_BUCKET}/${STATE_KEY}"
 echo ""
-echo "You can now run:"
-echo "    ./scripts/dev/bastion-connect.sh $CLUSTER_TYPE"
-echo "    ./scripts/dev/bastion-port-forward.sh"
-echo "    cd $CONFIG_DIR && terraform output"

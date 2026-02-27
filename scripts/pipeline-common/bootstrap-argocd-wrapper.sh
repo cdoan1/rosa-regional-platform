@@ -57,11 +57,6 @@ export ENVIRONMENT="${ENVIRONMENT}"
 export REGION_DEPLOYMENT="${TARGET_REGION}"
 export AWS_REGION="${TARGET_REGION}"
 
-# No cross-account assume needed — the caller (buildspec) has already
-# assumed the target account role via use_mc_account/use_rc_account.
-# State and resources are both in the target account, accessible via ambient creds.
-unset ASSUME_ROLE_ARN
-
 echo "Bootstrap environment configuration:"
 echo "  ENVIRONMENT: ${ENVIRONMENT}"
 echo "  REGION_DEPLOYMENT: ${REGION_DEPLOYMENT}"

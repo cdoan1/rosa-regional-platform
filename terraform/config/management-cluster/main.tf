@@ -76,6 +76,6 @@ module "maestro_agent" {
   regional_aws_account_id = var.regional_aws_account_id
   eks_cluster_name        = module.management_cluster.cluster_name
 
-  maestro_agent_cert_json   = var.maestro_agent_cert_json
-  maestro_agent_config_json = var.maestro_agent_config_json
+  maestro_agent_cert_json   = file(var.maestro_agent_cert_file)
+  maestro_agent_config_json = file(var.maestro_agent_config_file)
 }

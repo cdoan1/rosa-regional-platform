@@ -285,7 +285,7 @@ resource "aws_codebuild_project" "regional_apply" {
 
   source {
     type      = "CODEPIPELINE"
-    buildspec = "terraform/config/pipeline-regional-cluster/buildspec-apply.yml"
+    buildspec = "terraform/config/pipeline-regional-cluster/buildspec-provision-infra.yml"
   }
 }
 
@@ -349,7 +349,7 @@ resource "aws_codebuild_project" "regional_bootstrap" {
 
   source {
     type      = "CODEPIPELINE"
-    buildspec = "terraform/config/pipeline-regional-cluster/buildspec-bootstrap.yml"
+    buildspec = "terraform/config/pipeline-regional-cluster/buildspec-bootstrap-argocd.yml"
   }
 }
 

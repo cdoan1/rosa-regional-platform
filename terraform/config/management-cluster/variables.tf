@@ -89,13 +89,12 @@ variable "regional_aws_account_id" {
   }
 }
 
-variable "maestro_agent_cert_json" {
-  description = "Maestro agent certificate material as JSON string (from IoT Mint outputs)"
+variable "maestro_agent_cert_file" {
+  description = "Path to JSON file containing Maestro agent certificate material (from IoT Mint outputs)"
   type        = string
-  sensitive   = true
 }
 
-variable "maestro_agent_config_json" {
-  description = "Maestro agent MQTT configuration as JSON string (from IoT Mint outputs)"
+variable "maestro_agent_config_file" {
+  description = "Path to JSON file containing Maestro agent MQTT configuration (from IoT Mint outputs)"
   type        = string
 }

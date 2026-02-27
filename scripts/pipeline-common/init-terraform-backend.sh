@@ -21,7 +21,7 @@ set -euo pipefail
 if [ $# -ne 3 ]; then
     echo "ERROR: init-terraform-backend.sh requires exactly 3 arguments"
     echo "Usage: init-terraform-backend.sh <cluster-type> <region> <alias>"
-    echo "  cluster-type: regional-cluster, management-cluster, or maestro-agent-iot"
+    echo "  cluster-type: regional-cluster or management-cluster"
     echo "  region: AWS region for the cluster"
     echo "  alias: Cluster alias for state key"
     exit 1
