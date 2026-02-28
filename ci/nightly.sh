@@ -20,6 +20,7 @@ export TF_VAR_service_phase="test"
 export TF_VAR_cost_center="000"
 export TF_VAR_repository_url="${REPOSITORY_URL:-https://github.com/openshift-online/rosa-regional-platform.git}"
 export TF_VAR_repository_branch="${REPOSITORY_BRANCH:-main}"
+echo "Targeting repository: ${TF_VAR_repository_url} branch: ${TF_VAR_repository_branch}"
 
 # Platform Container images
 # TODO: codepipeline will be able to build the platform for each or use public image
@@ -129,8 +130,9 @@ echo "Using MANAGEMENT_ACCOUNT_ID: ${MANAGEMENT_ACCOUNT_ID}"
 
 # Compute hashes (BUILD_ID from prow job; fall back to account ID for local runs)
 # Hashes are used for unique resources to allow parallel tests in the same AWS accounts.
-RC_HASH=$(compute_hash "${BUILD_ID:-$REGIONAL_ACCOUNT_ID}")
-MC_HASH=$(compute_hash "${BUILD_ID:-$MANAGEMENT_ACCOUNT_ID}")
+# Prefix with "rc-"/"mc-" so RC and MC always get distinct hashes, even when BUILD_ID is the same.
+RC_HASH=$(compute_hash "rc-${BUILD_ID:-$REGIONAL_ACCOUNT_ID}")
+MC_HASH=$(compute_hash "mc-${BUILD_ID:-$MANAGEMENT_ACCOUNT_ID}")
 
 ## ===============================
 ## Parse Arguments
@@ -163,6 +165,7 @@ if [ "${TEARDOWN}" = true ]; then
   export TF_VAR_container_image="${MC_CONTAINER_IMAGE}"
   export TF_VAR_target_alias="e2e-rc-${MC_HASH}"
   export CLUSTER_TYPE="management-cluster"
+  write_mc_tfvars
 
   create_s3_bucket || { log_error "Failed to setup S3 backend"; exit 1; }
   terraform_init "terraform/config/management-cluster" "false"
@@ -178,7 +181,6 @@ if [ "${TEARDOWN}" = true ]; then
   export TF_VAR_container_image="${RC_CONTAINER_IMAGE}"
   export TF_VAR_target_alias="e2e-rc-${RC_HASH}"
 
-  write_mc_tfvars
   export AUTO_APPROVE=true
   "$REPO_ROOT/scripts/cleanup-maestro-agent-iot.sh" "${MC_TFVARS}" \
       || { log_error "Failed to cleanup IoT resources"; exit 1; }

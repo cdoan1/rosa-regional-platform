@@ -388,7 +388,7 @@ helm-lint:
 # Verify rendered files in deploy/ are up to date with config.yaml
 check-rendered-files:
 	@echo "🔍 Rendering deploy/ from config.yaml..."
-	@uv run scripts/render.py
+	@uv run --no-cache scripts/render.py
 	@echo "Checking for uncommitted changes in deploy/..."
 	@if ! git diff --exit-code deploy/; then \
 		echo ""; \
