@@ -58,8 +58,9 @@ compute_hash() {
 
 configure_state() {
     local hash="$1"
+    local resource="$2"
     export TF_STATE_BUCKET="e2e-rosa-regional-platform-${hash}"
-    export TF_STATE_KEY="e2e-rosa-regional-platform-${hash}.tfstate"
+    export TF_STATE_KEY="e2e-rosa-regional-platform-${resource}-${hash}.tfstate"
     export TF_STATE_REGION=${AWS_REGION}
 }
 
@@ -80,7 +81,7 @@ terraform_init() {
 write_mc_tfvars() {
     log_info "Writing management cluster terraform.tfvars..."
     cat > "${MC_TFVARS}" <<EOF
-cluster_id = "management-${MC_HASH}"
+cluster_id = "mc-${MC_HASH}"
 app_code = "e2e"
 service_phase = "test"
 cost_center = "000"
@@ -130,9 +131,8 @@ echo "Using MANAGEMENT_ACCOUNT_ID: ${MANAGEMENT_ACCOUNT_ID}"
 
 # Compute hashes (BUILD_ID from prow job; fall back to account ID for local runs)
 # Hashes are used for unique resources to allow parallel tests in the same AWS accounts.
-# Prefix with "rc-"/"mc-" so RC and MC always get distinct hashes, even when BUILD_ID is the same.
-RC_HASH=$(compute_hash "rc-${BUILD_ID:-$REGIONAL_ACCOUNT_ID}")
-MC_HASH=$(compute_hash "mc-${BUILD_ID:-$MANAGEMENT_ACCOUNT_ID}")
+RC_HASH=$(compute_hash "${BUILD_ID:-${REGIONAL_ACCOUNT_ID}}")
+MC_HASH=$(compute_hash "${BUILD_ID:-${MANAGEMENT_ACCOUNT_ID}}")
 
 ## ===============================
 ## Parse Arguments
@@ -161,7 +161,7 @@ if [ "${TEARDOWN}" = true ]; then
   log_phase "Destroying Management Cluster"
   export AWS_SHARED_CREDENTIALS_FILE="${MGMT_CREDS}"
   export HASH="${MC_HASH}"
-  configure_state "${MC_HASH}"
+  configure_state "${MC_HASH}" "mc"
   export TF_VAR_container_image="${MC_CONTAINER_IMAGE}"
   export TF_VAR_target_alias="e2e-rc-${MC_HASH}"
   export CLUSTER_TYPE="management-cluster"
@@ -177,7 +177,7 @@ if [ "${TEARDOWN}" = true ]; then
   log_phase "Cleaning up IoT resources"
   export AWS_SHARED_CREDENTIALS_FILE="${REGIONAL_CREDS}"
   export HASH="${RC_HASH}"
-  configure_state "${RC_HASH}"
+  configure_state "${RC_HASH}" "iot"
   export TF_VAR_container_image="${RC_CONTAINER_IMAGE}"
   export TF_VAR_target_alias="e2e-rc-${RC_HASH}"
 
@@ -189,7 +189,7 @@ if [ "${TEARDOWN}" = true ]; then
   # Destroy Regional Cluster (regional account, reverse of Step 1)
   log_phase "Destroying Regional Cluster"
   export CLUSTER_TYPE="regional-cluster"
-
+  configure_state "${RC_HASH}" "rc"
   create_s3_bucket || { log_error "Failed to setup S3 backend"; exit 1; }
   terraform_init "terraform/config/regional-cluster" "true"
   terraform destroy -auto-approve || { log_error "RC destruction failed"; exit 1; }
@@ -209,20 +209,20 @@ fi
 log_phase "Step 1: Regional Cluster Provisioning"
 export AWS_SHARED_CREDENTIALS_FILE="${REGIONAL_CREDS}"
 export HASH="${RC_HASH}"
-configure_state "${RC_HASH}"
+configure_state "${RC_HASH}" "rc"
 export TF_VAR_container_image="${RC_CONTAINER_IMAGE}"
 export TF_VAR_target_alias="e2e-rc-${RC_HASH}"
 export CLUSTER_TYPE="regional-cluster"
 
 create_s3_bucket || { log_error "Failed to setup S3 backend"; exit 1; }
 log_info "Container image: ${TF_VAR_container_image}"
-
 "$REPO_ROOT/scripts/dev/validate-argocd-config.sh" regional-cluster
-
 terraform_init "terraform/config/regional-cluster" "true"
 terraform apply -auto-approve
-cd "$REPO_ROOT"
+API_URL=$(terraform output -raw api_test_command | grep -oE 'https://[^/]+')
+echo "API URL: ${API_URL}"
 
+cd "$REPO_ROOT"
 "$REPO_ROOT/scripts/bootstrap-argocd.sh" regional-cluster \
     || { log_error "RC ArgoCD bootstrap failed"; exit 1; }
 log_success "Regional Cluster provisioned"
@@ -231,6 +231,7 @@ log_success "Regional Cluster provisioned"
 
 log_phase "Step 2: IoT Regional Provisioning"
 write_mc_tfvars
+configure_state "${RC_HASH}" "iot-rc"
 export AUTO_APPROVE=true
 "$REPO_ROOT/scripts/provision-maestro-agent-iot-regional.sh" "${MC_TFVARS}" \
     || { log_error "IoT regional provisioning failed"; exit 1; }
@@ -240,6 +241,7 @@ log_success "IoT regional resources provisioned"
 
 log_phase "Step 3: IoT Management Provisioning"
 export AWS_SHARED_CREDENTIALS_FILE="${MGMT_CREDS}"
+configure_state "${MC_HASH}" "iot-mc"
 "$REPO_ROOT/scripts/provision-maestro-agent-iot-management.sh" "${MC_TFVARS}" \
     || { log_error "IoT management provisioning failed"; exit 1; }
 log_success "IoT management resources provisioned"
@@ -247,14 +249,14 @@ log_success "IoT management resources provisioned"
 ## ---- Step 4: MC Provisioning (management account) ----
 
 log_phase "Step 4: Management Cluster Provisioning"
+log_info "Container image: ${TF_VAR_container_image}"
 export HASH="${MC_HASH}"
-configure_state "${MC_HASH}"
+configure_state "${MC_HASH}" "mc"
 export TF_VAR_container_image="${MC_CONTAINER_IMAGE}"
 export TF_VAR_target_alias="e2e-rc-${MC_HASH}"
 export CLUSTER_TYPE="management-cluster"
 
 create_s3_bucket || { log_error "Failed to setup S3 backend"; exit 1; }
-log_info "Container image: ${TF_VAR_container_image}"
 
 "$REPO_ROOT/scripts/dev/validate-argocd-config.sh" management-cluster
 
@@ -277,5 +279,7 @@ sleep 60
 log_phase "Platform API Test"
 
 export AWS_SHARED_CREDENTIALS_FILE="${REGIONAL_CREDS}"
-"$REPO_ROOT/ci/e2e-platform-api-test.sh"
+
+"$REPO_ROOT/ci/e2e-platform-api-test.sh" "${API_URL}" "mc-${MC_HASH}"
+
 log_success "Platform API tests passed"
