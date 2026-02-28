@@ -213,6 +213,8 @@ configure_state "${RC_HASH}" "rc"
 export TF_VAR_container_image="${RC_CONTAINER_IMAGE}"
 export TF_VAR_target_alias="e2e-rc-${RC_HASH}"
 export CLUSTER_TYPE="regional-cluster"
+# Allow regional account to access the API
+export TF_VAR_bootstrap_accounts='["${REGIONAL_ACCOUNT_ID}"]'
 
 create_s3_bucket || { log_error "Failed to setup S3 backend"; exit 1; }
 log_info "Container image: ${TF_VAR_container_image}"

@@ -7,7 +7,7 @@
 # It requires the following tools:
 # - aws
 # - jq
-# - curl (with AWS SigV4 support)
+# - awscurl
 # - date
 # - cat
 # - echo
@@ -74,16 +74,38 @@ test_platform_api() {
   log_msg "Testing API URL: $API_URL with region: $REGION"
   # Test basic API endpoints
   log_section "Testing API Health Endpoints"
-  curl --fail-with-body --aws-sigv4 "aws:amz:${REGION}:execute-api" "$API_URL/v0/live"
-  curl --fail-with-body --aws-sigv4 "aws:amz:${REGION}:execute-api" "$API_URL/v0/ready"
-  curl --fail-with-body --aws-sigv4 "aws:amz:${REGION}:execute-api" "$API_URL/api/v0/management_clusters"
-  curl --fail-with-body --aws-sigv4 "aws:amz:${REGION}:execute-api" "$API_URL/api/v0/resource_bundles"
+  
+  set +e # allow awscurl to fail without exiting (disable errexit)
+  counter=0
+  while true; do
+    log_msg "Testing API URL: $API_URL/prod/v0/live"
+    awscurl --fail-with-body --service execute-api --region "$REGION" "$API_URL/prod/v0/live"
+    r=$?
+    if [ "$r" -eq 0 ]; then
+      log_success "API is healthy"
+      break
+    else
+      log_msg "API is not healthy, retrying in 30 seconds"
+      sleep 30
+      counter=$((counter + 1))
+      if [ $counter -ge 10 ]; then
+        log_error "API is not healthy after 10 retries (5m), exiting"
+        exit 1
+      fi
+    fi
+  done
+  set -e # re-enable exit on error (errexit)
+
+  awscurl --fail-with-body --service execute-api --region "$REGION" "$API_URL/prod/v0/ready"
+  awscurl --fail-with-body --service execute-api --region "$REGION" "$API_URL/prod/api/v0/management_clusters"
+  awscurl --fail-with-body --service execute-api --region "$REGION" "$API_URL/prod/api/v0/resource_bundles"
   # awscurl --fail-with-body --service execute-api --region "$REGION" "$API_URL/api/v0/work"
   # awscurl --fail-with-body --service execute-api --region "$REGION" "$API_URL/api/v0/clusters"
   # Create or verify management cluster
   log_section "Creating/Verifying Management Cluster"
-  local RESPONSE=$(curl --fail-with-body -X POST "$API_URL/api/v0/management_clusters" \
-    --aws-sigv4 "aws:amz:${REGION}:execute-api" \
+  local RESPONSE=$(awscurl --fail-with-body -X POST "$API_URL/prod/api/v0/management_clusters" \
+    --service execute-api \
+    --region "$REGION" \
     -H "Content-Type: application/json" \
     -d '{"name": "'$MANAGEMENT_CLUSTER'", "labels": {"cluster_type": "management", "cluster_id": "'$MANAGEMENT_CLUSTER'"}}' \
     2>&1)
@@ -176,7 +198,7 @@ test_platform_api() {
 }
 EOF
 
-  curl --fail-with-body --aws-sigv4 "aws:amz:${REGION}:execute-api" "$API_URL/api/v0/management_clusters"
+  awscurl --fail-with-body --service execute-api --region "$REGION" "$API_URL/prod/api/v0/management_clusters"
   log_msg "Created ManifestWork file: maestro-payload-test-${TIMESTAMP}"
 
   # Create payload and post work
@@ -188,8 +210,8 @@ EOF
 }
 EOF
 
-  if ! curl --fail-with-body -X POST "$API_URL/api/v0/work" \
-      --aws-sigv4 "aws:amz:${REGION}:execute-api" \
+  if ! awscurl --fail-with-body -X POST "$API_URL/prod/api/v0/work" \
+      --service execute-api --region "$REGION" \
       -H "Content-Type: application/json" \
       -d @"$TEST_FILE_PAYLOAD"; then
     log_error "Failed to post work to API"
@@ -200,10 +222,10 @@ EOF
   # Verify resource distribution
   log_section "Verifying Resource Distribution"
   log_msg "Checking management cluster..."
-  curl --fail-with-body --aws-sigv4 "aws:amz:${REGION}:execute-api" "$API_URL/api/v0/management_clusters"
+  awscurl --fail-with-body --service execute-api --region "$REGION" "$API_URL/prod/api/v0/management_clusters"
 
   log_msg "Checking resource bundles..."
-  curl --fail-with-body --aws-sigv4 "aws:amz:${REGION}:execute-api" "$API_URL/api/v0/resource_bundles" | jq -r '.'
+  awscurl --fail-with-body --service execute-api --region "$REGION" "$API_URL/prod/api/v0/resource_bundles" | jq -r '.'
 
   # local RESOURCE_STATUS=$(awscurl --fail-with-body --service execute-api --region "$REGION" "$API_URL/api/v0/resource_bundles" 2>/dev/null | \
   #   jq -r '.items[] | select(.metadata.name == "maestro-payload-test-'"${TIMESTAMP}"'")' | jq -r '.status.resourceStatus[]' 2>/dev/null || echo "")
