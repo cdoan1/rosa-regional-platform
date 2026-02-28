@@ -66,6 +66,14 @@ accounts:
           type: glob
           value: "AWSServiceRoleFor*"
 
+      # ---------------------------------------------------------------
+      # Preserve ECR repositories for nightly-e2e IAM user
+      # ---------------------------------------------------------------
+      ECRRepository:
+        - property: RepositoryName
+          type: glob
+          value: "e2e-platform-*"
+
   "633630779107":
     filters: *preserve-filters
 
