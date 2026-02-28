@@ -13,9 +13,9 @@ hyperfleetApi:
 
   # Image configuration
   image:
-    registry: quay.io/cdoan0
+    registry: quay.io/openshift-hyperfleet
     repository: hyperfleet-api
-    tag: "latest"
+    tag: "v0.1.0"
     pullPolicy: Always
 
   # Service Account configuration
@@ -150,9 +150,9 @@ hyperfleetSentinel:
 
   # Image configuration
   image:
-    registry: quay.io/cdoan0
+    registry: quay.io/openshift-hyperfleet
     repository: sentinel
-    tag: "latest"
+    tag: "v0.1.0"
     pullPolicy: Always
 
   # Service Account configuration
@@ -278,9 +278,9 @@ hyperfleetAdapter:
 
   # Image configuration
   image:
-    registry: quay.io/cdoan0
+    registry: quay.io/openshift-hyperfleet
     repository: hyperfleet-adapter
-    tag: "latest"
+    tag: "v0.1.0"
     pullPolicy: Always
 
   # Service Account configuration
