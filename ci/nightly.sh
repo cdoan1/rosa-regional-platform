@@ -164,17 +164,34 @@ if [ "${TEARDOWN}" = true ]; then
   configure_state "${MC_HASH}" "mc"
   export TF_VAR_container_image="${MC_CONTAINER_IMAGE}"
   export TF_VAR_target_alias="e2e-rc-${MC_HASH}"
+  export TF_VAR_cluster_id="management-${MC_HASH}"
   export CLUSTER_TYPE="management-cluster"
   write_mc_tfvars
+
+  # Read IoT cert/config from RC state (terraform destroy needs these vars).
+  # If state is missing (e.g. provisioning failed), create dummy files so
+  # terraform destroy can still proceed — the content doesn't matter for destroy.
+  _SAVED_CREDS="${AWS_SHARED_CREDENTIALS_FILE}"
+  export AWS_SHARED_CREDENTIALS_FILE="${REGIONAL_CREDS}"
+  if ! source "$REPO_ROOT/scripts/read-iot-state.sh" "$REGIONAL_ACCOUNT_ID" "mc-${MC_HASH}" "$AWS_REGION"; then
+    log_info "IoT state not found, creating dummy files for terraform destroy"
+    export TF_VAR_maestro_agent_cert_file=$(mktemp /tmp/agent-cert-XXXXXX.json)
+    export TF_VAR_maestro_agent_config_file=$(mktemp /tmp/agent-config-XXXXXX.json)
+    echo '{}' > "$TF_VAR_maestro_agent_cert_file"
+    echo '{}' > "$TF_VAR_maestro_agent_config_file"
+  fi
+  export AWS_SHARED_CREDENTIALS_FILE="${_SAVED_CREDS}"
+  export TF_VAR_regional_aws_account_id="$REGIONAL_ACCOUNT_ID"
 
   create_s3_bucket || { log_error "Failed to setup S3 backend"; exit 1; }
   terraform_init "terraform/config/management-cluster" "false"
   terraform destroy -auto-approve || { log_error "MC destruction failed"; exit 1; }
   cd "$REPO_ROOT"
+  rm -f "${TF_VAR_maestro_agent_cert_file:-}" "${TF_VAR_maestro_agent_config_file:-}"
   log_success "Management Cluster destroyed"
 
-  # Cleanup IoT resources (regional account, reverse of Steps 2-3)
-  log_phase "Cleaning up IoT resources"
+  # Cleanup IoT resources via terraform destroy (regional account, reverse of Step 2)
+  log_phase "Destroying IoT resources"
   export AWS_SHARED_CREDENTIALS_FILE="${REGIONAL_CREDS}"
   export HASH="${RC_HASH}"
   configure_state "${RC_HASH}" "iot"
@@ -232,30 +249,32 @@ log_success "Regional Cluster provisioned"
 ## ---- Step 2: IoT Regional (regional account) ----
 
 log_phase "Step 2: IoT Regional Provisioning"
+"$REPO_ROOT/scripts/bootstrap-state.sh" "${AWS_REGION}" \
+    || { log_error "Failed to bootstrap RC state bucket"; exit 1; }
 write_mc_tfvars
 configure_state "${RC_HASH}" "iot-rc"
 export AUTO_APPROVE=true
+export IOT_STATE_BUCKET="terraform-state-${REGIONAL_ACCOUNT_ID}"
 "$REPO_ROOT/scripts/provision-maestro-agent-iot-regional.sh" "${MC_TFVARS}" \
     || { log_error "IoT regional provisioning failed"; exit 1; }
 log_success "IoT regional resources provisioned"
 
-## ---- Step 3: IoT Management (management account) ----
+## ---- Step 3: Read IoT state and provision MC (management account) ----
 
-log_phase "Step 3: IoT Management Provisioning"
-export AWS_SHARED_CREDENTIALS_FILE="${MGMT_CREDS}"
-configure_state "${MC_HASH}" "iot-mc"
-"$REPO_ROOT/scripts/provision-maestro-agent-iot-management.sh" "${MC_TFVARS}" \
-    || { log_error "IoT management provisioning failed"; exit 1; }
-log_success "IoT management resources provisioned"
+log_phase "Step 3: Read IoT State from RC"
+# Read IoT cert/config from RC state while still on regional creds
+source "$REPO_ROOT/scripts/read-iot-state.sh" "$REGIONAL_ACCOUNT_ID" "mc-${MC_HASH}" "$AWS_REGION"
 
 ## ---- Step 4: MC Provisioning (management account) ----
 
 log_phase "Step 4: Management Cluster Provisioning"
-log_info "Container image: ${TF_VAR_container_image}"
+export AWS_SHARED_CREDENTIALS_FILE="${MGMT_CREDS}"
 export HASH="${MC_HASH}"
 configure_state "${MC_HASH}" "mc"
 export TF_VAR_container_image="${MC_CONTAINER_IMAGE}"
 export TF_VAR_target_alias="e2e-rc-${MC_HASH}"
+export TF_VAR_cluster_id="management-${MC_HASH}"
+export TF_VAR_regional_aws_account_id="$REGIONAL_ACCOUNT_ID"
 export CLUSTER_TYPE="management-cluster"
 
 create_s3_bucket || { log_error "Failed to setup S3 backend"; exit 1; }
@@ -265,6 +284,9 @@ create_s3_bucket || { log_error "Failed to setup S3 backend"; exit 1; }
 terraform_init "terraform/config/management-cluster" "false"
 terraform apply -auto-approve
 cd "$REPO_ROOT"
+
+# Clean up temp cert files
+rm -f "${TF_VAR_maestro_agent_cert_file:-}" "${TF_VAR_maestro_agent_config_file:-}"
 
 "$REPO_ROOT/scripts/bootstrap-argocd.sh" management-cluster \
     || { log_error "MC ArgoCD bootstrap failed"; exit 1; }

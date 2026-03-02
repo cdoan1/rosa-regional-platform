@@ -46,49 +46,8 @@ phases:
 
         use_rc_account
 
-        IOT_STATE_BUCKET="terraform-state-${RESOLVED_REGIONAL_ACCOUNT_ID}"
-        IOT_STATE_KEY="maestro-agent-iot/${CLUSTER_ID}.tfstate"
-
-        echo "IoT state:"
-        echo "  Bucket: $IOT_STATE_BUCKET"
-        echo "  Key: $IOT_STATE_KEY"
-        echo "  Region: $TARGET_REGION"
-        echo ""
-
-        # Init IoT terraform config to read outputs from RC state
-        (
-            cd terraform/config/maestro-agent-iot-provisioning
-            terraform init -reconfigure \
-                -backend-config="bucket=${IOT_STATE_BUCKET}" \
-                -backend-config="key=${IOT_STATE_KEY}" \
-                -backend-config="region=${TARGET_REGION}" \
-                -backend-config="use_lockfile=true"
-        )
-
-        # Extract cert and config to temporary files (avoids passing large
-        # JSON blobs through environment variables / shell quoting)
-        CERT_FILE=$(mktemp /tmp/agent-cert-XXXXXX.json)
-        CONFIG_FILE=$(mktemp /tmp/agent-config-XXXXXX.json)
-
-        (cd terraform/config/maestro-agent-iot-provisioning && terraform output -json agent_cert) > "$CERT_FILE"
-        (cd terraform/config/maestro-agent-iot-provisioning && terraform output -json agent_config) > "$CONFIG_FILE"
-
-        if [ ! -s "$CERT_FILE" ] || [ "$(cat "$CERT_FILE")" = "null" ]; then
-            echo "ERROR: Failed to read agent_cert from IoT terraform state"
-            echo "Ensure IoT Mint stage has run successfully"
-            rm -f "$CERT_FILE" "$CONFIG_FILE"
-            exit 1
-        fi
-
-        if [ ! -s "$CONFIG_FILE" ] || [ "$(cat "$CONFIG_FILE")" = "null" ]; then
-            echo "ERROR: Failed to read agent_config from IoT terraform state"
-            echo "Ensure IoT Mint stage has run successfully"
-            rm -f "$CERT_FILE" "$CONFIG_FILE"
-            exit 1
-        fi
-
-        echo "IoT certificate and config data written to temporary files"
-        echo ""
+        # Read IoT cert/config from RC account terraform state
+        source scripts/read-iot-state.sh "$RESOLVED_REGIONAL_ACCOUNT_ID" "$CLUSTER_ID" "$TARGET_REGION"
 
         # =====================================================================
         # Phase 2: Apply MC infrastructure with IoT cert data
@@ -114,9 +73,8 @@ phases:
         export TF_VAR_cluster_id="${CLUSTER_ID:-mgmt-cluster-01}"
         export TF_VAR_regional_aws_account_id="${RESOLVED_REGIONAL_ACCOUNT_ID}"
 
-        # Pass IoT cert/config file paths to terraform (read via file())
-        export TF_VAR_maestro_agent_cert_file="$CERT_FILE"
-        export TF_VAR_maestro_agent_config_file="$CONFIG_FILE"
+        # TF_VAR_maestro_agent_cert_file and TF_VAR_maestro_agent_config_file
+        # are already exported by read-iot-state.sh
 
         # Set repository URL and branch
         _REPO_BRANCH="${REPOSITORY_BRANCH:-${GITHUB_BRANCH:-main}}"
@@ -177,6 +135,9 @@ phases:
             echo "❌ Infrastructure action failed with exit code $PROVISION_STATUS"
             exit $PROVISION_STATUS
         fi
+
+        # Clean up temp cert files
+        rm -f "${TF_VAR_maestro_agent_cert_file:-}" "${TF_VAR_maestro_agent_config_file:-}"
 
         echo "✅ Infrastructure action complete."
         if [ "${IS_DESTROY:-false}" == "true" ]; then

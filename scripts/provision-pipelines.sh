@@ -263,7 +263,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
         # Bootstrap state bucket in target account (idempotent)
         bootstrap_target_state_bucket "$TARGET_ACCOUNT_ID" "$AWS_REGION"
 
-        echo "Processing Regional Cluster Pipeline for ${ENVIRONMENT}-${REGION_ALIAS}..."
+        echo "Processing Regional Cluster Pipeline for ${ENVIRONMENT}-${REGION_DEPLOYMENT}..."
 
         cd terraform/config/pipeline-regional-cluster
 
@@ -384,7 +384,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             bootstrap_target_state_bucket "$TARGET_ACCOUNT_ID" "$AWS_REGION"
             bootstrap_target_state_bucket "$REGIONAL_AWS_ACCOUNT_ID" "$AWS_REGION"
 
-            echo "Processing Management Cluster Pipeline for $CLUSTER_NAME in ${ENVIRONMENT}-${REGION_ALIAS}..."
+            echo "Processing Management Cluster Pipeline for $CLUSTER_NAME in ${ENVIRONMENT}-${REGION_DEPLOYMENT}..."
 
             cd terraform/config/pipeline-management-cluster
 
