@@ -21,8 +21,8 @@ phases:
 
         # Resolve REGIONAL_AWS_ACCOUNT_ID (supports SSM parameter references)
         RESOLVED_REGIONAL_ACCOUNT_ID="${REGIONAL_AWS_ACCOUNT_ID}"
-        if [[ "$RESOLVED_REGIONAL_ACCOUNT_ID" =~ ^ssm:/ ]]; then
-            SSM_PARAM_NAME="${RESOLVED_REGIONAL_ACCOUNT_ID#ssm:}"
+        if [[ "$RESOLVED_REGIONAL_ACCOUNT_ID" =~ ^ssm:// ]]; then
+            SSM_PARAM_NAME="${RESOLVED_REGIONAL_ACCOUNT_ID#ssm://}"
             echo "Resolving SSM parameter: $SSM_PARAM_NAME in region ${TARGET_REGION}"
             RESOLVED_REGIONAL_ACCOUNT_ID=$(aws ssm get-parameter \
                 --name "$SSM_PARAM_NAME" \

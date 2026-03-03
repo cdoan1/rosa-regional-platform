@@ -19,7 +19,7 @@
 #
 # Expected environment variables:
 #   TARGET_ACCOUNT_ID         - MC account ID (for use_mc_account)
-#   REGIONAL_AWS_ACCOUNT_ID   - RC account ID (for use_rc_account), supports ssm:/ prefix
+#   REGIONAL_AWS_ACCOUNT_ID   - RC account ID (for use_rc_account), supports ssm:// prefix
 #   TARGET_REGION             - Target AWS region (for SSM resolution)
 #   TARGET_ALIAS              - Cluster alias (for session naming)
 
@@ -64,14 +64,14 @@ use_mc_account() {
 # use_rc_account - Switch to Regional Cluster account
 # =============================================================================
 # Assumes OrganizationAccountAccessRole in REGIONAL_AWS_ACCOUNT_ID using central creds.
-# Resolves SSM parameter references (ssm:/path) on first call and caches the result.
+# Resolves SSM parameter references (ssm:///path) on first call and caches the result.
 use_rc_account() {
     # Resolve REGIONAL_AWS_ACCOUNT_ID if it's an SSM reference
     if [ -z "$_RESOLVED_RC_ACCOUNT_ID" ]; then
         _RESOLVED_RC_ACCOUNT_ID="${REGIONAL_AWS_ACCOUNT_ID}"
 
-        if [[ "$_RESOLVED_RC_ACCOUNT_ID" =~ ^ssm:/ ]]; then
-            local ssm_param="${_RESOLVED_RC_ACCOUNT_ID#ssm:}"
+        if [[ "$_RESOLVED_RC_ACCOUNT_ID" =~ ^ssm:// ]]; then
+            local ssm_param="${_RESOLVED_RC_ACCOUNT_ID#ssm://}"
             echo "Resolving SSM parameter: $ssm_param"
 
             # Use central creds to resolve SSM (parameter is in central or target account)
@@ -110,8 +110,8 @@ get_rc_account_id() {
     if [ -z "$_RESOLVED_RC_ACCOUNT_ID" ]; then
         # Force resolution by calling use_rc_account logic
         _RESOLVED_RC_ACCOUNT_ID="${REGIONAL_AWS_ACCOUNT_ID}"
-        if [[ "$_RESOLVED_RC_ACCOUNT_ID" =~ ^ssm:/ ]]; then
-            local ssm_param="${_RESOLVED_RC_ACCOUNT_ID#ssm:}"
+        if [[ "$_RESOLVED_RC_ACCOUNT_ID" =~ ^ssm:// ]]; then
+            local ssm_param="${_RESOLVED_RC_ACCOUNT_ID#ssm://}"
             _RESOLVED_RC_ACCOUNT_ID=$(
                 AWS_ACCESS_KEY_ID="$_CENTRAL_AWS_ACCESS_KEY_ID" \
                 AWS_SECRET_ACCESS_KEY="$_CENTRAL_AWS_SECRET_ACCESS_KEY" \

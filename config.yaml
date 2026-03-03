@@ -25,7 +25,7 @@
 #   ────────────────────  ──────────────────────────────  ───────────────────
 #   {{ environment }}     environment dict key            "integration"
 #   {{ aws_region }}      region_deployment dict key      "us-east-1"
-#   {{ account_id }}      resolved account_id¹            "ssm:/infra/..."
+#   {{ account_id }}      resolved account_id¹            "ssm:///infra/..."
 #   {{ cluster_prefix }}  management_cluster dict key²    "mc01"
 #
 #   ¹ account_id is resolved (including its own Jinja2) BEFORE terraform_vars
@@ -40,8 +40,8 @@
 defaults:
   revision: main
   bootstrap_pipeline_revision: main
-  account_id: "ssm:/infra/{{ environment }}/{{ aws_region }}/account_id"
-  management_cluster_account_id: "ssm:/infra/{{ environment }}/{{ aws_region }}/{{ cluster_prefix }}/account_id"
+  account_id: "ssm:///infra/{{ environment }}/{{ aws_region }}/account_id"
+  management_cluster_account_id: "ssm:///infra/{{ environment }}/{{ aws_region }}/{{ cluster_prefix }}/account_id"
   terraform_vars:
     app_code: "infra"
     service_phase: "dev"

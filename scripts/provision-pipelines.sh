@@ -145,12 +145,12 @@ retry_terraform_apply() {
     done
 }
 
-# Helper function: Resolve SSM parameter if value starts with "ssm:"
+# Helper function: Resolve SSM parameter if value starts with "ssm://"
 resolve_ssm_param() {
     local value="$1"
     local region="${2:-${AWS_REGION}}"  # Optional region parameter, defaults to AWS_REGION
-    if [[ "$value" == ssm:* ]]; then
-        local param_name="${value#ssm:}"
+    if [[ "$value" == ssm://* ]]; then
+        local param_name="${value#ssm://}"
         echo "Resolving SSM parameter: $param_name in region ${region}" >&2
         aws ssm get-parameter \
             --name "$param_name" \
@@ -256,7 +256,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
         # Validate TARGET_ACCOUNT_ID before using it
         if [[ -z "$TARGET_ACCOUNT_ID" ]]; then
             echo "❌ ERROR: TARGET_ACCOUNT_ID (account_id) must be provided for region ${AWS_REGION}"
-            echo "   Set account_id in your regional config (either direct account ID or ssm:/path/to/param)"
+            echo "   Set account_id in your regional config (either direct account ID or ssm:///path/to/param)"
             exit 1
         fi
 
@@ -363,7 +363,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             # Validate that REGIONAL_AWS_ACCOUNT_ID is non-empty
             if [[ -z "$REGIONAL_AWS_ACCOUNT_ID" ]]; then
                 echo "❌ ERROR: REGIONAL_AWS_ACCOUNT_ID must be provided for region ${AWS_REGION}"
-                echo "   Set regional_aws_account_id in your management cluster config (either direct account ID or ssm:/path/to/param)"
+                echo "   Set regional_aws_account_id in your management cluster config (either direct account ID or ssm:///path/to/param)"
                 exit 1
             fi
 
@@ -376,7 +376,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             # Validate TARGET_ACCOUNT_ID before using it
             if [[ -z "$TARGET_ACCOUNT_ID" ]]; then
                 echo "❌ ERROR: TARGET_ACCOUNT_ID (account_id) must be provided for management cluster ${CLUSTER_NAME}"
-                echo "   Set account_id in your management cluster config (either direct account ID or ssm:/path/to/param)"
+                echo "   Set account_id in your management cluster config (either direct account ID or ssm:///path/to/param)"
                 exit 1
             fi
 
