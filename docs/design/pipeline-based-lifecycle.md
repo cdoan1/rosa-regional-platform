@@ -113,7 +113,7 @@ flowchart LR
 
 ```mermaid
 graph LR
-    A[config.yaml] -->|scripts/render.py| B[deploy/ directory<br/>for env-sector-region]
+    A[config.yaml] -->|scripts/render.py| B[deploy/ directory<br/>for env-region]
     B --> C[regional.json]
     B --> D[management/*.json]
     B --> E[argocd/*-values.yaml]
@@ -138,7 +138,7 @@ graph LR
 2. **scripts/render.py** - Processes config.yaml, generates environment-specific configs
 3. **deploy/** - Generated directory structure with per-region/per-cluster configs and helm chart values files
 4. **Pipeline Provisioner** - Reads `deploy/` structure, creates/updates pipelines
-5. **Cluster Pipelines** - Read their own configs from `deploy/<env>/<sector>/<region>` and provision infrastructure
+5. **Cluster Pipelines** - Read their own configs from `deploy/<env>/<region>/` and provision infrastructure
 
 ## Layer 1: Pipeline Provisioner (Meta-Pipeline)
 
@@ -174,7 +174,8 @@ After bootstrap, the pipeline-provisioner runs automatically when changes are pu
 **Pipeline definition state** is stored in the central account:
 
 - **Bucket**: `terraform-state-${CENTRAL_ACCOUNT_ID}`
-- **Key**: `pipelines/regional-${ENVIRONMENT}-${REGION_DEPLOYMENT}.tfstate` (or `pipelines/management-...`)
+- **RC Key**: `pipelines/regional-${ENVIRONMENT}-${REGION_DEPLOYMENT}.tfstate`
+- **MC Key**: `pipelines/management-${ENVIRONMENT}-${REGION_DEPLOYMENT}-${CLUSTER_NAME}.tfstate`
 
 This is the terraform state for the CodePipeline/CodeBuild resources themselves (not the cluster infrastructure).
 
@@ -209,7 +210,7 @@ See: `terraform/config/pipeline-management-cluster/`, `terraform/config/manageme
 
 - **Bucket**: `terraform-state-${TARGET_ACCOUNT_ID}`
 - **Regional Key**: `regional-cluster/${TARGET_ALIAS}.tfstate`
-- **Management Key**: `management-cluster/${CLUSTER_ID}.tfstate`
+- **Management Key**: `management-cluster/${TARGET_ALIAS}.tfstate`
 
 State is co-located with resources for security isolation and simplified disaster recovery.
 
@@ -348,8 +349,9 @@ The entire deletion flow is automatic and Git-driven - no manual intervention re
 
 ### State Locations
 
-| State                | Bucket                                  | Key Pattern                                   |
-| -------------------- | --------------------------------------- | --------------------------------------------- |
-| Pipeline definitions | `terraform-state-${CENTRAL_ACCOUNT_ID}` | `pipelines/regional-${ENV}-${REGION}.tfstate` |
-| RC infrastructure    | `terraform-state-${TARGET_ACCOUNT_ID}`  | `regional-cluster/${ALIAS}.tfstate`           |
-| MC infrastructure    | `terraform-state-${TARGET_ACCOUNT_ID}`  | `management-cluster/${ALIAS}.tfstate`         |
+| State             | Bucket                                  | Key Pattern                                                                        |
+| ----------------- | --------------------------------------- | ---------------------------------------------------------------------------------- |
+| RC pipeline       | `terraform-state-${CENTRAL_ACCOUNT_ID}` | `pipelines/regional-${ENVIRONMENT}-${REGION_DEPLOYMENT}.tfstate`                   |
+| MC pipeline       | `terraform-state-${CENTRAL_ACCOUNT_ID}` | `pipelines/management-${ENVIRONMENT}-${REGION_DEPLOYMENT}-${CLUSTER_NAME}.tfstate` |
+| RC infrastructure | `terraform-state-${TARGET_ACCOUNT_ID}`  | `regional-cluster/${TARGET_ALIAS}.tfstate`                                         |
+| MC infrastructure | `terraform-state-${TARGET_ACCOUNT_ID}`  | `management-cluster/${TARGET_ALIAS}.tfstate`                                       |
