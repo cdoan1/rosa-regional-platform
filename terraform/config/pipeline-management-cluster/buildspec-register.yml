@@ -157,3 +157,4 @@ phases:
             exit 1
         fi
         echo "Management cluster registration complete."
+        exit 0
