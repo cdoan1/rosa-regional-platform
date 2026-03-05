@@ -155,7 +155,6 @@ phases:
 artifacts:
   files:
     - '**/*'
-    - terraform/config/management-cluster/outputs.json
   exclude-paths:
     - '**/.terraform/**'
     - '**/.terraform.lock.hcl'
