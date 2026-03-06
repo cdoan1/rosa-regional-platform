@@ -123,6 +123,7 @@ docs/
 ### Formatting
 
 - **Markdown**: All markdown files must be formatted with `prettier`. Run `npx prettier --write '**/*.md'` before committing markdown changes.
+- **Diagrams**: Always use Mermaid for diagrams in markdown files, never ASCII art.
 
 ### Testing and Validation
 
