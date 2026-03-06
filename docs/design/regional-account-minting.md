@@ -35,7 +35,7 @@ In order to provide a secure but repeatable environment that can be appropriatel
 
 The high-level design for the account-minting pipelines looks as follows:
 
-![Regional Account Minting Design](/docs/design/assets/regional-account-minting-design.png "Account Minting Design")
+![Regional Account Minting Design](assets/regional-account-minting-design.png "Account Minting Design")
 
 There are three main classes of pipelines that will run from the central account:
 

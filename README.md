@@ -1,5 +1,7 @@
 # rosa-regional-platform
 
+For the full architecture overview, see [docs/README.md](docs/README.md).
+
 ## Repository Structure
 
 ```
@@ -10,7 +12,7 @@ rosa-regional-platform/
 │       ├── management-cluster/       # Management cluster application templates
 │       ├── regional-cluster/         # Regional cluster application templates
 │       └── shared/                   # Shared configurations (ArgoCD, etc.)
-├── ci/                               # CI automation (janitor, etc.)
+├── ci/                               # CI automation (e2e tests, janitor)
 ├── deploy/                           # Per-environment deployment configs
 ├── docs/                             # Design documents and presentations
 ├── hack/                             # Developer utility scripts
@@ -22,30 +24,20 @@ rosa-regional-platform/
 
 ## Getting Started
 
-### Cluster Provisioning
+### Pipeline-Based Provisioning (CI/CD)
 
-Quick start (regional cluster):
+This is the standard way to provision a region. A central AWS account hosts CodePipelines that automatically provision Regional and Management Clusters when configuration is committed to Git.
 
-```bash
-# One-time setup: Copy and edit configurations
-cp terraform/config/regional-cluster/terraform.tfvars.example \
-   terraform/config/regional-cluster/terraform.tfvars
+See [Provision a New Central Pipeline](docs/central-pipeline-provisioning.md) for the full walkthrough.
 
-# Provision complete regional cluster environment based on the .tfvars file
-make provision-regional
-```
+### Local Provisioning (Development)
 
-Quick start (management cluster):
+> **Note:** Local provisioning is intended for development and debugging only. Prefer the pipeline-based approach above.
 
-```bash
-# One-time setup: Copy and edit configurations
-cp terraform/config/management-cluster/terraform.tfvars.example \
-   terraform/config/management-cluster/terraform.tfvars
+For manual provisioning using `make` targets and local `.tfvars` files, see [Local Region Provisioning](docs/full-region-provisioning.md). For all available `make` targets, run `make help`.
 
-# Provision complete management cluster environment based on the .tfvars file
-make provision-management
-```
+## CI
 
-### Available Make Targets
+CI is managed through the [OpenShift CI](https://docs.ci.openshift.org/) system (Prow + ci-operator). The job configuration lives in [openshift/release](https://github.com/openshift/release/tree/master/ci-operator/config/openshift-online/rosa-regional-platform).
 
-For all `make` targets, see `make help`.
+For the list of jobs, how to trigger them, AWS credentials setup, and local execution, see [ci/README.md](ci/README.md).

@@ -156,102 +156,16 @@ helm install hyperfleet-system ./argocd/config/regional-cluster/hyperfleet-syste
   --namespace hyperfleet-system
 ```
 
-## AWS Infrastructure Setup (Production Mode)
+## AWS Infrastructure Setup
 
-### Prerequisites
-
-Before deploying HyperFleet in production mode, provision AWS infrastructure using Terraform:
+Before deploying HyperFleet, provision the underlying AWS infrastructure (RDS, Amazon MQ, Secrets Manager, IAM roles) using Terraform. See the [HyperFleet Infrastructure module](../../../../terraform/modules/hyperfleet-infrastructure/README.md) for full details on resources created, configuration options, cost estimates, and troubleshooting.
 
 ```bash
 cd terraform/config/regional-cluster
-
-# Apply HyperFleet infrastructure module
 terraform apply
 ```
 
-This creates:
-
-- **Amazon RDS PostgreSQL** (db.t4g.micro for dev, configurable)
-- **Amazon MQ RabbitMQ** (mq.t3.micro for dev, configurable)
-- **AWS Secrets Manager** secrets (db-credentials, mq-credentials)
-- **IAM Roles** with Pod Identity associations (3 roles: API, Sentinel, Adapter)
-- **Security Groups** for RDS and Amazon MQ access from EKS
-
-### How Pod Identity Works
-
-1. **Service Account Annotation**: Each pod's service account is annotated with an IAM role ARN:
-
-   ```yaml
-   annotations:
-     eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT:role/hyperfleet-api
-   ```
-
-2. **Pod Identity Agent**: EKS Pod Identity agent authenticates the pod to AWS using the role
-
-3. **SecretProviderClass**: AWS Secrets and Configuration Provider (ASCP) CSI driver mounts secrets:
-
-   ```yaml
-   apiVersion: secrets-store.csi.x-k8s.io/v1
-   kind: SecretProviderClass
-   spec:
-     provider: aws
-     parameters:
-       usePodIdentity: "true"
-       region: us-east-2
-       objects: |
-         - objectName: "hyperfleet/db-credentials"
-           objectType: "secretsmanager"
-   ```
-
-4. **Secret Mounting**: Secrets mounted at `/mnt/secrets-store/` contain credentials
-
-5. **Kubernetes Secret Creation**: SecretProviderClass also creates Kubernetes Secrets for environment variables:
-
-   ```yaml
-   secretObjects:
-     - secretName: hyperfleet-api-db-secret
-       type: Opaque
-       data:
-         - objectName: db.host
-           key: DB_HOST
-   ```
-
-6. **Application Access**: Pods read connection details via:
-   - **API**: Command-line flags pointing to mounted secret files (`--db-host-file=/mnt/secrets-store/db.host`)
-   - **Sentinel/Adapter**: Environment variable `BROKER_RABBITMQ_URL` from Kubernetes Secret
-
-### AWS Secrets Format
-
-**Database Secret** (`hyperfleet/db-credentials`):
-
-```json
-{
-  "username": "hyperfleet_admin",
-  "password": "GENERATED_PASSWORD",
-  "host": "rds-endpoint.us-east-2.rds.amazonaws.com",
-  "port": "5432",
-  "database": "hyperfleet"
-}
-```
-
-**Message Queue Secret** (`hyperfleet/mq-credentials`):
-
-```json
-{
-  "username": "hyperfleet_admin",
-  "password": "GENERATED_PASSWORD",
-  "host": "b-xxxxx.mq.us-east-2.on.aws",
-  "port": "5671",
-  "url": "amqps://hyperfleet_admin:PASSWORD@b-xxxxx.mq.us-east-2.on.aws:5671"
-}
-```
-
-**Important**: Passwords are URL-encoded in the `url` field to handle special characters.
-
-## Dependencies
-
-- **AWS Secrets and Configuration Provider (ASCP)** CSI driver (installed on EKS cluster)
-- **AWS Infrastructure** (RDS, Amazon MQ, Secrets Manager, IAM roles) provisioned via Terraform
+The ASCP CSI driver must be installed on the EKS cluster for Pod Identity secret mounting.
 
 ## Verification
 
@@ -342,70 +256,10 @@ kubectl get namespaces | grep test-cluster
 
 ## Production Considerations
 
-Before deploying to production:
-
-1. **Provision AWS Infrastructure**:
-   - Run Terraform to create RDS, Amazon MQ, IAM roles, and secrets
-   - Use appropriate instance sizes (not dev tier):
-     - RDS: `db.t4g.large` or higher
-     - Amazon MQ: `mq.m5.large` or higher with Multi-AZ deployment
-   - Enable deletion protection and automated backups
-
-2. **Configure Pod Identity Role ARNs**:
-   - Add role ARNs to `config.yaml` for your region deployment:
-
-   ```yaml
-   values:
-     regional-cluster:
-       hyperfleet-system:
-         hyperfleetApi:
-           aws:
-             podIdentity:
-               roleArn: "arn:aws:iam::ACCOUNT:role/hyperfleet-api"
-         hyperfleetSentinel:
-           aws:
-             podIdentity:
-               roleArn: "arn:aws:iam::ACCOUNT:role/hyperfleet-sentinel"
-         hyperfleetAdapter:
-           aws:
-             podIdentity:
-               roleArn: "arn:aws:iam::ACCOUNT:role/hyperfleet-adapter"
-   ```
-
-3. **Use Specific Image Tags**:
-
-   ```yaml
-   hyperfleetApi:
-     image:
-       tag: "v1.0.0" # Not "latest"
-   ```
-
-4. **Enable Multi-AZ for High Availability**:
-   - RDS: Set `db_multi_az = true` in Terraform
-   - Amazon MQ: Set `mq_deployment_mode = "CLUSTER_MULTI_AZ"` in Terraform
-
-5. **Enable Monitoring**:
-   - CloudWatch metrics for RDS (CPU, connections, storage)
-   - CloudWatch metrics for Amazon MQ (CPU, heap usage, queue depth)
-   - Set up CloudWatch alarms for critical thresholds
-
-6. **Configure Resource Limits** based on observed usage:
-
-   ```yaml
-   hyperfleetApi:
-     resources:
-       limits:
-         cpu: 1000m
-         memory: 1Gi
-       requests:
-         cpu: 500m
-         memory: 512Mi
-   ```
-
-7. **Secure Network Access**:
-   - RDS and Amazon MQ are VPC-only (no public access)
-   - Security groups restrict access to EKS cluster only
-   - TLS/SSL enforced for all connections (RDS: `sslMode=require`, MQ: AMQPS port 5671)
+1. **Provision AWS Infrastructure** with production-tier settings — see [HyperFleet Infrastructure module](../../../../terraform/modules/hyperfleet-infrastructure/README.md) for recommended instance sizes, Multi-AZ, and monitoring setup
+2. **Configure Pod Identity Role ARNs** in `config.yaml` for your region deployment (role ARNs come from Terraform outputs)
+3. **Use specific image tags** (not `latest`)
+4. **Configure resource limits** based on observed usage
 
 ## Deployment Notes
 
@@ -553,4 +407,4 @@ curl http://localhost:8000/api/hyperfleet/v1/clusters
 
 ## Related Documentation
 
-- **Terraform Infrastructure Module**: `terraform/modules/hyperfleet-infrastructure/README.md`
+- **Terraform Infrastructure Module**: [terraform/modules/hyperfleet-infrastructure/README.md](../../../../terraform/modules/hyperfleet-infrastructure/README.md)

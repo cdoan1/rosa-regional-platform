@@ -119,17 +119,6 @@ The ApplicationSet will automatically discover and deploy new charts. Run `./scr
 
 ## How It Works
 
-ArgoCD uses a **Matrix Generator** pattern with two generators:
+ArgoCD uses a **Matrix Generator** pattern combining a Git Generator (discovers Helm charts) with a Cluster Generator (reads cluster identity). Charts are sourced from either a pinned commit hash or the current git revision, while rendered values always come from the latest revision.
 
-- **Git Generator**: Discovers Helm charts by scanning `argocd/config/{cluster_type}/*` and `argocd/config/shared/*`
-- **Cluster Generator**: Uses cluster secrets created during EKS provisioning (contains cluster identity: cluster_type, environment, region)
-
-The Git Generator gets either:
-
-- **Pinned commit hash** (when `config_revision` specified) for snapshotted charts
-- **Current git_revision** (when no `config_revision`) for live charts
-
-**Application Sources:**
-
-- **Charts & Default Values**: From `argocd/config/` at pinned commit OR current git_revision
-- **Rendered Values**: From `deploy/<env>/<region_deployment>/argocd/` at current git_revision (always latest environment config)
+For the full architecture, alternatives considered, and implementation details, see [GitOps Cluster Configuration](../docs/design/gitops-cluster-configuration.md).

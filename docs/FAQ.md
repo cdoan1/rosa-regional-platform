@@ -1,21 +1,10 @@
 ### What cluster types does the regional architecture support?
 
-- The regional architecture is designed exclusively for **ROSA HCP** (Hosted Control Planes)
-- This architecture does not support ROSA Classic or OSD
-- All ROSA HCP clusters will be migrated to this new architecture
-- Existing ROSA Classic and OSD clusters remain globally managed and are not migrated to this architecture
+The regional architecture is designed exclusively for **ROSA HCP** (Hosted Control Planes). For the complete scope and architecture overview, see [ROSA Regional Platform](README.md#scope).
 
 ### What is the Regional Cluster and what services run on it?
 
-- The Regional Cluster (RC) is a new EKS-based cluster type, one per region
-- It runs the core regional services:
-  - **Platform API** (authorization-aware customer-facing API)
-  - **CLM** (Cluster Lifecycle Manager - replaces OCM/CS/AMS)
-  - **Maestro** (applies resources to Management Clusters via MQTT)
-  - **ArgoCD** (GitOps deployment)
-  - **Tekton** (pipeline execution for MC provisioning)
-- The Kubernetes API is private
-- Provisioned by the Regional Provisioning Pipelines
+The Regional Cluster (RC) is an EKS-based cluster running core regional services (Platform API, CLM, Maestro, ArgoCD, Tekton). For the complete three-layer architecture and component details, see [Architecture at a Glance](README.md#architecture-at-a-glance).
 
 ### What is the difference between the Regional Cluster and the Regional-Access Cluster?
 
@@ -84,61 +73,37 @@ This list is not complete, but some key ones are:
 
 ### Where does the Maestro client run and how does it handle API unavailability?
 
-An agent runs on each Management Cluster that:
+A Maestro agent runs on each Management Cluster, subscribing to MQTT topics and applying received resources to the local Kubernetes API. If the MC API is non-responsive, observability alerts notify SREs.
 
-- Subscribes to MQTT topics for that MC
-- Receives resource manifests (HostedCluster, NodePool CRs)
-- Applies them to the local Kubernetes API
-
-If the MC API is non-responsive, we will have observability alerts to notify SREs to investigate and remediate.
+For full architecture details, see [Maestro MQTT Resource Distribution](design/maestro-mqtt-resource-distribution.md).
 
 ### How are new regions deployed?
 
-- Regions are deployed on demand (gitops) via pipelines **fully automatically**
-- Process:
-  1. Add region configuration to the Git repository
-  2. Regional Cluster Provisioning pipeline runs to provision the Regional Cluster
-  3. ArgoCD is installed
-  4. Platform API, CLM, Maestro, Tekton are then installed via ArgoCD
-  5. The RC will in turn provision Management Clusters as needed via the MC Provisioning pipelines
+Regions are deployed on demand via pipelines **fully automatically**: add region configuration to Git, pipelines provision the RC, ArgoCD installs core services, and MCs are provisioned as needed.
+
+For details, see [Pipeline-Based Lifecycle](design/pipeline-based-lifecycle.md) and [Provision a New Central Pipeline](central-pipeline-provisioning.md).
 
 ### Should we use AWS Landing Zone for region setup?
 
-- This is a valid consideration for the AWS Account Minting Service
-- The architecture supports substituting infrastructure provisioning methods
-- Current approach: Terraform + Tekton pipelines
-- AWS Landing Zone could potentially:
-  - Simplify multi-account setup
-  - Provide standardized AWS account configurations
-  - Reduce custom Terraform maintenance
-- Decision is TBD - the pipeline-based approach allows for either implementation
+This is a valid consideration. The current approach uses Terraform + pipeline-based provisioning, but AWS Landing Zone could simplify multi-account setup. Decision is TBD.
+
+For the current account minting design, see [Regional Account Minting](design/regional-account-minting.md).
 
 ### Is there a canary region for testing new releases?
 
-- Yes, the architecture uses a **sector-based progressive deployment** model aligned with [ADR-0032](https://github.com/openshift-online/architecture/blob/main/hcm/decisions/archives/SD-ADR-0032_HyperShift_Change_Management_Strategy.md)
-- The Git repository has one overlay that enables configuration following an inheritance model of defaults: Global defaults → Sector overrides → Region-specific overrides → Cluster-specific overrides
-- Sectors will be predefined: e.g. `stage`, `sector 1`, `sector 2`, etc.
-- Each region is assigned to a sector during provisioning
+Yes, the architecture uses a **sector-based progressive deployment** model aligned with [ADR-0032](https://github.com/openshift-online/architecture/blob/main/hcm/decisions/archives/SD-ADR-0032_HyperShift_Change_Management_Strategy.md). Sectors are predefined (e.g. `stage`, `sector 1`, `sector 2`) and each region is assigned to a sector during provisioning.
+
+For details on the configuration hierarchy and commit pinning, see [GitOps Cluster Configuration](design/gitops-cluster-configuration.md).
 
 ### Is the Regional API Gateway Red Hat managed?
 
-- Yes, the Regional API Gateway is Red Hat managed infrastructure
-- It consists of:
-  - AWS API Gateway (regional endpoint)
-  - VPC Link v2 (private connectivity)
-  - Internal ALB (load balancing to Platform API)
-- Deployed and configured via the Central Control Plane's Terraform pipelines
-- Exposed at `api.<region>.openshift.com`
+Yes. It consists of AWS API Gateway + VPC Link v2 + Internal ALB, exposed at `api.<region>.openshift.com`. Deployed via Terraform pipelines.
+
+For implementation details, see the [API Gateway module](../terraform/modules/api-gateway/README.md).
 
 ### What is VPC Link v2?
 
-- VPC Link v2 is an AWS feature that enables private connectivity between API Gateway and VPC resources
-- Used to connect the public API Gateway to the private Platform API in the Regional Cluster
-- Benefits:
-  - Traffic stays within AWS network (no public internet transit)
-  - Enables private ALB targets
-  - Lower latency than VPC Link v1
-- Part of the request flow: API Gateway → VPC Link v2 → Internal ALB → Platform API
+An AWS feature that enables private connectivity between API Gateway and VPC resources, keeping traffic within the AWS network. Request flow: API Gateway → VPC Link v2 → Internal ALB → Platform API.
 
 ### How is PrivateLink used in this architecture?
 
@@ -149,26 +114,15 @@ If the MC API is non-responsive, we will have observability alerts to notify SRE
 
 ### Is OCM/CS deployed to each region?
 
-- **No** - OCM, including CS and AMS, are replaced by **CLM** (Cluster Lifecycle Manager)
-- CS and AMS will not be used in this architecture
-- CLM will be used instead, which is a new component developed as part of Hyperfleet:
-  - `hyperfleet-api`: Declarative REST API
-  - `hyperfleet-sentinel`: Orchestration decisions
-  - `hyperfleet-adapter`: Event-driven cluster provisioning
-- One CLM instance runs in each Regional Cluster (in each region)
-- CLM is the single source of truth for cluster state (replacing CS, Fleet Manager, and AMS)
+**No** — OCM, CS, and AMS are replaced by **CLM** (Cluster Lifecycle Manager), developed as part of the HyperFleet project. One CLM instance runs in each Regional Cluster as the single source of truth for cluster state.
+
+For CLM component details (hyperfleet-api, hyperfleet-sentinel, hyperfleet-adapter), see the [HyperFleet System chart](../argocd/config/regional-cluster/hyperfleet-system/README.md) and [HyperFleet Infrastructure module](../terraform/modules/hyperfleet-infrastructure/README.md).
 
 ### Is this design without App-Interface in favor of ArgoCD?
 
-- **Yes** - the architecture does not depend on App-Interface for CD purposes
-- We might still use App-Interface to run and the Central Control Plane, however this decision is pending
-- Our approach is to use GitOps (ArgoCD) for application deployment
-- We will use pipelines for infrastructure provisioning (Terraform)
-- The Git repository is the source of truth for:
-  - Terraform configurations
-  - ArgoCD applications
-  - Kubernetes manifests
-- This provides independence from legacy systems as stated in project goals
+**Yes** — ArgoCD handles application deployment, Terraform pipelines handle infrastructure. We might still use App-Interface for the Central Control Plane (decision pending).
+
+For the full GitOps design, see [GitOps Cluster Configuration](design/gitops-cluster-configuration.md).
 
 ### Is Backplane part of the Regional Cluster or its own cluster?
 
