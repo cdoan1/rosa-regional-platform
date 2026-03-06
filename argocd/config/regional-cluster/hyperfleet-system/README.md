@@ -407,4 +407,4 @@ curl http://localhost:8000/api/hyperfleet/v1/clusters
 
 ## Related Documentation
 
-- **Terraform Infrastructure Module**: `terraform/modules/hyperfleet-infrastructure/README.md`
+- **Terraform Infrastructure Module**: [terraform/modules/hyperfleet-infrastructure/README.md](/terraform/modules/hyperfleet-infrastructure/README.md)
