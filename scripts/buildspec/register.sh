@@ -101,6 +101,48 @@ fi
 echo "API Gateway URL: $API_GATEWAY_URL"
 echo ""
 
+# ======================================================
+# Check API Gateway /live is ready before registering
+# ======================================================
+set +e
+MAX_RETRIES=10
+RETRY_DELAY=30
+RETRY_COUNT=0
+LIVE_OK=false
+
+echo "Checking API Gateway /live endpoint..."
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    echo "Attempt $RETRY_COUNT/$MAX_RETRIES..."
+
+    SECURITY_TOKEN_HEADER=()
+    if [ -n "${AWS_SESSION_TOKEN:-}" ]; then
+        SECURITY_TOKEN_HEADER=(-H "x-amz-security-token: ${AWS_SESSION_TOKEN}")
+    fi
+
+    HTTP_CODE=$(curl -s -o /tmp/register-response.json -w "%{http_code}" \
+        --connect-timeout 10 \
+        --max-time 30 \
+        --aws-sigv4 "aws:amz:${TARGET_REGION}:execute-api" \
+        --user "${AWS_ACCESS_KEY_ID}:${AWS_SECRET_ACCESS_KEY}" \
+        "${SECURITY_TOKEN_HEADER[@]}" \
+        -X GET "$API_GATEWAY_URL/api/v0/live")
+
+    if [ "$HTTP_CODE" = "200" ]; then
+        echo "API Gateway /live returned 200 — ready."
+        LIVE_OK=true
+        break
+    fi
+    echo "HTTP $HTTP_CODE (expected 200), retrying in ${RETRY_DELAY}s..."
+    sleep $RETRY_DELAY
+done
+set -e
+
+if [ "$LIVE_OK" != "true" ]; then
+    echo "ERROR: API Gateway /live did not return 200 after $MAX_RETRIES attempts"
+    exit 1
+fi
+
 # =====================================================================
 # Register Management Cluster as consumer
 # =====================================================================
