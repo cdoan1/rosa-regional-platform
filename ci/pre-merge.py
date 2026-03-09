@@ -22,6 +22,7 @@ passed to subsequent steps.
 """
 
 import argparse
+import hashlib
 import logging
 import os
 import re
@@ -43,14 +44,18 @@ log = logging.getLogger(__name__)
 
 
 def make_ci_prefix() -> str:
-    """Generate a CI prefix from BUILD_ID (truncated) or a random UUID.
+    """Generate a CI prefix from BUILD_ID (hashed) or a random UUID.
 
-    BUILD_ID is sanitized (lowercased, non-alphanumeric stripped) so the
-    resulting prefix is safe for AWS resource names (S3, RDS, IAM, etc.).
+    BUILD_ID is hashed to avoid collisions between consecutive IDs, then
+    truncated to 6 characters for AWS resource name compatibility.
     """
     build_id = os.environ.get("BUILD_ID", "")
-    sanitized = re.sub(r"[^a-z0-9]", "", build_id.lower())
-    short_id = sanitized[:6] if sanitized else uuid.uuid4().hex[:6]
+    if build_id:
+        # Hash the BUILD_ID to avoid collisions with consecutive IDs
+        hash_digest = hashlib.sha256(build_id.encode()).hexdigest()
+        short_id = hash_digest[:6]
+    else:
+        short_id = uuid.uuid4().hex[:6]
     return f"ci-{short_id}"
 
 
