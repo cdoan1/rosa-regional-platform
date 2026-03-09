@@ -13,6 +13,7 @@ blocklist:
 # CI accounts don't have IAM aliases; skip that safety check.
 bypass-alias-check-accounts:
   - "018092638725"
+  - "633630779107"
   - "791666871613"
   - "855246887846"
   - "599476212575"
@@ -77,17 +78,21 @@ accounts:
           type: glob
           value: "e2e-platform-*"
 
+  # Int Control Account
+  "633630779107":
+    filters: *preserve-filters
+
   # Dev Control Account
   "791666871613":
-    filters: *e2e-preserve-filters
+    filters: *preserve-filters
 
   # e2e-dev-regional-cluster
   "599476212575":
-    filters: *e2e-preserve-filters
+    filters: *preserve-filters
 
   # e2e-dev-management-cluster-0
   "855246887846":
-    filters: *e2e-preserve-filters
+    filters: *preserve-filters
 
 settings:
   # Disable deletion protection on resources that may have it enabled
