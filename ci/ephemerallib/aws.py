@@ -39,9 +39,11 @@ class AWSCredentials:
         """Set up central account access via STS AssumeRole."""
         log.info("Setting up central account access")
 
-        access_key = self._read_credential("ci_access_key", "CI_ACCESS_KEY")
-        secret_key = self._read_credential("ci_secret_key", "CI_SECRET_KEY")
-        assume_role_arn = self._read_credential("ci_assume_role_arn", "CI_ASSUME_ROLE_ARN")
+        access_key = self._read_credential("central_access_key", "CENTRAL_ACCESS_KEY")
+        secret_key = self._read_credential("central_secret_key", "CENTRAL_SECRET_KEY")
+        assume_role_arn = self._read_credential(
+            "central_assume_role_arn", "CENTRAL_ASSUME_ROLE_ARN"
+        )
 
         sts = boto3.client(
             "sts",
