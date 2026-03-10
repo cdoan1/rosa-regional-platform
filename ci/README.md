@@ -9,9 +9,10 @@ CI is managed through the [OpenShift CI](https://docs.ci.openshift.org/) system 
 | [`terraform-validate`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-terraform-validate)      | Pre-submit                | Runs `terraform validate` on all root modules                                                                  |
 | [`helm-lint`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-helm-lint)                        | Pre-submit                | Lints Helm charts                                                                                              |
 | [`check-rendered-files`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-check-rendered-files)  | Pre-submit                | Verifies rendered deploy files are up to date                                                                  |
-| [`on-demand-e2e`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-on-demand-e2e)                | Pre-submit (manual)       | Full e2e: provisions ephemeral environment, runs tests, tears down. Trigger with `/test on-demand-e2e` on a PR |
-| [`nightly`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly)                                     | Daily at 07:00 UTC        | End-to-end provisioning and test suite against `main`                                                          |
-| [`nightly-resources-janitor`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-resources-janitor) | Weekly (Sunday 12:00 UTC) | Purges leaked AWS resources using [aws-nuke](https://github.com/ekristen/aws-nuke)                             |
+| [`on-demand-e2e`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-on-demand-e2e)                      | Pre-submit (manual)       | End-to-end: provisions ephemeral environment using PR rosa-regional-platform branch, runs tests, tears down. Trigger with `/test on-demand-e2e` on a PR |
+| [`nightly-ephemeral`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-ephemeral)                      | Daily at 07:00 UTC        | End-to-end: provisions ephemeral environment using `main` rosa-regional-platform branch, runs tests, tears down                                           |
+| [`nightly-integration`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-integration)                  | Daily at 07:00 UTC        | Runs e2e tests against a standing integration environment                                                      |
+| [`ephemeral-resources-janitor`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-ephemeral-resources-janitor)      | Weekly (Sunday 12:00 UTC) | Purges leaked AWS resources using [aws-nuke](https://github.com/ekristen/aws-nuke)                             |
 
 ## Build Image
 
@@ -54,7 +55,7 @@ BUILD_ID=abc123 ./ci/pre-merge.py --teardown --repo owner/repo --branch my-featu
 curl -X POST \
     -H "Authorization: Bearer $(oc whoami -t)" \
     'https://gangway-ci.apps.ci.l2s4.p1.openshiftapps.com/v1/executions/' \
-    -d '{"job_name": "periodic-ci-openshift-online-rosa-regional-platform-main-nightly", "job_execution_type": "1"}'
+    -d '{"job_name": "periodic-ci-openshift-online-rosa-regional-platform-main-nightly-ephemeral", "job_execution_type": "1"}'
 ```
 
 4. Copy the `id` from the response and check the execution to get the Prow URL:
@@ -81,20 +82,16 @@ Open the `job_url` from the response to watch the job in Prow.
 
 Logs are saved to `codebuild-logs-<ci-prefix>/`. The same download logic is used by `ephemerallib` to collect logs into Prow artifacts (with additional secret redaction).
 
-## AWS Credentials
+## CI Credentials
 
-The e2e job uses three sets of AWS credentials (central, regional, and management accounts).
+The e2e jobs use credentials mounted at `/var/run/rosa-credentials/`. Credentials are managed in [Vault](https://vault.ci.openshift.org/ui/vault/secrets/kv/kv/list/selfservice/cluster-secrets-rosa-regional-platform-int/). Two credential secrets are used:
 
-Credentials are stored in Vault at `kv/selfservice/cluster-secrets-rosa-regional-platform-int/nightly-static-aws-credentials` and mounted at `/var/run/rosa-credentials/` with keys:
+- `rosa-regional-platform-ephemeral-creds` — grants access to the AWS accounts used to spin up an ephemeral environment. Used by `nightly-ephemeral`, `on-demand-e2e`, and `ephemeral-resources-janitor`.
+- `rosa-regional-platform-integration-creds` — grants access to AWS credentials for testing against the API gateway in the regional integration account. Used by `nightly-integration`.
 
-- `ci_access_key`, `ci_secret_key`, `ci_assume_role_arn` — Central account (base credentials + AssumeRole)
-- `regional_access_key`, `regional_secret_key` — Regional sub-account
-- `management_access_key`, `management_secret_key` — Management sub-account
-- `github_token` — GitHub token with push access for creating CI branches
+## Ephemeral Resources Janitor
 
-## Nightly Resources Janitor
-
-The e2e tests create AWS resources across multiple accounts. Teardown relies on `terraform destroy`, which can fail and leak resources. The **nightly-resources-janitor** job is a weekly fallback that purges everything except resources we need to keep between tests using [aws-nuke](https://github.com/ekristen/aws-nuke).
+The ephemeral tests create AWS resources across multiple accounts. Teardown relies on `terraform destroy`, which can fail and leak resources. The **ephemeral-resources-janitor** job is a weekly fallback that purges everything except resources we need to keep between tests using [aws-nuke](https://github.com/ekristen/aws-nuke).
 
 ### What is preserved
 
