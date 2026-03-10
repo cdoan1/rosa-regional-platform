@@ -68,6 +68,20 @@ curl -X GET \
 
 Open the `job_url` from the response to watch the job in Prow.
 
+## Accessing Live Job Logs
+
+When a Prow job is running (e.g. `on-demand-e2e`), you can watch its logs in real time:
+
+1. Open the Prow job page (e.g. from the PR status check link or the job history -- see jobs table above).
+
+2. In the build log output, look for a line like:
+   ```
+   INFO[2026-03-10T11:41:49Z] Using namespace https://console.xxxxx.ci.openshift.org/k8s/cluster/projects/ci-op-XXXXXXXX
+   ```
+3. Click the namespace link to open the OpenShift console for the CI cluster where the job pods are running. From there you can inspect pod logs, events, and resources in real time.
+
+> **Note:** Access to the namespace is restricted to the person who triggered the job (i.e. the PR author for pre-submit jobs). There is no configuration option to grant access to additional users.
+
 ## Download CodeBuild Logs
 
 `ci/download-codebuild-logs.py` downloads CloudWatch logs for all CodeBuild projects matching a CI prefix. It fetches every log stream (build run) per project and names files with timestamps (e.g. `ci-202982-regional-apply.20260306-075604.log`) for chronological ordering. ANSI color codes are stripped from the output.
