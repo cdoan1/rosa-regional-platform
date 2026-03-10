@@ -272,29 +272,41 @@ class EphemeralEnvOrchestrator:
 
         log.info("State bucket: %s  key: %s", state_bucket, state_key)
 
-        subprocess.run(
-            [
-                "terraform", "init", "-reconfigure",
-                f"-backend-config=bucket={state_bucket}",
-                f"-backend-config=key={state_key}",
-                f"-backend-config=region={self.region}",
-                "-backend-config=use_lockfile=true",
-            ],
-            cwd=tf_dir,
-            env=env,
-            check=True,
-            timeout=120,
-        )
+        try:
+            subprocess.run(
+                [
+                    "terraform", "init", "-reconfigure",
+                    f"-backend-config=bucket={state_bucket}",
+                    f"-backend-config=key={state_key}",
+                    f"-backend-config=region={self.region}",
+                    "-backend-config=use_lockfile=true",
+                ],
+                cwd=tf_dir,
+                env=env,
+                check=True,
+                timeout=120,
+            )
+        except subprocess.TimeoutExpired as e:
+            raise RuntimeError(
+                f"terraform init timed out for {tf_dir} "
+                f"(bucket={state_bucket}, key={state_key})"
+            ) from e
 
-        result = subprocess.run(
-            ["terraform", "output", "--json"],
-            cwd=tf_dir,
-            env=env,
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=60,
-        )
+        try:
+            result = subprocess.run(
+                ["terraform", "output", "--json"],
+                cwd=tf_dir,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=60,
+            )
+        except subprocess.TimeoutExpired as e:
+            raise RuntimeError(
+                f"terraform output timed out for {tf_dir} "
+                f"(bucket={state_bucket}, key={state_key})"
+            ) from e
 
         dest_path = Path(dest)
         dest_path.parent.mkdir(parents=True, exist_ok=True)
