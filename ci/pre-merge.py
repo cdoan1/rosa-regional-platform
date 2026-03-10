@@ -87,7 +87,7 @@ def main():
         help="AWS region (default: us-east-1)",
     )
     parser.add_argument(
-        "--save-state",
+        "--save-regional-state",
         metavar="PATH",
         help="Save RC terraform outputs (JSON) to PATH after provisioning",
     )
@@ -120,7 +120,7 @@ def main():
             log.info("Teardown completed successfully!")
             log.info("==========================================")
         else:
-            env.provision(save_state=args.save_state)
+            env.provision(save_state=args.save_regional_state)
             log.info("")
             log.info("==========================================")
             log.info("Provisioning completed successfully!")
