@@ -17,9 +17,85 @@ bypass-alias-check-accounts:
   - "855246887846"
   - "599476212575"
 
+presets:
+  globals:
+    filters:
+      # Exclude all app-sre-infra resources
+      __global__:
+        - property: tag:app
+          value: "app-sre-infra"
+      S3Object:
+        - property: BucketName
+          type: regex
+          value: "terraform-.*"
+        - property: Bucket
+          type: regex
+          value: "terraform-.*"
+      IAMUser:
+        - terraform
+      IAMUserAccessKey: &terraform-user-filters
+        - property: UserName
+          value: "terraform"
+      IAMUserPolicyAttachment: *terraform-user-filters
+
+      # Exclude default VPC things
+      EC2VPC:
+        - property: IsDefault
+          value: "true"
+      EC2Subnet: &default-vpc-filter
+        - property: DefaultVPC
+          value: "true"
+      EC2InternetGateway: *default-vpc-filter
+      EC2RouteTable: *default-vpc-filter
+      EC2DHCPOption: *default-vpc-filter
+      EC2SecurityGroup: *default-vpc-filter
+      EC2DefaultSecurityGroupRule: *default-vpc-filter
+      EC2InternetGatewayAttachment: *default-vpc-filter
+      EC2NetworkACL: *default-vpc-filter
+
+      # Exclude Cloudtrails
+      CloudTrailTrail: &glob-all
+        - type: glob
+          value: "*"
+
+      # Exclude OrgAdminAccessRole Things
+      IAMRole:
+        - "OrganizationAccountAccessRole"
+      IAMRolePolicyAttachment:
+        - property: RoleName
+          value: "OrganizationAccountAccessRole"
+      IAMRolePolicy:
+        - property: RoleName
+          value: "OrganizationAccountAccessRole"
+      IAMSAMLProvider: &glob-name-all
+        - property: Name
+          type: glob
+          value: "*"
+
+  resource-explorer:
+    filters:
+      IAMRole:
+        - property: Name
+          type: contains
+          value: "ResourceExplorerRole"
+      IAMRolePolicyAttachment:
+        - property: RoleName
+          type: contains
+          value: "ResourceExplorerRole"
+      IAMRolePolicy:
+        - property: RoleName
+          type: contains
+          value: "ResourceExplorerRole"
+
+      ResourceExplorer2View: *glob-name-all
+      ResourceExplorer2Index: *glob-name-all
+
 accounts:
   # Sandbox 05
   "018092638725":
+    presets:
+      - globals
+      - resource-explorer
     filters: &e2e-preserve-filters
       # ---------------------------------------------------------------
       # Preserve CI identity: IAM User "e2e"
@@ -27,47 +103,42 @@ accounts:
       IAMUser:
         - "e2e"
 
-      IAMUserAccessKey:
+      IAMUserAccessKey: &e2e-user-filters
         - property: UserName
           value: "e2e"
-
-      IAMUserPolicyAttachment:
-        - property: UserName
-          value: "e2e"
-
-      IAMUserPolicy:
-        - property: UserName
-          value: "e2e"
-
-      IAMUserGroupAttachment:
-        - property: UserName
-          value: "e2e"
+      IAMUserPolicyAttachment: *e2e-user-filters
+      IAMUserPolicy: *glob-all
+      IAMUserGroupAttachment: *e2e-user-filters
 
       IAMLoginProfile:
         - "e2e"
 
-      # ---------------------------------------------------------------
-      # Preserve OrganizationAccountAccessRole (AWS Organizations)
-      # ---------------------------------------------------------------
       IAMRole:
-        - "OrganizationAccountAccessRole"
+        - "ci"
         - property: Path
           type: glob
           value: "/aws-service-role/*"
+        - property: Name
+          type: regex
+          value: "rosa-regional-.*"
 
       IAMRolePolicyAttachment:
         - property: RoleName
-          value: "OrganizationAccountAccessRole"
-        - property: RoleName
           type: glob
           value: "AWSServiceRoleFor*"
+        - property: RoleName
+          value: "ci"
+        - property: RoleName
+          type: regex
+          value: "018092638725-.*"
 
       IAMRolePolicy:
         - property: RoleName
-          value: "OrganizationAccountAccessRole"
-        - property: RoleName
           type: glob
           value: "AWSServiceRoleFor*"
+        - property: role:RoleName
+          type: regex
+          value: "rosa-regional-.*"
 
       # ---------------------------------------------------------------
       # Preserve ECR repositories for nightly-e2e IAM user
@@ -77,16 +148,33 @@ accounts:
           type: glob
           value: "e2e-platform-*"
 
+      # Other resources to preserve
+      Route53HostedZone: *glob-name-all
+
+      CodeStarConnection:
+        - "rosa-regional-github-shared"
+
+      CodeBuildSourceCredential: *glob-name-all
+
   # Dev Control Account
   "791666871613":
+    presets:
+      - globals
+      - resource-explorer
     filters: *e2e-preserve-filters
 
   # e2e-dev-regional-cluster
   "599476212575":
+    presets:
+      - globals
+      - resource-explorer
     filters: *e2e-preserve-filters
 
   # e2e-dev-management-cluster-0
   "855246887846":
+    presets:
+      - globals
+      - resource-explorer
     filters: *e2e-preserve-filters
 
 settings:
