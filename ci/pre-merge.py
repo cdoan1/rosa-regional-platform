@@ -61,10 +61,16 @@ def make_ci_prefix() -> str:
 
 def main():
     parser = argparse.ArgumentParser(description="Pre-merge CI runner for ROSA Regional Platform")
-    parser.add_argument(
+    teardown_group = parser.add_mutually_exclusive_group()
+    teardown_group.add_argument(
         "--teardown",
         action="store_true",
         help="Tear down a previously provisioned ephemeral environment",
+    )
+    teardown_group.add_argument(
+        "--teardown-fire-and-forget",
+        action="store_true",
+        help="Start teardown and exit immediately without waiting for completion",
     )
     parser.add_argument(
         "--repo",
@@ -97,8 +103,10 @@ def main():
     repo = re.sub(r".*github\.com/", "", args.repo)
     repo = re.sub(r"\.git$", "", repo)
 
-    if args.teardown and not os.environ.get("BUILD_ID"):
-        log.error("BUILD_ID must be set for --teardown (needed to identify the ephemeral environment)")
+    is_teardown = args.teardown or args.teardown_fire_and_forget
+
+    if is_teardown and not os.environ.get("BUILD_ID"):
+        log.error("BUILD_ID must be set for teardown (needed to identify the ephemeral environment)")
         sys.exit(1)
 
     ci_prefix = make_ci_prefix()
@@ -113,8 +121,8 @@ def main():
     )
 
     try:
-        if args.teardown:
-            env.teardown()
+        if is_teardown:
+            env.teardown(fire_and_forget=args.teardown_fire_and_forget)
             log.info("")
             log.info("==========================================")
             log.info("Teardown completed successfully!")
@@ -133,7 +141,7 @@ def main():
                 log.info("    BUILD_ID=%s ./pre-merge.py --teardown", ci_prefix.removeprefix("ci-"))
                 log.info("")
     except Exception:
-        log.exception("Pre-merge %s failed", "teardown" if args.teardown else "provision")
+        log.exception("Pre-merge %s failed", "teardown" if is_teardown else "provision")
         sys.exit(1)
 
 

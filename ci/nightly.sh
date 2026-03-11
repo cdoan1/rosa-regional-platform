@@ -8,9 +8,9 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 export AWS_REGION="${AWS_REGION:-us-east-1}"
 echo "AWS_REGION: ${AWS_REGION}"
 
-if [[ "${1:-}" == "--teardown" ]]; then
-    echo "Running: uv run --no-cache ci/pre-merge.py --teardown"
-    uv run --no-cache ci/pre-merge.py --teardown
+if [[ "${1:-}" == "--teardown" ]] || [[ "${1:-}" == "--teardown-fire-and-forget" ]]; then
+    echo "Running: uv run --no-cache ci/pre-merge.py ${1}"
+    uv run --no-cache ci/pre-merge.py "${1}"
 else
     SAVE_STATE_ARGS=()
     if [[ -n "${SHARED_DIR:-}" ]]; then
