@@ -11,6 +11,15 @@ echo "=========================================="
 # Pre-flight setup (validates env vars, inits account helpers)
 source scripts/pipeline-common/setup-apply-preflight.sh
 
+# Save central credentials as a named AWS profile so Terraform's aws.central
+# provider can access the central account after use_mc_account switches
+# ambient creds to the target account.
+aws configure set aws_access_key_id     "$_CENTRAL_AWS_ACCESS_KEY_ID"     --profile central
+aws configure set aws_secret_access_key "$_CENTRAL_AWS_SECRET_ACCESS_KEY" --profile central
+aws configure set aws_session_token     "$_CENTRAL_AWS_SESSION_TOKEN"     --profile central
+aws configure set region                "${TARGET_REGION}"                --profile central
+export TF_VAR_central_aws_profile="central"
+
 # Assume target account role for both state and resource operations
 use_mc_account
 echo ""
