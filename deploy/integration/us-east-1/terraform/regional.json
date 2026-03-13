@@ -9,7 +9,6 @@
   "alias": "regional-us-east-1",
   "regional_id": "regional",
   "sector": "integration",
-  "delete": true,
   "management_cluster_account_ids": [
     "ssm:///infra/integration/us-east-1/mc01/account_id"
   ]
