@@ -42,6 +42,12 @@ variable "target_account_id" {
   default     = ""
 }
 
+variable "central_aws_profile" {
+  description = "AWS CLI profile for central account credentials. Set by pipeline, empty for local dev."
+  type        = string
+  default     = ""
+}
+
 variable "app_code" {
   description = "Application code for tagging (CMDB Application ID)"
   type        = string

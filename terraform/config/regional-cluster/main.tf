@@ -23,11 +23,14 @@ provider "aws" {
   }
 }
 
-# Central account provider (no assume_role) for cross-account DNS delegation.
-# Uses ambient credentials which are the central account in pipeline context.
+# Central account provider for cross-account DNS delegation.
+# In pipelines, ambient creds are the target account (after use_mc_account),
+# so this provider uses a named profile written by the buildspec script.
+# For local dev, central_aws_profile is empty and ambient creds are used.
 provider "aws" {
-  alias  = "central"
-  region = var.region
+  alias   = "central"
+  region  = var.region
+  profile = var.central_aws_profile != "" ? var.central_aws_profile : null
 }
 
 # =============================================================================
