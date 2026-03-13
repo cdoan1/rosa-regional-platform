@@ -635,6 +635,65 @@ class TestResolveRegionDeployments:
         result = resolve_region_deployments(config)
         assert result[0]["revision"] == "main"
 
+    def test_environment_domain_inheritance(self):
+        config = {
+            "defaults": {},
+            "environments": {
+                "integration": {
+                    "environment_domain": "int0.rosa.devshift.net",
+                    "region_deployments": {
+                        "us-east-1": {"management_clusters": {}}
+                    },
+                }
+            },
+        }
+        result = resolve_region_deployments(config)
+        assert result[0]["environment_domain"] == "int0.rosa.devshift.net"
+
+    def test_environment_domain_falls_back_to_defaults(self):
+        config = {
+            "defaults": {"environment_domain": "rosa.devshift.net"},
+            "environments": {
+                "staging": {
+                    "region_deployments": {
+                        "us-east-1": {"management_clusters": {}}
+                    }
+                }
+            },
+        }
+        result = resolve_region_deployments(config)
+        assert result[0]["environment_domain"] == "rosa.devshift.net"
+
+    def test_environment_domain_override(self):
+        """Most-specific non-None wins: region_deployment > env > defaults."""
+        config = {
+            "defaults": {"environment_domain": "rosa.devshift.net"},
+            "environments": {
+                "integration": {
+                    "environment_domain": "int0.rosa.devshift.net",
+                    "region_deployments": {
+                        "us-east-1": {"management_clusters": {}}
+                    },
+                }
+            },
+        }
+        result = resolve_region_deployments(config)
+        assert result[0]["environment_domain"] == "int0.rosa.devshift.net"
+
+    def test_environment_domain_none_when_not_set(self):
+        config = {
+            "defaults": {},
+            "environments": {
+                "staging": {
+                    "region_deployments": {
+                        "us-east-1": {"management_clusters": {}}
+                    }
+                }
+            },
+        }
+        result = resolve_region_deployments(config)
+        assert result[0]["environment_domain"] is None
+
     def test_sector_support(self):
         config = {
             "defaults": {},
@@ -1253,6 +1312,41 @@ class TestRenderEnvironmentAccounts:
             "environment": "cdoan-central",
             "aws_region": "us-east-2",
         }
+
+    def test_environment_domain_included(self, tmp_path):
+        deploy_dir = tmp_path / "deploy"
+        rds = [
+            {
+                "environment": "integration",
+                "region_deployment": "us-east-1",
+                "aws_region": "us-east-1",
+                "environment_domain": "int0.rosa.devshift.net",
+                "management_clusters": [],
+            }
+        ]
+
+        render_environment_accounts(rds, deploy_dir)
+
+        accounts_file = deploy_dir / "integration" / "accounts.json"
+        data = json.loads(accounts_file.read_text())
+        assert data["environment_domain"] == "int0.rosa.devshift.net"
+
+    def test_environment_domain_omitted_when_not_set(self, tmp_path):
+        deploy_dir = tmp_path / "deploy"
+        rds = [
+            {
+                "environment": "brian",
+                "region_deployment": "us-east-1",
+                "aws_region": "us-east-1",
+                "management_clusters": [],
+            }
+        ]
+
+        render_environment_accounts(rds, deploy_dir)
+
+        accounts_file = deploy_dir / "brian" / "accounts.json"
+        data = json.loads(accounts_file.read_text())
+        assert "environment_domain" not in data
 
 
 # =============================================================================
