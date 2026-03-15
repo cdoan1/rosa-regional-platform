@@ -2,6 +2,7 @@
 
 For the full architecture overview, see [docs/README.md](docs/README.md).
 
+
 ## Repository Structure
 
 ```
