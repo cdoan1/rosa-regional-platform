@@ -635,12 +635,12 @@ class TestResolveRegionDeployments:
         result = resolve_region_deployments(config)
         assert result[0]["revision"] == "main"
 
-    def test_environment_domain_inheritance(self):
+    def test_domain_inheritance(self):
         config = {
             "defaults": {},
             "environments": {
                 "integration": {
-                    "environment": {"environment_domain": "int0.rosa.devshift.net"},
+                    "environment": {"domain": "int0.rosa.devshift.net"},
                     "region_deployments": {
                         "us-east-1": {"management_clusters": {}}
                     },
@@ -648,11 +648,11 @@ class TestResolveRegionDeployments:
             },
         }
         result = resolve_region_deployments(config)
-        assert result[0]["environment_config"]["environment_domain"] == "int0.rosa.devshift.net"
+        assert result[0]["environment_config"]["domain"] == "int0.rosa.devshift.net"
 
-    def test_environment_domain_falls_back_to_defaults(self):
+    def test_domain_falls_back_to_defaults(self):
         config = {
-            "defaults": {"environment": {"environment_domain": "rosa.devshift.net"}},
+            "defaults": {"environment": {"domain": "rosa.devshift.net"}},
             "environments": {
                 "staging": {
                     "region_deployments": {
@@ -662,15 +662,15 @@ class TestResolveRegionDeployments:
             },
         }
         result = resolve_region_deployments(config)
-        assert result[0]["environment_config"]["environment_domain"] == "rosa.devshift.net"
+        assert result[0]["environment_config"]["domain"] == "rosa.devshift.net"
 
-    def test_environment_domain_override(self):
+    def test_domain_override(self):
         """Most-specific non-None wins: region_deployment > env > defaults."""
         config = {
-            "defaults": {"environment": {"environment_domain": "rosa.devshift.net"}},
+            "defaults": {"environment": {"domain": "rosa.devshift.net"}},
             "environments": {
                 "integration": {
-                    "environment": {"environment_domain": "int0.rosa.devshift.net"},
+                    "environment": {"domain": "int0.rosa.devshift.net"},
                     "region_deployments": {
                         "us-east-1": {"management_clusters": {}}
                     },
@@ -678,9 +678,9 @@ class TestResolveRegionDeployments:
             },
         }
         result = resolve_region_deployments(config)
-        assert result[0]["environment_config"]["environment_domain"] == "int0.rosa.devshift.net"
+        assert result[0]["environment_config"]["domain"] == "int0.rosa.devshift.net"
 
-    def test_environment_domain_none_when_not_set(self):
+    def test_domain_none_when_not_set(self):
         config = {
             "defaults": {},
             "environments": {
@@ -692,7 +692,7 @@ class TestResolveRegionDeployments:
             },
         }
         result = resolve_region_deployments(config)
-        assert result[0].get("environment_config", {}).get("environment_domain") is None
+        assert result[0].get("environment_config", {}).get("domain") is None
 
     def test_sector_support(self):
         config = {
@@ -1009,12 +1009,12 @@ class TestResolveRegionDeployments:
 
     def test_environment_config_at_sector_level(self):
         config = {
-            "defaults": {"environment": {"environment_domain": "default.example.com"}},
+            "defaults": {"environment": {"domain": "default.example.com"}},
             "environments": {
                 "prod": {
                     "sectors": {
                         "sector-a": {
-                            "environment": {"environment_domain": "sector.example.com"},
+                            "environment": {"domain": "sector.example.com"},
                             "region_deployments": {
                                 "us-east-1": {"management_clusters": {}}
                             },
@@ -1024,7 +1024,7 @@ class TestResolveRegionDeployments:
             },
         }
         result = resolve_region_deployments(config)
-        assert result[0]["environment_config"]["environment_domain"] == "sector.example.com"
+        assert result[0]["environment_config"]["domain"] == "sector.example.com"
 
 
 # =============================================================================
@@ -1493,14 +1493,14 @@ class TestRenderEnvironmentConfig:
             "aws_region": "us-east-2",
         }
 
-    def test_environment_domain_included(self, tmp_path):
+    def test_domain_included(self, tmp_path):
         deploy_dir = tmp_path / "deploy"
         rds = [
             {
                 "environment": "integration",
                 "region_deployment": "us-east-1",
                 "aws_region": "us-east-1",
-                "environment_config": {"environment_domain": "int0.rosa.devshift.net"},
+                "environment_config": {"domain": "int0.rosa.devshift.net"},
                 "management_clusters": [],
             }
         ]
@@ -1509,9 +1509,9 @@ class TestRenderEnvironmentConfig:
 
         accounts_file = deploy_dir / "integration" / "environment.json"
         data = json.loads(accounts_file.read_text())
-        assert data["environment_domain"] == "int0.rosa.devshift.net"
+        assert data["domain"] == "int0.rosa.devshift.net"
 
-    def test_environment_domain_omitted_when_not_set(self, tmp_path):
+    def test_domain_omitted_when_not_set(self, tmp_path):
         deploy_dir = tmp_path / "deploy"
         rds = [
             {
@@ -1526,7 +1526,7 @@ class TestRenderEnvironmentConfig:
 
         accounts_file = deploy_dir / "brian" / "environment.json"
         data = json.loads(accounts_file.read_text())
-        assert "environment_domain" not in data
+        assert "domain" not in data
 
 
 # =============================================================================

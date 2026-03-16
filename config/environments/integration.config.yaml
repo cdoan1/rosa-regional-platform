@@ -1,5 +1,5 @@
 environment:
-  environment_domain: int0.rosa.devshift.net
+  domain: int0.rosa.devshift.net
 
 region_deployments:
   us-east-1:

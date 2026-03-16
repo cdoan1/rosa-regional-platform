@@ -53,7 +53,7 @@ Running `scripts/render.py` generates:
 
 - **`deploy/<env>/environment.json`** -- from `environment`
   - Consumer: `provision-pipelines.sh`
-  - Environment-level metadata (e.g. `environment_domain` for DNS hosted zone
+  - Environment-level metadata (e.g. `domain` for DNS hosted zone
     creation). Also contains auto-generated `region_definitions` map.
 - **`deploy/<env>/<region>/terraform/regional.json`** -- from `terraform_vars`
   - Consumer: Terraform (via CodePipeline)
@@ -99,7 +99,7 @@ Minimal -- inherits almost everything from defaults:
 
 ```yaml
 environment:
-  environment_domain: int0.rosa.devshift.net
+  domain: int0.rosa.devshift.net
 
 region_deployments:
   us-east-1:

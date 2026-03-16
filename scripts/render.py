@@ -663,7 +663,7 @@ def render_environment_config(
             "environment": env,
             "aws_region": aws_region,
         }
-        # Merge environment-level fields (environment_domain, etc.)
+        # Merge environment-level fields (domain, etc.)
         env_meta = rd.get("environment_config", {})
         if env_meta:
             envs[env] = deep_merge(envs[env], env_meta)

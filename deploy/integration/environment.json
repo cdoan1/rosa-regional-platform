@@ -7,5 +7,5 @@
       "aws_region": "us-east-1"
     }
   },
-  "environment_domain": "int0.rosa.devshift.net"
+  "domain": "int0.rosa.devshift.net"
 }
