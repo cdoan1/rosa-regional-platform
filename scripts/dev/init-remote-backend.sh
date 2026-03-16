@@ -39,14 +39,14 @@ DEPLOY_DIR="$REPO_ROOT/deploy"
 
 usage() {
     cat <<EOF
-Usage: $0 <cluster-type> <environment> <region> [options]
+Usage: $0 <cluster-type> <environment> [region] [options]
 
 Initialize Terraform backend against remote S3 state in the central account.
 
 Arguments:
   cluster-type   regional or management
   environment    Sector/environment name (e.g. psav-central, integration)
-  region         AWS region
+  region         AWS region (default: auto-detect from AWS CLI or deploy dir)
 
 Options:
   --mc <name>    Management cluster name (default: auto-detect single MC)
@@ -65,7 +65,7 @@ EOF
     exit 1
 }
 
-if [ $# -lt 3 ]; then
+if [ $# -lt 2 ]; then
     usage
 fi
 
@@ -83,10 +83,10 @@ case "$CLUSTER_TYPE" in
 esac
 
 ENVIRONMENT="$1"
-REGION="$2"
-shift 2
+shift
 
-# Parse optional flags
+# Parse region (positional) and optional flags
+REGION=""
 MC_NAME=""
 
 while [ $# -gt 0 ]; do
@@ -98,12 +98,33 @@ while [ $# -gt 0 ]; do
         -h|--help)
             usage
             ;;
-        *)
+        --*)
             echo "Error: Unknown option '$1'"
             usage
             ;;
+        *)
+            # Positional: region
+            if [ -z "$REGION" ]; then
+                REGION="$1"
+                shift
+            else
+                echo "Error: Unexpected argument '$1'"
+                usage
+            fi
+            ;;
     esac
 done
+
+# Auto-detect region from AWS CLI if not provided
+if [ -z "$REGION" ]; then
+    REGION=$(aws configure get region 2>/dev/null || true)
+    if [ -n "$REGION" ]; then
+        echo "==> Using region from AWS CLI config: $REGION"
+    else
+        echo "Error: No region specified and none configured in AWS CLI."
+        exit 1
+    fi
+fi
 
 # ── Resolve environment and region ─────────────────────────────────────────
 
@@ -116,9 +137,9 @@ if [ ! -d "$ENV_DIR" ]; then
     exit 1
 fi
 
-REGION_DEPLOYMENT_DIR="$ENV_DIR/$REGION_DEPLOYMENT"
+REGION_DEPLOYMENT_DIR="$ENV_DIR/$REGION"
 if [ ! -d "$REGION_DEPLOYMENT_DIR" ]; then
-    echo "Error: Region '$REGION_DEPLOYMENT' not found in deploy/$ENVIRONMENT/"
+    echo "Error: Region '$REGION' not found in deploy/$ENVIRONMENT/"
     echo ""
     echo "Available regions:"
     ls -d "$ENV_DIR"/*/ 2>/dev/null | xargs -I{} basename {}
@@ -136,9 +157,9 @@ if [ "$CLUSTER_TYPE" = "regional" ]; then
         echo "Error: Regional config not found: $CONFIG_FILE"
         exit 1
     fi
-    CLUSTER_ID=$(jq -r '.alias // empty' "$CONFIG_FILE")
+    CLUSTER_ID=$(jq -r '.regional_id // empty' "$CONFIG_FILE")
     if [ -z "$CLUSTER_ID" ]; then
-        echo "Error: No 'alias' field in $CONFIG_FILE"
+        echo "Error: No 'regional_id' field in $CONFIG_FILE"
         exit 1
     fi
     echo "==> Resolved cluster ID from regional.json: $CLUSTER_ID"
@@ -175,9 +196,9 @@ else
         fi
     fi
 
-    CLUSTER_ID=$(jq -r '.alias // empty' "$CONFIG_FILE")
+    CLUSTER_ID=$(jq -r '.management_id // empty' "$CONFIG_FILE")
     if [ -z "$CLUSTER_ID" ]; then
-        echo "Error: No 'alias' field in $CONFIG_FILE"
+        echo "Error: No 'management_id' field in $CONFIG_FILE"
         exit 1
     fi
     echo "==> Resolved cluster ID from $(basename "$CONFIG_FILE"): $CLUSTER_ID"

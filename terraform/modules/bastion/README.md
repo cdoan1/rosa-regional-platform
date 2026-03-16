@@ -13,19 +13,15 @@ The bastion uses **ECS Fargate** with **ECS Exec** (built on SSM) for shell acce
 
 ## Enabling the Bastion
 
-The bastion is disabled by default. To enable it, set `enable_bastion = true` in your `terraform.tfvars`:
+The bastion is disabled by default. To enable it, set `enable_bastion: true` in your environment's config under `terraform_vars`:
 
-```hcl
-# terraform.tfvars
-enable_bastion = true
+```yaml
+# config/environments/<env>.config.yaml
+terraform_vars:
+  enable_bastion: true
 ```
 
-Then apply the configuration:
-
-```bash
-# From terraform/config/regional-cluster or terraform/config/management-cluster
-terraform apply
-```
+Then run `scripts/render.py` and apply the configuration via the provisioning pipeline (or manually via `terraform apply`).
 
 ## Requirements
 
@@ -44,127 +40,70 @@ The bastion container includes a full SRE toolkit:
 - **jq** / **yq** - JSON/YAML processors
 - Standard utilities: git, vim, less, dig, etc.
 
-Please extend the tooling as required. Also note that the tools are installed at container startup so they might still not be installed when you first connect, and only become available after a minute or so.
+The tools are installed at container startup and may take ~60 seconds to become available after connecting.
 
 ## Usage
 
-After enabling the bastion and applying terraform, use the terraform outputs to interact with the bastion.
+### Prerequisites
 
-### 1. Start a bastion task
-
-```bash
-# Get terraform outputs
-cd terraform/config/regional-cluster  # or management-cluster
-
-# Start the bastion task
-eval "$(terraform output -raw bastion_run_task_command)"
-
-# Get the task ID from the output, or list running tasks:
-CLUSTER=$(terraform output -raw bastion_ecs_cluster_name)
-TASK_ID=$(aws ecs list-tasks --cluster $CLUSTER --query 'taskArns[0]' --output text | awk -F'/' '{print $NF}')
-
-# Wait for task to be running (tool installation takes ~60 seconds)
-aws ecs wait tasks-running --cluster $CLUSTER --tasks $TASK_ID
-
-# Get the runtimeId for port forwarding (save for later)
-RUNTIME_ID=$(aws ecs describe-tasks \
-  --cluster $CLUSTER \
-  --tasks $TASK_ID \
-  --query 'tasks[0].containers[?name==`bastion`].runtimeId | [0]' \
-  --output text)
-
-# Save task info for later use
-echo "{\"cluster\":\"$CLUSTER\",\"task_id\":\"$TASK_ID\",\"runtime_id\":\"$RUNTIME_ID\"}" > bastion_task.json
-```
-
-### 2. Connect to the bastion
+Initialize the Terraform backend against remote state (from the repo root):
 
 ```bash
-# Load task info
-CLUSTER=$(jq -r '.cluster' bastion_task.json)
-TASK_ID=$(jq -r '.task_id' bastion_task.json)
+# Authenticate to the target AWS account, then:
+scripts/dev/init-remote-backend.sh regional <environment> [region]
 
-# Connect via ECS Exec
-aws ecs execute-command \
-  --cluster $CLUSTER \
-  --task $TASK_ID \
-  --container bastion \
-  --interactive \
-  --command '/bin/bash'
+# Region is optional — defaults to the AWS CLI configured region.
+# e.g. scripts/dev/init-remote-backend.sh regional integration
+# e.g. scripts/dev/init-remote-backend.sh regional integration us-east-1
 ```
 
-The bastion is already connected to the EKS cluster:
+### Connect to the bastion
+
+```bash
+scripts/dev/bastion-connect.sh regional    # or: management
+```
+
+This starts a bastion ECS task (if not already running), waits for it to be ready, and opens an interactive shell. The bastion is pre-configured with kubectl access to the EKS cluster:
 
 ```bash
 bash-5.2$ kubectl get namespaces
 NAME              STATUS   AGE
 argocd            Active   76m
 default           Active   84m
-kube-node-lease   Active   84m
-kube-public       Active   84m
 kube-system       Active   84m
 ```
 
-NOTE: The container is accessible before the tools are fully installed. If it says `kubectl: command not found` wait a minute and try again.
+NOTE: If `kubectl: command not found`, wait a minute for tool installation to complete.
 
-### 3. Port-forward to access Kubernetes services (e.g., ArgoCD UI)
-
-This requires two terminals and uses SSM port forwarding with the container's `runtimeId`. Here follows a worked example to access the ArgoCD UI.
-
-**Terminal 1** - Start kubectl port-forward on the bastion:
+### Port-forward to Kubernetes services
 
 ```bash
-# Load task info
-CLUSTER=$(jq -r '.cluster' bastion_task.json)
-TASK_ID=$(jq -r '.task_id' bastion_task.json)
+# Interactive mode (requires fzf)
+scripts/dev/bastion-port-forward.sh
 
-aws ecs execute-command \
-  --cluster $CLUSTER \
-  --task $TASK_ID \
-  --container bastion \
-  --interactive \
-  --command '/bin/bash'
-
-# On the bastion:
-# get the password for ArgoCD admin user
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
-# start port-forward
-kubectl port-forward svc/argocd-server 8443:443 -n argocd --address 0.0.0.0
+# Or specify service and cluster type directly:
+scripts/dev/bastion-port-forward.sh argocd regional
+scripts/dev/bastion-port-forward.sh maestro regional
+scripts/dev/bastion-port-forward.sh argocd management
 ```
 
-**Terminal 2** - SSM port forward from your laptop to the bastion:
+The script handles the full two-hop chain automatically:
 
-```bash
-# Load task info
-CLUSTER=$(jq -r '.cluster' bastion_task.json)
-TASK_ID=$(jq -r '.task_id' bastion_task.json)
-RUNTIME_ID=$(jq -r '.runtime_id' bastion_task.json)
+1. Starts/reuses a bastion ECS task
+2. Runs `kubectl port-forward` inside the bastion (bastion -> K8s service)
+3. Starts SSM port forwarding (laptop -> bastion)
 
-aws ssm start-session \
-  --target "ecs:${CLUSTER}_${TASK_ID}_${RUNTIME_ID}" \
-  --document-name AWS-StartPortForwardingSession \
-  --parameters '{"portNumber":["8443"],"localPortNumber":["8443"]}'
-```
+For ArgoCD, it also fetches and displays the admin password.
 
-**Access in browser:** `https://localhost:8443`
+### Stop when done
 
-Get the ArgoCD admin password (on the bastion):
-
-```bash
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
-```
-
-### 4. Stop when done
-
-Stop the task when you're finished to avoid ongoing costs.
+Stop the task when finished to avoid ongoing costs.
 
 > **Cost note**: Fargate tasks are billed per-second while running (~$0.02/hour for this config).
 
 ```bash
-# Load task info
-CLUSTER=$(jq -r '.cluster' bastion_task.json)
-TASK_ID=$(jq -r '.task_id' bastion_task.json)
-
+CLUSTER=$(cd terraform/config/regional-cluster && terraform output -raw bastion_ecs_cluster_name)
+TASK_ID=$(aws ecs list-tasks --cluster $CLUSTER --query 'taskArns[0]' --output text | awk -F'/' '{print $NF}')
 aws ecs stop-task --cluster $CLUSTER --task $TASK_ID
 ```
 
@@ -175,6 +114,8 @@ aws ecs stop-task --cluster $CLUSTER --task $TASK_ID
 View container logs to debug startup issues or check tool installation progress:
 
 ```bash
+cd terraform/config/regional-cluster  # or management-cluster
+
 # Tail logs (follow mode)
 aws logs tail $(terraform output -raw bastion_log_group_name) --follow --since 5m
 
@@ -184,4 +125,4 @@ aws logs tail $(terraform output -raw bastion_log_group_name) --follow --since 1
 
 ### Bastion not available
 
-If bastion outputs are `null`, ensure you have `enable_bastion = true` in your tfvars and have run `terraform apply`.
+If bastion outputs are `null`, ensure `enable_bastion: true` is set in your config's `terraform_vars` and the infrastructure has been applied.
