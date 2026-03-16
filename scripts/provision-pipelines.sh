@@ -240,7 +240,7 @@ echo ""
 ENVIRONMENT_DOMAIN=""
 ENVIRONMENT_HOSTED_ZONE_ID=""
 
-ENVIRONMENT_DOMAIN=$(jq -r '.environment_domain // empty' "deploy/${ENVIRONMENT}/accounts.json" 2>/dev/null || echo "")
+ENVIRONMENT_DOMAIN=$(jq -r '.environment_domain // empty' "deploy/${ENVIRONMENT}/environment.json" 2>/dev/null || echo "")
 
 if [ -n "$ENVIRONMENT_DOMAIN" ]; then
     echo "=========================================="

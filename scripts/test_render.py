@@ -22,7 +22,7 @@ from render import (
     get_cluster_types,
     load_config,
     load_yaml,
-    render_environment_accounts,
+    render_environment_config,
     resolve_config_path,
     render_region_deployment_applicationsets,
     render_region_deployment_terraform,
@@ -640,7 +640,7 @@ class TestResolveRegionDeployments:
             "defaults": {},
             "environments": {
                 "integration": {
-                    "accounts": {"environment_domain": "int0.rosa.devshift.net"},
+                    "environment": {"environment_domain": "int0.rosa.devshift.net"},
                     "region_deployments": {
                         "us-east-1": {"management_clusters": {}}
                     },
@@ -648,11 +648,11 @@ class TestResolveRegionDeployments:
             },
         }
         result = resolve_region_deployments(config)
-        assert result[0]["accounts"]["environment_domain"] == "int0.rosa.devshift.net"
+        assert result[0]["environment_config"]["environment_domain"] == "int0.rosa.devshift.net"
 
     def test_environment_domain_falls_back_to_defaults(self):
         config = {
-            "defaults": {"accounts": {"environment_domain": "rosa.devshift.net"}},
+            "defaults": {"environment": {"environment_domain": "rosa.devshift.net"}},
             "environments": {
                 "staging": {
                     "region_deployments": {
@@ -662,15 +662,15 @@ class TestResolveRegionDeployments:
             },
         }
         result = resolve_region_deployments(config)
-        assert result[0]["accounts"]["environment_domain"] == "rosa.devshift.net"
+        assert result[0]["environment_config"]["environment_domain"] == "rosa.devshift.net"
 
     def test_environment_domain_override(self):
         """Most-specific non-None wins: region_deployment > env > defaults."""
         config = {
-            "defaults": {"accounts": {"environment_domain": "rosa.devshift.net"}},
+            "defaults": {"environment": {"environment_domain": "rosa.devshift.net"}},
             "environments": {
                 "integration": {
-                    "accounts": {"environment_domain": "int0.rosa.devshift.net"},
+                    "environment": {"environment_domain": "int0.rosa.devshift.net"},
                     "region_deployments": {
                         "us-east-1": {"management_clusters": {}}
                     },
@@ -678,7 +678,7 @@ class TestResolveRegionDeployments:
             },
         }
         result = resolve_region_deployments(config)
-        assert result[0]["accounts"]["environment_domain"] == "int0.rosa.devshift.net"
+        assert result[0]["environment_config"]["environment_domain"] == "int0.rosa.devshift.net"
 
     def test_environment_domain_none_when_not_set(self):
         config = {
@@ -692,7 +692,7 @@ class TestResolveRegionDeployments:
             },
         }
         result = resolve_region_deployments(config)
-        assert result[0].get("accounts", {}).get("environment_domain") is None
+        assert result[0].get("environment_config", {}).get("environment_domain") is None
 
     def test_sector_support(self):
         config = {
@@ -1007,14 +1007,14 @@ class TestResolveRegionDeployments:
         assert rc["b"] == "sector"
         assert rc["c"] == "rd"
 
-    def test_accounts_at_sector_level(self):
+    def test_environment_config_at_sector_level(self):
         config = {
-            "defaults": {"accounts": {"environment_domain": "default.example.com"}},
+            "defaults": {"environment": {"environment_domain": "default.example.com"}},
             "environments": {
                 "prod": {
                     "sectors": {
                         "sector-a": {
-                            "accounts": {"environment_domain": "sector.example.com"},
+                            "environment": {"environment_domain": "sector.example.com"},
                             "region_deployments": {
                                 "us-east-1": {"management_clusters": {}}
                             },
@@ -1024,7 +1024,7 @@ class TestResolveRegionDeployments:
             },
         }
         result = resolve_region_deployments(config)
-        assert result[0]["accounts"]["environment_domain"] == "sector.example.com"
+        assert result[0]["environment_config"]["environment_domain"] == "sector.example.com"
 
 
 # =============================================================================
@@ -1378,11 +1378,11 @@ class TestRenderRegionDeploymentTerraform:
 
 
 # =============================================================================
-# render_environment_accounts
+# render_environment_config
 # =============================================================================
 
 
-class TestRenderEnvironmentAccounts:
+class TestRenderEnvironmentConfig:
     def test_single_env_single_region(self, tmp_path):
         deploy_dir = tmp_path / "deploy"
         rds = [
@@ -1394,9 +1394,9 @@ class TestRenderEnvironmentAccounts:
             }
         ]
 
-        render_environment_accounts(rds, deploy_dir)
+        render_environment_config(rds, deploy_dir)
 
-        accounts_file = deploy_dir / "brian" / "accounts.json"
+        accounts_file = deploy_dir / "brian" / "environment.json"
         assert accounts_file.exists()
         data = json.loads(accounts_file.read_text())
         assert "us-east-1" in data["region_definitions"]
@@ -1422,9 +1422,9 @@ class TestRenderEnvironmentAccounts:
             },
         ]
 
-        render_environment_accounts(rds, deploy_dir)
+        render_environment_config(rds, deploy_dir)
 
-        accounts_file = deploy_dir / "prod" / "accounts.json"
+        accounts_file = deploy_dir / "prod" / "environment.json"
         data = json.loads(accounts_file.read_text())
         assert len(data["region_definitions"]) == 2
         assert "us-east-1" in data["region_definitions"]
@@ -1447,10 +1447,10 @@ class TestRenderEnvironmentAccounts:
             },
         ]
 
-        render_environment_accounts(rds, deploy_dir)
+        render_environment_config(rds, deploy_dir)
 
-        assert (deploy_dir / "staging" / "accounts.json").exists()
-        assert (deploy_dir / "prod" / "accounts.json").exists()
+        assert (deploy_dir / "staging" / "environment.json").exists()
+        assert (deploy_dir / "prod" / "environment.json").exists()
 
     def test_contains_generated_metadata(self, tmp_path):
         deploy_dir = tmp_path / "deploy"
@@ -1463,9 +1463,9 @@ class TestRenderEnvironmentAccounts:
             }
         ]
 
-        render_environment_accounts(rds, deploy_dir)
+        render_environment_config(rds, deploy_dir)
 
-        accounts_file = deploy_dir / "e2e" / "accounts.json"
+        accounts_file = deploy_dir / "e2e" / "environment.json"
         data = json.loads(accounts_file.read_text())
         assert "_generated" in data
         assert "DO NOT EDIT" in data["_generated"]
@@ -1482,9 +1482,9 @@ class TestRenderEnvironmentAccounts:
             }
         ]
 
-        render_environment_accounts(rds, deploy_dir)
+        render_environment_config(rds, deploy_dir)
 
-        accounts_file = deploy_dir / "cdoan-central" / "accounts.json"
+        accounts_file = deploy_dir / "cdoan-central" / "environment.json"
         data = json.loads(accounts_file.read_text())
         entry = data["region_definitions"]["us-east-2"]
         assert entry == {
@@ -1500,14 +1500,14 @@ class TestRenderEnvironmentAccounts:
                 "environment": "integration",
                 "region_deployment": "us-east-1",
                 "aws_region": "us-east-1",
-                "accounts": {"environment_domain": "int0.rosa.devshift.net"},
+                "environment_config": {"environment_domain": "int0.rosa.devshift.net"},
                 "management_clusters": [],
             }
         ]
 
-        render_environment_accounts(rds, deploy_dir)
+        render_environment_config(rds, deploy_dir)
 
-        accounts_file = deploy_dir / "integration" / "accounts.json"
+        accounts_file = deploy_dir / "integration" / "environment.json"
         data = json.loads(accounts_file.read_text())
         assert data["environment_domain"] == "int0.rosa.devshift.net"
 
@@ -1522,9 +1522,9 @@ class TestRenderEnvironmentAccounts:
             }
         ]
 
-        render_environment_accounts(rds, deploy_dir)
+        render_environment_config(rds, deploy_dir)
 
-        accounts_file = deploy_dir / "brian" / "accounts.json"
+        accounts_file = deploy_dir / "brian" / "environment.json"
         data = json.loads(accounts_file.read_text())
         assert "environment_domain" not in data
 

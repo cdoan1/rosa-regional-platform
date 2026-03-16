@@ -1,4 +1,4 @@
-accounts:
+environment:
   environment_domain: int0.rosa.devshift.net
 
 region_deployments:

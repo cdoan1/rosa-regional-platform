@@ -27,7 +27,7 @@ hierarchy itself, not configuration):
 - `management_clusters`
 - `sectors`
 
-Everything else -- `terraform_vars`, `values`, `accounts`, `account_id`,
+Everything else -- `terraform_vars`, `values`, `environment`, `account_id`,
 `revision`, or any new field you add -- inherits automatically. No changes to
 `render.py` are needed when adding new inheritable fields.
 
@@ -51,7 +51,7 @@ and `values`, so `{{ account_id }}` in those sections gets the final value.
 
 Running `scripts/render.py` generates:
 
-- **`deploy/<env>/accounts.json`** -- from `accounts`
+- **`deploy/<env>/environment.json`** -- from `environment`
   - Consumer: `provision-pipelines.sh`
   - Environment-level metadata (e.g. `environment_domain` for DNS hosted zone
     creation). Also contains auto-generated `region_definitions` map.
@@ -98,7 +98,7 @@ values:
 Minimal -- inherits almost everything from defaults:
 
 ```yaml
-accounts:
+environment:
   environment_domain: int0.rosa.devshift.net
 
 region_deployments:
