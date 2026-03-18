@@ -34,11 +34,11 @@ BUILD_ID=abc123 ./ci/ephemeral-provider/main.py --resync --repo owner/repo --bra
 
 ## Modules
 
-| Module              | Description                                                                |
-| ------------------- | -------------------------------------------------------------------------- |
-| `main.py`           | CLI entrypoint — parses args, runs provision, teardown, or resync          |
-| `orchestrator.py`   | Top-level orchestration logic for provision and teardown workflows          |
-| `aws.py`            | AWS credential management and session helpers                              |
-| `git.py`            | Git operations for CI branch creation, rendering, and resync (rebase)      |
-| `pipeline.py`       | CodeBuild pipeline monitoring (discovery, polling, status)                 |
-| `codebuild_logs.py` | CloudWatch log fetching and formatting for CodeBuild projects              |
+| Module              | Description                                                           |
+| ------------------- | --------------------------------------------------------------------- |
+| `main.py`           | CLI entrypoint — parses args, runs provision, teardown, or resync     |
+| `orchestrator.py`   | Top-level orchestration logic for provision and teardown workflows    |
+| `aws.py`            | AWS credential management and session helpers                         |
+| `git.py`            | Git operations for CI branch creation, rendering, and resync (rebase) |
+| `pipeline.py`       | CodeBuild pipeline monitoring (discovery, polling, status)            |
+| `codebuild_logs.py` | CloudWatch log fetching and formatting for CodeBuild projects         |
