@@ -399,6 +399,8 @@ check-rendered-files:
 		exit 1; \
 	fi
 	@echo "✅ Rendered files are up to date"
+	@echo "🔍 Checking config documentation..."
+	@uv run --no-cache scripts/render.py --check-docs
 
 # Check documentation formatting with prettier
 check-docs:
