@@ -180,8 +180,7 @@ resource "aws_codepipeline" "provisioner" {
         }
         file_paths {
           includes = [
-            "deploy/${var.environment}/*/terraform/regional.json",
-            "deploy/${var.environment}/*/terraform/management/*.json",
+            "deploy/${var.environment}/environment.json",
             "terraform/config/pipeline-regional-cluster/**",
             "terraform/config/pipeline-management-cluster/**",
             "terraform/modules/platform-image/**",

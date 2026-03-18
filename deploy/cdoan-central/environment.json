@@ -4,7 +4,10 @@
     "us-east-2": {
       "name": "cdoan-central",
       "environment": "cdoan-central",
-      "aws_region": "us-east-2"
+      "aws_region": "us-east-2",
+      "management_clusters": [
+        "mc01"
+      ]
     }
   }
 }

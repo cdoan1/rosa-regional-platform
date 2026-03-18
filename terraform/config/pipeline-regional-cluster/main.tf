@@ -214,16 +214,6 @@ resource "aws_codebuild_project" "regional_apply" {
     type                        = "LINUX_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
 
-    # GitHub repository in owner/name format
-    environment_variable {
-      name  = "GITHUB_REPOSITORY"
-      value = var.github_repository
-    }
-    # Git branch to monitor for pipeline triggers
-    environment_variable {
-      name  = "GITHUB_BRANCH"
-      value = var.github_branch
-    }
     # AWS account ID where resources will be deployed
     environment_variable {
       name  = "TARGET_ACCOUNT_ID"
@@ -239,20 +229,10 @@ resource "aws_codebuild_project" "regional_apply" {
       name  = "REGIONAL_ID"
       value = var.regional_id
     }
-    # Application code for resource tagging
+    # Target environment name (dev/staging/prod)
     environment_variable {
-      name  = "APP_CODE"
-      value = var.app_code
-    }
-    # Service phase (dev/staging/prod)
-    environment_variable {
-      name  = "SERVICE_PHASE"
-      value = var.service_phase
-    }
-    # Cost center for billing attribution
-    environment_variable {
-      name  = "COST_CENTER"
-      value = var.cost_center
+      name  = "ENVIRONMENT"
+      value = var.target_environment
     }
     # Git repository URL for ArgoCD to sync
     environment_variable {
@@ -264,23 +244,9 @@ resource "aws_codebuild_project" "regional_apply" {
       name  = "REPOSITORY_BRANCH"
       value = var.repository_branch
     }
-    # Target environment name (dev/staging/prod)
-    environment_variable {
-      name  = "ENVIRONMENT"
-      value = var.target_environment
-    }
-    # Enable bastion host for cluster access
-    environment_variable {
-      name  = "ENABLE_BASTION"
-      value = var.enable_bastion ? "true" : "false"
-    }
     environment_variable {
       name  = "PLATFORM_IMAGE"
       value = var.codebuild_image
-    }
-    environment_variable {
-      name  = "ENVIRONMENT_DOMAIN"
-      value = var.environment_domain
     }
     environment_variable {
       name  = "ENVIRONMENT_HOSTED_ZONE_ID"
@@ -310,16 +276,6 @@ resource "aws_codebuild_project" "regional_bootstrap" {
     type                        = "LINUX_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
 
-    # GitHub repository in owner/name format
-    environment_variable {
-      name  = "GITHUB_REPOSITORY"
-      value = var.github_repository
-    }
-    # Git branch to monitor for pipeline triggers
-    environment_variable {
-      name  = "GITHUB_BRANCH"
-      value = var.github_branch
-    }
     # AWS account ID where resources will be deployed
     environment_variable {
       name  = "TARGET_ACCOUNT_ID"

@@ -341,20 +341,10 @@ resource "aws_codebuild_project" "management_apply" {
       name  = "MANAGEMENT_ID"
       value = var.management_id
     }
-    # Application code for resource tagging
+    # Environment name (staging/production)
     environment_variable {
-      name  = "APP_CODE"
-      value = var.app_code
-    }
-    # Service phase for resource tagging
-    environment_variable {
-      name  = "SERVICE_PHASE"
-      value = var.service_phase
-    }
-    # Cost center for resource tagging
-    environment_variable {
-      name  = "COST_CENTER"
-      value = var.cost_center
+      name  = "ENVIRONMENT"
+      value = var.target_environment
     }
     # Git repository URL for ArgoCD configuration
     environment_variable {
@@ -365,26 +355,6 @@ resource "aws_codebuild_project" "management_apply" {
     environment_variable {
       name  = "REPOSITORY_BRANCH"
       value = var.repository_branch
-    }
-    # Logical ID for registering with Regional Cluster
-    environment_variable {
-      name  = "CLUSTER_ID"
-      value = var.management_id
-    }
-    # AWS account hosting the Regional Cluster
-    environment_variable {
-      name  = "REGIONAL_AWS_ACCOUNT_ID"
-      value = var.regional_aws_account_id
-    }
-    # Environment name (staging/production)
-    environment_variable {
-      name  = "ENVIRONMENT"
-      value = var.target_environment
-    }
-    # Whether to provision a bastion host
-    environment_variable {
-      name  = "ENABLE_BASTION"
-      value = var.enable_bastion ? "true" : "false"
     }
     environment_variable {
       name  = "PLATFORM_IMAGE"
@@ -469,16 +439,6 @@ resource "aws_codebuild_project" "iot_mint" {
     type                        = "LINUX_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
 
-    # Management cluster identifier (used for IoT policy naming and SM secret paths)
-    environment_variable {
-      name  = "CLUSTER_ID"
-      value = var.management_id
-    }
-    # AWS account hosting the Regional Cluster (where IoT resources are created)
-    environment_variable {
-      name  = "REGIONAL_AWS_ACCOUNT_ID"
-      value = var.regional_aws_account_id
-    }
     # AWS region for the deployment
     environment_variable {
       name  = "TARGET_REGION"
@@ -488,21 +448,6 @@ resource "aws_codebuild_project" "iot_mint" {
     environment_variable {
       name  = "MANAGEMENT_ID"
       value = var.management_id
-    }
-    # Application code for resource tagging
-    environment_variable {
-      name  = "APP_CODE"
-      value = var.app_code
-    }
-    # Service phase for resource tagging
-    environment_variable {
-      name  = "SERVICE_PHASE"
-      value = var.service_phase
-    }
-    # Cost center for resource tagging
-    environment_variable {
-      name  = "COST_CENTER"
-      value = var.cost_center
     }
     # Environment name (staging/production/e2e)
     environment_variable {
@@ -551,16 +496,6 @@ resource "aws_codebuild_project" "register" {
     environment_variable {
       name  = "MANAGEMENT_ID"
       value = var.management_id
-    }
-    # Logical ID for registering with Regional Cluster
-    environment_variable {
-      name  = "CLUSTER_ID"
-      value = var.management_id
-    }
-    # AWS account hosting the Regional Cluster
-    environment_variable {
-      name  = "REGIONAL_AWS_ACCOUNT_ID"
-      value = var.regional_aws_account_id
     }
     # Environment name (staging/production)
     environment_variable {

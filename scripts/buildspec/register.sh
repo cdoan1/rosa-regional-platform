@@ -11,15 +11,12 @@ echo "=========================================="
 # Pre-flight setup (validates env vars, inits account helpers)
 source scripts/pipeline-common/setup-apply-preflight.sh
 
+# Load terraform variables from deploy/ JSON
+source scripts/pipeline-common/load-deploy-config.sh management
+
 # Read delete flag from config (GitOps-driven deletion)
 ENVIRONMENT="${ENVIRONMENT:-staging}"
-MC_CONFIG_FILE="deploy/${ENVIRONMENT}/${TARGET_REGION}/terraform/management/${MANAGEMENT_ID}.json"
-if [ ! -f "$MC_CONFIG_FILE" ]; then
-    echo "ERROR: Config file not found: $MC_CONFIG_FILE" >&2
-    echo "  ENVIRONMENT=$ENVIRONMENT TARGET_REGION=$TARGET_REGION MANAGEMENT_ID=$MANAGEMENT_ID" >&2
-    exit 1
-fi
-DELETE_FLAG=$(jq -r '.delete // false' "$MC_CONFIG_FILE")
+DELETE_FLAG=$(jq -r '.delete // false' "$DEPLOY_CONFIG_FILE")
 
 # Manual override: IS_DESTROY pipeline variable takes precedence
 [ "${IS_DESTROY:-false}" == "true" ] && DELETE_FLAG="true"
@@ -41,24 +38,7 @@ fi
 # Read API Gateway URL from RC terraform state
 # =====================================================================
 
-# Resolve REGIONAL_AWS_ACCOUNT_ID (supports SSM parameter references)
 RESOLVED_REGIONAL_ACCOUNT_ID="${REGIONAL_AWS_ACCOUNT_ID}"
-if [[ "$RESOLVED_REGIONAL_ACCOUNT_ID" =~ ^ssm:// ]]; then
-    SSM_PARAM_NAME="${RESOLVED_REGIONAL_ACCOUNT_ID#ssm://}"
-    echo "Resolving SSM parameter: $SSM_PARAM_NAME in region ${TARGET_REGION}"
-    RESOLVED_REGIONAL_ACCOUNT_ID=$(aws ssm get-parameter \
-        --name "$SSM_PARAM_NAME" \
-        --with-decryption \
-        --query 'Parameter.Value' \
-        --output text \
-        --region "${TARGET_REGION}")
-    echo "Resolved regional account ID: $RESOLVED_REGIONAL_ACCOUNT_ID"
-fi
-
-if [[ -z "$RESOLVED_REGIONAL_ACCOUNT_ID" ]]; then
-    echo "ERROR: REGIONAL_AWS_ACCOUNT_ID must be provided"
-    exit 1
-fi
 
 # Resolve RC state key from regional config
 RC_CONFIG_FILE="deploy/${ENVIRONMENT}/${TARGET_REGION}/terraform/regional.json"

@@ -43,24 +43,6 @@ variable "target_environment" {
   default     = "integration"
 }
 
-variable "app_code" {
-  type        = string
-  description = "Application code for tagging"
-  default     = "infra"
-}
-
-variable "service_phase" {
-  type        = string
-  description = "Service phase (dev, staging, prod)"
-  default     = "dev"
-}
-
-variable "cost_center" {
-  type        = string
-  description = "Cost center for billing"
-  default     = "000"
-}
-
 variable "repository_url" {
   type        = string
   description = "Git repository URL for cluster configuration"
@@ -75,17 +57,6 @@ variable "repository_branch" {
 variable "management_id" {
   type        = string
   description = "Management cluster identifier for resource naming (e.g., 'mc01')"
-}
-
-variable "regional_aws_account_id" {
-  type        = string
-  description = "AWS account ID where the regional cluster is hosted"
-}
-
-variable "enable_bastion" {
-  type        = bool
-  description = "Enable ECS Fargate bastion for break-glass/development access to the cluster"
-  default     = false
 }
 
 variable "codebuild_image" {

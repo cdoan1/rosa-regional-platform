@@ -658,11 +658,16 @@ def render_environment_config(
         aws_region = rd["aws_region"]
         if env not in envs:
             envs[env] = {"region_definitions": {}}
-        envs[env]["region_definitions"][aws_region] = {
+        region_entry: Dict[str, Any] = {
             "name": env,
             "environment": env,
             "aws_region": aws_region,
+            "management_clusters": [
+                mc.get("management_id", "")
+                for mc in rd.get("management_clusters", [])
+            ],
         }
+        envs[env]["region_definitions"][aws_region] = region_entry
         # Merge environment-level fields (domain, etc.)
         env_meta = rd.get("environment_config", {})
         if env_meta:

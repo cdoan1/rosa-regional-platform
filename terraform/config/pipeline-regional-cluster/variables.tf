@@ -48,24 +48,6 @@ variable "target_environment" {
   default     = "integration"
 }
 
-variable "app_code" {
-  type        = string
-  description = "Application code for tagging"
-  default     = "infra"
-}
-
-variable "service_phase" {
-  type        = string
-  description = "Service phase (dev, staging, prod)"
-  default     = "dev"
-}
-
-variable "cost_center" {
-  type        = string
-  description = "Cost center for billing"
-  default     = "000"
-}
-
 variable "repository_url" {
   type        = string
   description = "Git repository URL for cluster configuration"
@@ -77,21 +59,9 @@ variable "repository_branch" {
   default     = "main"
 }
 
-variable "enable_bastion" {
-  type        = bool
-  description = "Enable ECS Fargate bastion for break-glass/development access to the cluster"
-  default     = false
-}
-
 variable "codebuild_image" {
   type        = string
   description = "ECR image URI for CodeBuild projects (platform image with pre-installed tools)"
-}
-
-variable "environment_domain" {
-  type        = string
-  description = "Environment domain name (e.g. int0.rosa.devshift.net). When set, the regional pipeline creates DNS zones and custom API domain."
-  default     = ""
 }
 
 variable "environment_hosted_zone_id" {

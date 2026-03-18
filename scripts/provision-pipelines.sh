@@ -294,11 +294,6 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
         TARGET_ACCOUNT_ID=$(resolve_ssm_param "$TARGET_ACCOUNT_ID")
         REGIONAL_ID=$(jq -r '.regional_id // ""' "$REGIONAL_CONFIG")
 
-        # Extract terraform vars with defaults
-        APP_CODE=$(jq -r '.app_code // "infra"' "$REGIONAL_CONFIG")
-        SERVICE_PHASE=$(jq -r '.service_phase // "dev"' "$REGIONAL_CONFIG")
-        COST_CENTER=$(jq -r '.cost_center // "000"' "$REGIONAL_CONFIG")
-        ENABLE_BASTION=$(jq -r '.enable_bastion // false' "$REGIONAL_CONFIG")
         DELETE_FLAG=$(jq -r '.delete_pipeline // false' "$REGIONAL_CONFIG")
 
         # TEMPORARY CI HACK (see top of file)
@@ -308,7 +303,6 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
         echo "  AWS Region: $AWS_REGION"
         [ -n "$TARGET_ACCOUNT_ID" ] && echo "  Target Account ID: $TARGET_ACCOUNT_ID"
         [ -n "$REGIONAL_ID" ] && echo "  Regional ID: $REGIONAL_ID"
-        echo "  Terraform Vars: app_code=$APP_CODE, service_phase=$SERVICE_PHASE, cost_center=$COST_CENTER, enable_bastion=$ENABLE_BASTION"
         echo "  Delete Flag: $DELETE_FLAG"
 
         # Validate TARGET_ACCOUNT_ID before using it
@@ -343,15 +337,6 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
         [ -n "$AWS_REGION" ] && TF_ARGS+=( -var="target_region=${AWS_REGION}" )
         [ -n "$REGIONAL_ID" ] && TF_ARGS+=( -var="regional_id=${REGIONAL_ID}" )
         [ -n "$ENVIRONMENT" ] && TF_ARGS+=( -var="target_environment=${ENVIRONMENT}" )
-        [ -n "$APP_CODE" ] && TF_ARGS+=( -var="app_code=${APP_CODE}" )
-        [ -n "$SERVICE_PHASE" ] && TF_ARGS+=( -var="service_phase=${SERVICE_PHASE}" )
-        [ -n "$COST_CENTER" ] && TF_ARGS+=( -var="cost_center=${COST_CENTER}" )
-        # Handle enable_bastion (boolean, convert to Terraform boolean)
-        if [ "$ENABLE_BASTION" == "true" ] || [ "$ENABLE_BASTION" == "1" ]; then
-            TF_ARGS+=( -var="enable_bastion=true" )
-        else
-            TF_ARGS+=( -var="enable_bastion=false" )
-        fi
         # Repository URL and branch for cluster configuration
         TF_ARGS+=(
             -var="repository_url=https://github.com/${GITHUB_REPOSITORY}.git"
@@ -359,7 +344,6 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             -var="codebuild_image=${PLATFORM_IMAGE}"
         )
         # DNS configuration (optional)
-        [ -n "$ENVIRONMENT_DOMAIN" ] && TF_ARGS+=( -var="environment_domain=${ENVIRONMENT_DOMAIN}" )
         [ -n "$ENVIRONMENT_HOSTED_ZONE_ID" ] && TF_ARGS+=( -var="environment_hosted_zone_id=${ENVIRONMENT_HOSTED_ZONE_ID}" )
 
         if [ "$DELETE_FLAG" == "true" ]; then
@@ -406,36 +390,15 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             TARGET_ACCOUNT_ID=$(resolve_ssm_param "$TARGET_ACCOUNT_ID")
             MANAGEMENT_ID=$(jq -r '.management_id // ""' "$mc_config")
 
-            # Extract terraform vars with defaults
-            APP_CODE=$(jq -r '.app_code // "infra"' "$mc_config")
-            SERVICE_PHASE=$(jq -r '.service_phase // "dev"' "$mc_config")
-            COST_CENTER=$(jq -r '.cost_center // "000"' "$mc_config")
-            CLUSTER_ID=$(jq -r '.management_id // ""' "$mc_config")
-            REGIONAL_AWS_ACCOUNT_ID=$(jq -r '.regional_aws_account_id // ""' "$mc_config")
-            ENABLE_BASTION=$(jq -r '.enable_bastion // false' "$mc_config")
             DELETE_FLAG=$(jq -r '.delete_pipeline // false' "$mc_config")
 
             # TEMPORARY CI HACK (see top of file)
             # Sets DELETE_FLAG to true if FORCE_DELETE_ALL_PIPELINES is true
             [ "$FORCE_DELETE_ALL_PIPELINES" == "true" ] && DELETE_FLAG="true"
 
-            # Use MANAGEMENT_ID as cluster_id default if not specified
-            [ -z "$CLUSTER_ID" ] && CLUSTER_ID="${MANAGEMENT_ID}"
-
-            # Resolve REGIONAL_AWS_ACCOUNT_ID using the helper function
-            REGIONAL_AWS_ACCOUNT_ID=$(resolve_ssm_param "$REGIONAL_AWS_ACCOUNT_ID" "${AWS_REGION}")
-
-            # Validate that REGIONAL_AWS_ACCOUNT_ID is non-empty
-            if [[ -z "$REGIONAL_AWS_ACCOUNT_ID" ]]; then
-                echo "❌ ERROR: REGIONAL_AWS_ACCOUNT_ID must be provided for region ${AWS_REGION}"
-                echo "   Set regional_aws_account_id in your management cluster config (either direct account ID or ssm:///path/to/param)"
-                exit 1
-            fi
-
             echo "  AWS Region: $AWS_REGION"
             [ -n "$TARGET_ACCOUNT_ID" ] && echo "  Target Account ID: $TARGET_ACCOUNT_ID"
             [ -n "$MANAGEMENT_ID" ] && echo "  Management ID: $MANAGEMENT_ID"
-            echo "  Terraform Vars: app_code=$APP_CODE, service_phase=$SERVICE_PHASE, cost_center=$COST_CENTER, cluster_id=$CLUSTER_ID, regional_aws_account_id=$REGIONAL_AWS_ACCOUNT_ID, enable_bastion=$ENABLE_BASTION"
             echo "  Delete Flag: $DELETE_FLAG"
 
             # Validate TARGET_ACCOUNT_ID before using it
@@ -445,9 +408,8 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
                 exit 1
             fi
 
-            # Bootstrap state buckets in both MC and RC target accounts (idempotent)
+            # Bootstrap state bucket in MC target account (idempotent)
             bootstrap_target_state_bucket "$TARGET_ACCOUNT_ID" "$AWS_REGION"
-            bootstrap_target_state_bucket "$REGIONAL_AWS_ACCOUNT_ID" "$AWS_REGION"
 
             echo "Processing Management Cluster Pipeline for $CLUSTER_NAME in ${ENVIRONMENT}-${REGION_DEPLOYMENT}..."
 
@@ -471,16 +433,6 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             [ -n "$AWS_REGION" ] && TF_ARGS+=( -var="target_region=${AWS_REGION}" )
             [ -n "$MANAGEMENT_ID" ] && TF_ARGS+=( -var="management_id=${MANAGEMENT_ID}" )
             [ -n "$ENVIRONMENT" ] && TF_ARGS+=( -var="target_environment=${ENVIRONMENT}" )
-            [ -n "$APP_CODE" ] && TF_ARGS+=( -var="app_code=${APP_CODE}" )
-            [ -n "$SERVICE_PHASE" ] && TF_ARGS+=( -var="service_phase=${SERVICE_PHASE}" )
-            [ -n "$COST_CENTER" ] && TF_ARGS+=( -var="cost_center=${COST_CENTER}" )
-            [ -n "$REGIONAL_AWS_ACCOUNT_ID" ] && TF_ARGS+=( -var="regional_aws_account_id=${REGIONAL_AWS_ACCOUNT_ID}" )
-            # Handle enable_bastion (boolean, convert to Terraform boolean)
-            if [ "$ENABLE_BASTION" == "true" ] || [ "$ENABLE_BASTION" == "1" ]; then
-                TF_ARGS+=( -var="enable_bastion=true" )
-            else
-                TF_ARGS+=( -var="enable_bastion=false" )
-            fi
             # Repository URL and branch for cluster configuration
             TF_ARGS+=(
                 -var="repository_url=https://github.com/${GITHUB_REPOSITORY}.git"

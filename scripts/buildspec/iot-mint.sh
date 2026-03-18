@@ -12,6 +12,9 @@ echo "=========================================="
 source scripts/pipeline-common/account-helpers.sh
 init_account_helpers
 
+# Load terraform variables from deploy/ JSON
+source scripts/pipeline-common/load-deploy-config.sh management
+
 echo "Cluster ID: ${CLUSTER_ID}"
 echo "Regional Account: ${REGIONAL_AWS_ACCOUNT_ID}"
 echo ""
