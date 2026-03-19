@@ -31,10 +31,10 @@ Detailed architecture and rationale for key technical decisions:
 
 ### How-To Guides
 
-| Document                                                              | Topic                                     |
-| --------------------------------------------------------------------- | ----------------------------------------- |
-| [Provision a New Environment](environment-provisioning.md)            | Pipeline-based environment provisioning   |
-| [Provisioning a Development Environment](development-environment.md) | Ephemeral dev environments                |
+| Document                                                             | Topic                                   |
+| -------------------------------------------------------------------- | --------------------------------------- |
+| [Provision a New Environment](environment-provisioning.md)           | Pipeline-based environment provisioning |
+| [Provisioning a Development Environment](development-environment.md) | Ephemeral dev environments              |
 
 ### Reference
 
