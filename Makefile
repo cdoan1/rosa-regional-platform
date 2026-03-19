@@ -1,11 +1,8 @@
-.PHONY: help terraform-fmt terraform-init terraform-validate terraform-upgrade terraform-output-management terraform-output-regional build-platform-image test-e2e helm-lint check-rendered-files ephemeral-preflight ephemeral-provision ephemeral-teardown ephemeral-resync ephemeral-list ephemeral-shell ephemeral-e2e check-docs pre-push
+.PHONY: help terraform-fmt terraform-init terraform-validate terraform-upgrade terraform-output-management terraform-output-regional test-e2e helm-lint check-rendered-files ephemeral-preflight ephemeral-provision ephemeral-teardown ephemeral-resync ephemeral-list ephemeral-shell ephemeral-e2e check-docs pre-push
 
 # Default target
 help:
-	@echo "🐳 Platform Image:"
-	@echo "  build-platform-image                  - Build and push platform image to ECR"
-	@echo ""
-	@echo "🛠️  Terraform Utilities:"
+	@echo "🛠️ Terraform Utilities:"
 	@echo "  terraform-fmt                         - Format all Terraform files"
 	@echo "  terraform-upgrade                     - Upgrade provider versions"
 	@echo "  terraform-output-management           - Get Terraform output for Management Cluster"
@@ -22,7 +19,7 @@ help:
 	@echo "🔄 Ephemeral Developer Environments (shared dev accounts):"
 	@echo "  ephemeral-provision                   - Provision an ephemeral environment"
 	@echo "  ephemeral-teardown                    - Tear down an ephemeral environment"
-	@echo "  ephemeral-resync                      - Resync an ephemeral environment's CI branch"
+	@echo "  ephemeral-resync                      - Resync an ephemeral environment to your branch"
 	@echo "  ephemeral-list                        - List ephemeral environments"
 	@echo "  ephemeral-shell                       - Interactive shell for Platform API access"
 	@echo "  ephemeral-e2e                         - Run e2e tests against an ephemeral env"
@@ -60,27 +57,6 @@ terraform-output-management:
 terraform-output-regional:
 	@cd terraform/config/regional-cluster && terraform output -json
 
-# =============================================================================
-# Central Account Bootstrap
-# =============================================================================
-
-# Bootstrap central AWS account with Terraform state and pipeline infrastructure
-# Usage: make bootstrap-central-account GITHUB_REPOSITORY=owner/repo [GITHUB_BRANCH=branch] [TARGET_ENVIRONMENT=env]
-# Or: make bootstrap-central-account (uses defaults)
-bootstrap-central-account:
-	@if [ -n "$(GITHUB_REPOSITORY)" ]; then \
-		scripts/bootstrap-central-account.sh "$(GITHUB_REPOSITORY)" "$(GITHUB_BRANCH)" "$(TARGET_ENVIRONMENT)"; \
-	else \
-		scripts/bootstrap-central-account.sh; \
-	fi
-
-# =============================================================================
-# Platform Image
-# =============================================================================
-
-# Build and push the platform container image to ECR (uses current AWS credentials)
-build-platform-image:
-	@scripts/build-platform-image.sh
 
 # =============================================================================
 # Validation & Testing Targets
