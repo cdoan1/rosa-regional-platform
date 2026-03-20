@@ -146,38 +146,63 @@ echo "POST $REGISTER_URL"
 echo "Payload: $PAYLOAD"
 echo ""
 
-# Use curl with AWS SigV4 signing (built into curl, no extra deps)
-# Session token header is required when using assumed-role (temporary)
-# credentials but must be omitted for static IAM user credentials.
-SECURITY_TOKEN_HEADER=()
-if [ -n "${AWS_SESSION_TOKEN:-}" ]; then
-    SECURITY_TOKEN_HEADER=(-H "x-amz-security-token: ${AWS_SESSION_TOKEN}")
-fi
+# Retry registration to handle transient failures (e.g. Maestro still
+# starting after RC bootstrap — the /live check only validates the
+# Platform API pod, not downstream dependencies like Maestro).
+set +e
+REG_MAX_RETRIES=10
+REG_RETRY_DELAY=30
+REG_RETRY_COUNT=0
+REG_OK=false
 
-HTTP_CODE=$(curl -s -o /tmp/register-response.json -w "%{http_code}" \
-    --aws-sigv4 "aws:amz:${TARGET_REGION}:execute-api" \
-    --user "${AWS_ACCESS_KEY_ID}:${AWS_SECRET_ACCESS_KEY}" \
-    "${SECURITY_TOKEN_HEADER[@]}" \
-    -X POST "$REGISTER_URL" \
-    -H "Content-Type: application/json" \
-    -d "$PAYLOAD")
+while [ $REG_RETRY_COUNT -lt $REG_MAX_RETRIES ]; do
+    REG_RETRY_COUNT=$((REG_RETRY_COUNT + 1))
+    echo "Registration attempt $REG_RETRY_COUNT/$REG_MAX_RETRIES..."
 
-RESPONSE=$(cat /tmp/register-response.json)
-echo "HTTP Status: $HTTP_CODE"
-echo "Response: $RESPONSE"
-echo ""
-
-# 201 = created, 409/502 = already exists (both are fine)
-if [ "$HTTP_CODE" = "201" ]; then
-    echo "Management cluster '${CLUSTER_ID}' registered successfully."
-elif [ "$HTTP_CODE" = "409" ] || [ "$HTTP_CODE" = "502" ]; then
-    echo "Management cluster '${CLUSTER_ID}' is already registered (HTTP $HTTP_CODE). Skipping."
-    if [ "$HTTP_CODE" = "502" ]; then
-        echo "WARNING: Maestro returned 502 for 'already exists' — this should be a 409 Conflict."
-        echo "  This indicates a bug in Maestro or the API Gateway configuration."
+    # Use curl with AWS SigV4 signing (built into curl, no extra deps)
+    # Session token header is required when using assumed-role (temporary)
+    # credentials but must be omitted for static IAM user credentials.
+    SECURITY_TOKEN_HEADER=()
+    if [ -n "${AWS_SESSION_TOKEN:-}" ]; then
+        SECURITY_TOKEN_HEADER=(-H "x-amz-security-token: ${AWS_SESSION_TOKEN}")
     fi
-else
-    echo "ERROR: Registration failed with HTTP $HTTP_CODE"
+
+    HTTP_CODE=$(curl -s -o /tmp/register-response.json -w "%{http_code}" \
+        --aws-sigv4 "aws:amz:${TARGET_REGION}:execute-api" \
+        --user "${AWS_ACCESS_KEY_ID}:${AWS_SECRET_ACCESS_KEY}" \
+        "${SECURITY_TOKEN_HEADER[@]}" \
+        -X POST "$REGISTER_URL" \
+        -H "Content-Type: application/json" \
+        -d "$PAYLOAD")
+
+    RESPONSE=$(cat /tmp/register-response.json)
+    echo "HTTP Status: $HTTP_CODE"
+    echo "Response: $RESPONSE"
+    echo ""
+
+    # 201 = created, 409/502 = already exists (both are fine)
+    if [ "$HTTP_CODE" = "201" ]; then
+        echo "Management cluster '${CLUSTER_ID}' registered successfully."
+        REG_OK=true
+        break
+    elif [ "$HTTP_CODE" = "409" ] || [ "$HTTP_CODE" = "502" ]; then
+        echo "Management cluster '${CLUSTER_ID}' is already registered (HTTP $HTTP_CODE). Skipping."
+        if [ "$HTTP_CODE" = "502" ]; then
+            echo "WARNING: Maestro returned 502 for 'already exists' — this should be a 409 Conflict."
+            echo "  This indicates a bug in Maestro or the API Gateway configuration."
+        fi
+        REG_OK=true
+        break
+    fi
+
+    # 500 with maestro-error is transient during startup; retry
+    echo "Registration failed (HTTP $HTTP_CODE), retrying in ${REG_RETRY_DELAY}s..."
+    sleep $REG_RETRY_DELAY
+done
+set -e
+
+if [ "$REG_OK" != "true" ]; then
+    echo "ERROR: Registration failed after $REG_MAX_RETRIES attempts (last HTTP $HTTP_CODE)"
     echo "Response: $RESPONSE"
     exit 1
 fi
