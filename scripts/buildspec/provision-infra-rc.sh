@@ -67,7 +67,7 @@ export TF_VAR_container_image="${PLATFORM_IMAGE}"
 export TF_VAR_enable_bastion="${ENABLE_BASTION}"
 
 # Load node_instance_types from deploy config (should be set in config.yaml)
-export TF_VAR_node_instance_types=$(jq -c '.node_instance_types_regional' "$DEPLOY_CONFIG_FILE")
+export TF_VAR_node_instance_types=$(jq -c '.node_instance_types' "$DEPLOY_CONFIG_FILE")
 
 # Set DNS variables (optional — when ENVIRONMENT_DOMAIN is set, creates regional
 # DNS zone and custom API domain)
