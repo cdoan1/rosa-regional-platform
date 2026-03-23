@@ -6,6 +6,26 @@ regions:
   - us-east-1
   - global  # IAM, S3, Route53, etc.
 
+# Exclude deprecated/unavailable AWS service resource types whose API endpoints
+# hang during scanning. We don't use these services and can't delete them anyway.
+resource-types:
+  excludes:
+    - ElasticTranscoderPipeline
+    - ElasticTranscoderPreset
+    - OpsWorksUserProfile
+    - OpsWorksCMServer
+    - OpsWorksCMBackup
+    - CodeStarProject
+    - CodeStarNotificationRule
+    - RoboMakerSimulationApplication
+    - RoboMakerRobotApplication
+    - Cloud9Environment
+    - MachineLearningMLModel
+    - MachineLearningDataSource
+    - MachineLearningEvaluation
+    - MachineLearningBranchPrediction
+    - MachineLearningBatchPrediction
+
 # Needed but not used.
 blocklist:
   - prod
