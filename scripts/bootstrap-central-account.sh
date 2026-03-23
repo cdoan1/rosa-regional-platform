@@ -208,7 +208,7 @@ echo "==================================================="
 # Create state bucket (uses lockfile-based locking)
 STATE_BUCKET="terraform-state-${ACCOUNT_ID}"
 
-"${REPO_ROOT}/scripts/bootstrap-state.sh" "$REGION"
+"${REPO_ROOT}/scripts/bootstrap-state.sh" --central "$REGION"
 
 echo ""
 

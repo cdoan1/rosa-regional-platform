@@ -12,9 +12,23 @@ if [[ -z "$ACCOUNT_ID" || ! "$ACCOUNT_ID" =~ ^[0-9]{12}$ ]]; then
     exit 1
 fi
 
-REGION=${1:-$(aws configure get region 2>/dev/null)}
+CENTRAL=false
+POSITIONAL_ARGS=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --central) CENTRAL=true; shift ;;
+        *) POSITIONAL_ARGS+=("$1"); shift ;;
+    esac
+done
+
+REGION=${POSITIONAL_ARGS[0]:-$(aws configure get region 2>/dev/null)}
 REGION=${REGION:-us-east-1}
-BUCKET_NAME="terraform-state-${ACCOUNT_ID}-${REGION}"
+
+if [[ "$CENTRAL" == "true" ]]; then
+    BUCKET_NAME="terraform-state-${ACCOUNT_ID}"
+else
+    BUCKET_NAME="terraform-state-${ACCOUNT_ID}-${REGION}"
+fi
 
 echo "Bootstrapping Terraform State in $REGION..."
 echo "Bucket: $BUCKET_NAME"
