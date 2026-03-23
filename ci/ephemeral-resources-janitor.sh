@@ -5,9 +5,12 @@ set -euo pipefail
 # Ephemeral resource janitor — purge leaked AWS resources from ephemeral CI accounts.
 # =============================================================================
 # Fallback cleanup for when terraform destroy does not fully tear down
-# resources after ephemeral tests. 
+# resources after ephemeral tests.
 #
 # Credentials are mounted at /var/run/rosa-credentials/ by ci-operator.
+#
+# All three account purges run in parallel to reduce wall-clock time.
+# Per-account logs are written to ARTIFACT_DIR for the Prow artifacts UI.
 # =============================================================================
 
 DRY_RUN=false
@@ -18,77 +21,74 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CREDS_DIR="/var/run/rosa-credentials"
 PURGE_SCRIPT="${SCRIPT_DIR}/janitor/purge-aws-account.sh"
 
+LOG_DIR="${ARTIFACT_DIR:-/tmp}/janitor-logs"
+mkdir -p "${LOG_DIR}"
+
 PURGE_ARGS=()
 if [ "${DRY_RUN}" = false ]; then
   PURGE_ARGS+=(--no-dry-run)
 fi
 
+# Track background PIDs and their labels for final status reporting.
+declare -A PIDS=()
+FAILED=0
 
-## ===============================
-## Purge regional ephemeral account
-## ===============================
-echo "==== Purging Regional Account ===="
+# purge_regional runs aws-nuke against the regional ephemeral account.
+purge_regional() {
+  AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/regional_access_key")" \
+  AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/regional_secret_key")" \
+    "${PURGE_SCRIPT}" "${PURGE_ARGS[@]+"${PURGE_ARGS[@]}"}"
+}
 
-REGIONAL_CREDS=$(mktemp)
-cat > "${REGIONAL_CREDS}" <<EOF
-[default]
-aws_access_key_id = $(cat "${CREDS_DIR}/regional_access_key")
-aws_secret_access_key = $(cat "${CREDS_DIR}/regional_secret_key")
-EOF
+# purge_management runs aws-nuke against the management ephemeral account.
+purge_management() {
+  AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/management_access_key")" \
+  AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/management_secret_key")" \
+    "${PURGE_SCRIPT}" "${PURGE_ARGS[@]+"${PURGE_ARGS[@]}"}"
+}
 
-export AWS_SHARED_CREDENTIALS_FILE="${REGIONAL_CREDS}"
-"${PURGE_SCRIPT}" "${PURGE_ARGS[@]+"${PURGE_ARGS[@]}"}"
+# purge_central assumes the central CI role and runs aws-nuke.
+purge_central() {
+  local key secret token
+  read -r key secret token <<< "$(
+    AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/central_access_key")" \
+    AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/central_secret_key")" \
+    aws sts assume-role \
+      --role-arn "$(cat "${CREDS_DIR}/central_assume_role_arn")" \
+      --role-session-name "JanitorCentralPurge" \
+      --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
+      --output text)"
 
-## ===============================
-## Purge management ephemeral account
-## ===============================
-echo ""
-echo "==== Purging Management Account ===="
+  AWS_ACCESS_KEY_ID="${key}" \
+  AWS_SECRET_ACCESS_KEY="${secret}" \
+  AWS_SESSION_TOKEN="${token}" \
+    "${PURGE_SCRIPT}" "${PURGE_ARGS[@]+"${PURGE_ARGS[@]}"}"
+}
 
-MGMT_CREDS=$(mktemp)
-cat > "${MGMT_CREDS}" <<EOF
-[default]
-aws_access_key_id = $(cat "${CREDS_DIR}/management_access_key")
-aws_secret_access_key = $(cat "${CREDS_DIR}/management_secret_key")
-EOF
+# Launch all three purges in parallel, logging output to artifact files.
+echo "Starting parallel account purges (logs in ${LOG_DIR}/)"
 
-export AWS_SHARED_CREDENTIALS_FILE="${MGMT_CREDS}"
-"${PURGE_SCRIPT}" "${PURGE_ARGS[@]+"${PURGE_ARGS[@]}"}"
+purge_regional  &> "${LOG_DIR}/regional.log" &
+PIDS["regional"]=$!
 
+purge_management &> "${LOG_DIR}/management.log" &
+PIDS["management"]=$!
 
-## ===============================
-## Purge central ephemeral account
-## ===============================
-echo "==== Purging Central Account ===="
+purge_central &> "${LOG_DIR}/central.log" &
+PIDS["central"]=$!
 
-# Use central IAM user creds to assume the central role
-CENTRAL_BASE_CREDS=$(mktemp)
-cat > "${CENTRAL_BASE_CREDS}" <<EOF
-[default]
-aws_access_key_id = $(cat "${CREDS_DIR}/central_access_key")
-aws_secret_access_key = $(cat "${CREDS_DIR}/central_secret_key")
-EOF
-
-export AWS_SHARED_CREDENTIALS_FILE="${CENTRAL_BASE_CREDS}"
-ROLE_ARN=$(cat "${CREDS_DIR}/central_assume_role_arn")
-
-echo "Assuming central account ci role"
-read -r key secret token <<< "$(aws sts assume-role \
-  --role-arn "${ROLE_ARN}" \
-  --role-session-name "JanitorCentralPurge" \
-  --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
-  --output text)"
-
-CENTRAL_CREDS=$(mktemp)
-cat > "${CENTRAL_CREDS}" <<EOF
-[default]
-aws_access_key_id = ${key}
-aws_secret_access_key = ${secret}
-aws_session_token = ${token}
-EOF
-
-export AWS_SHARED_CREDENTIALS_FILE="${CENTRAL_CREDS}"
-"${PURGE_SCRIPT}" "${PURGE_ARGS[@]+"${PURGE_ARGS[@]}"}"
+# Wait for all background jobs and report results.
+for label in regional management central; do
+  if wait "${PIDS[${label}]}"; then
+    echo ">> ${label} account purge succeeded"
+  else
+    mv "${LOG_DIR}/${label}.log" "${LOG_DIR}/${label}.FAILED.log"
+    echo ">> ${label} account purge FAILED (see ${LOG_DIR}/${label}.FAILED.log)" >&2
+    FAILED=1
+  fi
+done
 
 echo ""
 echo "==== Janitor complete ===="
+
+exit "${FAILED}"
