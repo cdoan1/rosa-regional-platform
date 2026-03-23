@@ -1,3 +1,6 @@
+# Merged config: defaults.yaml → ci/defaults.yaml → ci/us-east-1.yaml
+# This file is the output of stage 1 (merge). Stage 2 feeds it to config/templates/.
+
 # =============================================================================
 # Global defaults — inherited by all environments and regions.
 #
@@ -116,3 +119,5 @@ applications:
 
 # Per-region fields: Can be overridden at region level in <env>/<region>.yaml
 # These are now part of the regional_cluster stanza above.
+provision_mcs:
+  mc01: {}

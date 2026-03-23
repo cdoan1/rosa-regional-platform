@@ -92,7 +92,7 @@ export TF_VAR_container_image="${PLATFORM_IMAGE}"
 export TF_VAR_enable_bastion="${ENABLE_BASTION}"
 
 # Load node_instance_types from deploy config (should be set in config.yaml)
-export TF_VAR_node_instance_types=$(jq -c '.node_instance_types_management' "$DEPLOY_CONFIG_FILE")
+export TF_VAR_node_instance_types=$(jq -c '.node_instance_types' "$DEPLOY_CONFIG_FILE")
 
 echo "Terraform variables:"
 echo "  Region: $TF_VAR_region"

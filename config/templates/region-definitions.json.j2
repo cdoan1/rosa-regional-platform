@@ -1,1 +1,14 @@
-{{ region_definitions | tojson(indent=2) }}
+{
+{%- for region in region_configs | sort %}
+  "{{ region }}": {
+    "aws_region": "{{ region }}",
+    "environment": "{{ environment }}",
+    "management_clusters": [
+{%- for mc_key in region_configs[region].get("provision_mcs", {}) %}
+      "{% if ci_prefix %}{{ ci_prefix }}-{% endif %}{{ mc_key }}"{{ "," if not loop.last }}
+{%- endfor %}
+    ],
+    "name": "{{ environment }}"
+  }{{ "," if not loop.last }}
+{%- endfor %}
+}

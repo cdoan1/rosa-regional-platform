@@ -4,6 +4,79 @@
 # Cluster Type: {{ cluster_type }}
 # Environment: {{ environment }}
 # Region: {{ aws_region }}
-# Config Revision: {{ config_revision }}
+{%- set pinned = git.revision if (git.revision and git.revision != "main") else "" %}
+# Config Revision: {{ pinned[:8] if pinned else "metadata.annotations.git_revision" }}
 
-{{ applicationset_content }}
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: root-applicationset
+  namespace: argocd
+spec:
+  goTemplate: true
+  generators:
+  - matrix:
+      generators:
+      - clusters:
+          selector:
+            matchLabels:
+              argocd.argoproj.io/secret-type: cluster
+      - git:
+          directories:
+          - path: argocd/config/{{ '{{ .metadata.labels.cluster_type }}' }}/*
+          - path: argocd/config/shared/*
+          repoURL: '{{ '{{ .metadata.annotations.git_repo }}' }}'
+          revision: '{% if pinned %}{{ pinned }}{% else %}{{ "{{ .metadata.annotations.git_revision }}" }}{% endif %}'
+  template:
+    metadata:
+      name: '{{ '{{ .path.basename }}' }}'
+      labels:
+        cluster_type: '{{ '{{ .metadata.labels.cluster_type }}' }}'
+        environment: '{{ '{{ .metadata.labels.environment }}' }}'
+        region_deployment: '{{ '{{ .metadata.labels.region_deployment }}' }}'
+        aws_region: '{{ '{{ .metadata.labels.aws_region }}' }}'
+    spec:
+      project: default
+      destination:
+        namespace: '{{ '{{ .path.basename }}' }}'
+        server: '{{ '{{ .server }}' }}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+        - ServerSideApply=true
+        - CreateNamespace=true
+      sources:
+      - helm:
+          valueFiles:
+          - values.yaml
+          - $values/deploy/{{ '{{ .metadata.labels.environment }}' }}/{{ '{{ .metadata.labels.region_deployment }}' }}/argocd-values-{{ '{{ .metadata.labels.cluster_type }}' }}.yaml
+          valuesObject:
+            global:
+              cluster_type: '{{ '{{ .metadata.labels.cluster_type }}' }}'
+              environment: '{{ '{{ .metadata.labels.environment }}' }}'
+              aws_region: '{{ '{{ .metadata.labels.aws_region }}' }}'
+              cluster_name: '{{ '{{ .metadata.labels.cluster_name }}' }}'
+            platformApi:
+              targetGroup:
+                arn: '{{ '{{ .metadata.annotations.api_target_group_arn }}' }}'
+              app:
+                args:
+                  dynamodbRegion: '{{ '{{ .metadata.annotations.dynamodb_region }}' }}'
+                  dynamodbPrefix: '{{ '{{ .metadata.annotations.dynamodb_prefix }}' }}'
+            hyperfleetApi:
+              aws:
+                region: '{{ '{{ .metadata.labels.aws_region }}' }}'
+            hyperfleetSentinel:
+              aws:
+                region: '{{ '{{ .metadata.labels.aws_region }}' }}'
+            hyperfleetAdapter:
+              aws:
+                region: '{{ '{{ .metadata.labels.aws_region }}' }}'
+        path: '{{ '{{ .path.path }}' }}'
+        repoURL: '{{ '{{ .metadata.annotations.git_repo }}' }}'
+        targetRevision: '{% if pinned %}{{ pinned }}{% else %}{{ "{{ .metadata.annotations.git_revision }}" }}{% endif %}'
+      - repoURL: '{{ "{{ .metadata.annotations.git_repo | replace \"github.com\" \"github.com:443\" }}" }}'
+        targetRevision: '{{ '{{ .metadata.annotations.git_revision }}' }}'
+        ref: values

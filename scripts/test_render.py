@@ -22,7 +22,6 @@ from render import (
     check_docs,
     cleanup_stale_files,
     collect_leaf_paths,
-    create_applicationset_content,
     deep_merge,
     discover_environments,
     discover_regions,
@@ -63,10 +62,19 @@ def _create_config_structure(
 
     # Start with base required fields (mirrors real config/defaults.yaml)
     base_defaults = {
-        "terraform_common": {
-            "node_instance_types_management": ["t3.medium", "t3a.medium"],
-            "node_instance_types_regional": ["t3.medium", "t3a.medium"],
-        }
+        "terraform_tags": {
+            "app_code": "infra",
+            "service_phase": "dev",
+            "cost_center": "000",
+        },
+        "regional_cluster": {
+            "enable_bastion": False,
+            "node_instance_types": ["t3.medium", "t3a.medium"],
+        },
+        "management_cluster_defaults": {
+            "enable_bastion": False,
+            "node_instance_types": ["t3.medium", "t3a.medium"],
+        },
     }
 
     # Merge test-provided defaults on top
@@ -428,9 +436,9 @@ class TestBuildContext:
         assert ctx["account_id"] == "account-staging-us-east-1"
 
     def test_resolves_terraform_common_templates(self):
-        merged = {"terraform_common": {"region": "{{ aws_region }}"}}
+        merged = {"terraform_tags": {"region": "{{ aws_region }}"}}
         ctx = build_context(merged, "prod", "eu-west-1", "")
-        assert ctx["terraform_common"]["region"] == "eu-west-1"
+        assert ctx["terraform_tags"]["region"] == "eu-west-1"
 
 
 # =============================================================================
@@ -440,7 +448,7 @@ class TestBuildContext:
 
 class TestBuildMcList:
     def test_builds_mc_entries(self):
-        merged = {"management_clusters": {"mc01": {"account_id": "111"}}}
+        merged = {"provision_mcs": {"mc01": {"account_id": "111"}}}
         ctx = build_context(merged, "staging", "us-east-1", "")
         mc_list, mc_account_ids = build_mc_list(ctx, merged, "")
         assert len(mc_list) == 1
@@ -449,7 +457,7 @@ class TestBuildMcList:
         assert mc_account_ids == ["111"]
 
     def test_ci_prefix_applied(self):
-        merged = {"management_clusters": {"mc01": {"account_id": "111"}}}
+        merged = {"provision_mcs": {"mc01": {"account_id": "111"}}}
         ctx = build_context(merged, "staging", "us-east-1", "xg4y")
         mc_list, _ = build_mc_list(ctx, merged, "xg4y")
         assert mc_list[0]["management_id"] == "xg4y-mc01"
@@ -457,7 +465,7 @@ class TestBuildMcList:
     def test_default_account_id(self):
         merged = {
             "aws": {"management_cluster_account_id": "default-account"},
-            "management_clusters": {"mc01": {}},
+            "provision_mcs": {"mc01": {}},
         }
         ctx = build_context(merged, "staging", "us-east-1", "")
         mc_list, _ = build_mc_list(ctx, merged, "")
@@ -466,7 +474,7 @@ class TestBuildMcList:
     def test_explicit_account_overrides_default(self):
         merged = {
             "aws": {"management_cluster_account_id": "default-account"},
-            "management_clusters": {"mc01": {"account_id": "explicit-account"}},
+            "provision_mcs": {"mc01": {"account_id": "explicit-account"}},
         }
         ctx = build_context(merged, "staging", "us-east-1", "")
         mc_list, _ = build_mc_list(ctx, merged, "")
@@ -475,66 +483,11 @@ class TestBuildMcList:
     def test_cluster_prefix_template_resolution(self):
         merged = {
             "aws": {"management_cluster_account_id": "mc-{{ cluster_prefix }}-{{ aws_region }}"},
-            "management_clusters": {"mc01": {}},
+            "provision_mcs": {"mc01": {}},
         }
         ctx = build_context(merged, "staging", "us-east-1", "")
         mc_list, _ = build_mc_list(ctx, merged, "")
         assert mc_list[0]["account_id"] == "mc-mc01-us-east-1"
-
-
-# =============================================================================
-# create_applicationset_content
-# =============================================================================
-
-
-class TestCreateApplicationsetContent:
-    def _write_base_applicationset(self, base_dir):
-        appset_dir = base_dir / "applicationset"
-        appset_dir.mkdir(parents=True)
-        appset = {
-            "spec": {
-                "generators": [
-                    {
-                        "matrix": {
-                            "generators": [
-                                {"clusters": {}},
-                                {"git": {"revision": "HEAD"}},
-                            ]
-                        }
-                    }
-                ],
-                "template": {
-                    "spec": {
-                        "sources": [
-                            {"targetRevision": "HEAD", "path": "chart"},
-                            {"targetRevision": "HEAD", "ref": "values"},
-                        ]
-                    }
-                },
-            }
-        }
-        base_path = appset_dir / "base-applicationset.yaml"
-        with open(base_path, "w") as f:
-            yaml.dump(appset, f)
-        return base_path
-
-    def test_without_config_revision(self, tmp_path):
-        base_path = self._write_base_applicationset(tmp_path)
-        result = create_applicationset_content(base_path, None)
-        parsed = yaml.safe_load(result)
-        git_gen = parsed["spec"]["generators"][0]["matrix"]["generators"][1]["git"]
-        assert git_gen["revision"] == "HEAD"
-
-    def test_with_config_revision(self, tmp_path):
-        base_path = self._write_base_applicationset(tmp_path)
-        result = create_applicationset_content(base_path, "abc1234def5")
-        parsed = yaml.safe_load(result)
-        git_gen = parsed["spec"]["generators"][0]["matrix"]["generators"][1]["git"]
-        assert git_gen["revision"] == "abc1234def5"
-        sources = parsed["spec"]["template"]["spec"]["sources"]
-        assert sources[0]["targetRevision"] == "abc1234def5"
-        # Second source (ref: values) should keep original
-        assert sources[1]["targetRevision"] == "HEAD"
 
 
 # =============================================================================
@@ -676,7 +629,7 @@ class TestConfigMergeAndRendering:
                 "staging": {
                     "defaults": {"terraform_common": {"service_phase": "staging"}},
                     "regions": {
-                        "us-east-1": {"management_clusters": {}},
+                        "us-east-1": {"provision_mcs": {}},
                     },
                 }
             },
@@ -701,7 +654,7 @@ class TestConfigMergeAndRendering:
                     "regions": {
                         "us-east-1": {
                             "terraform_common": {"key": "region"},
-                            "management_clusters": {},
+                            "provision_mcs": {},
                         },
                     },
                 }
@@ -720,7 +673,7 @@ class TestConfigMergeAndRendering:
         config_dir = _create_config_structure(
             tmp_path,
             global_defaults={
-                "terraform_common": {
+                "terraform_tags": {
                     "region": "{{ aws_region }}",
                     "env": "{{ environment }}",
                 },
@@ -729,7 +682,7 @@ class TestConfigMergeAndRendering:
                 "prod": {
                     "defaults": {},
                     "regions": {
-                        "eu-west-1": {"management_clusters": {}},
+                        "eu-west-1": {"provision_mcs": {}},
                     },
                 }
             },
@@ -742,10 +695,10 @@ class TestConfigMergeAndRendering:
         merged = deep_merge(merged, rc)
 
         ctx = build_context(merged, "prod", "eu-west-1", "")
-        assert ctx["terraform_common"]["region"] == "eu-west-1"
-        assert ctx["terraform_common"]["env"] == "prod"
+        assert ctx["terraform_tags"]["region"] == "eu-west-1"
+        assert ctx["terraform_tags"]["env"] == "prod"
 
-    def test_management_clusters_in_region(self, tmp_path):
+    def test_provision_mcs_in_region(self, tmp_path):
         config_dir = _create_config_structure(
             tmp_path,
             global_defaults={},
@@ -754,7 +707,7 @@ class TestConfigMergeAndRendering:
                     "defaults": {},
                     "regions": {
                         "us-east-1": {
-                            "management_clusters": {
+                            "provision_mcs": {
                                 "mc01": {"account_id": "111"},
                                 "mc02": {"account_id": "222"},
                             },
@@ -765,7 +718,7 @@ class TestConfigMergeAndRendering:
         )
 
         rc = load_yaml(config_dir / "staging" / "us-east-1.yaml")
-        mc_dict = rc.get("management_clusters", {})
+        mc_dict = rc.get("provision_mcs", {})
         assert len(mc_dict) == 2
         assert "mc01" in mc_dict
         assert "mc02" in mc_dict
@@ -781,7 +734,7 @@ class TestConfigMergeAndRendering:
                     "defaults": {},
                     "regions": {
                         "us-east-1": {
-                            "management_clusters": {"mc01": {}},
+                            "provision_mcs": {"mc01": {}},
                         },
                     },
                 }
@@ -808,7 +761,7 @@ class TestConfigMergeAndRendering:
                     "defaults": {},
                     "regions": {
                         "us-east-1": {
-                            "management_clusters": {
+                            "provision_mcs": {
                                 "mc01": {"account_id": "explicit-account"},
                             },
                         },
@@ -835,7 +788,7 @@ class TestConfigMergeAndRendering:
                     "defaults": {},
                     "regions": {
                         "us-east-1": {
-                            "management_clusters": {"mc01": {}},
+                            "provision_mcs": {"mc01": {}},
                         },
                     },
                 }
@@ -843,7 +796,7 @@ class TestConfigMergeAndRendering:
         )
 
         rc = load_yaml(config_dir / "staging" / "us-east-1.yaml")
-        mc_dict = rc.get("management_clusters", {})
+        mc_dict = rc.get("provision_mcs", {})
         ci_prefix = "xg4y"
         for mc_key in mc_dict:
             mc_id = f"{ci_prefix}-{mc_key}" if ci_prefix else mc_key
@@ -867,7 +820,7 @@ class TestConfigMergeAndRendering:
                     "regions": {
                         "us-east-1": {
                             "git": {"revision": "abc1234"},
-                            "management_clusters": {},
+                            "provision_mcs": {},
                         },
                     },
                 }
@@ -889,7 +842,7 @@ class TestConfigMergeAndRendering:
                 "staging": {
                     "defaults": {},
                     "regions": {
-                        "us-east-1": {"management_clusters": {}},
+                        "us-east-1": {"provision_mcs": {}},
                     },
                 }
             },
@@ -919,7 +872,7 @@ class TestConfigMergeAndRendering:
                         },
                     },
                     "regions": {
-                        "us-east-1": {"management_clusters": {}},
+                        "us-east-1": {"provision_mcs": {}},
                     },
                 }
             },
@@ -943,7 +896,7 @@ class TestConfigMergeAndRendering:
                 "staging": {
                     "defaults": {"custom_field": "from-env"},
                     "regions": {
-                        "us-east-1": {"management_clusters": {}},
+                        "us-east-1": {"provision_mcs": {}},
                     },
                 }
             },
@@ -967,7 +920,7 @@ class TestConfigMergeAndRendering:
                 "staging": {
                     "defaults": {},
                     "regions": {
-                        "us-east-1": {"management_clusters": {}},
+                        "us-east-1": {"provision_mcs": {}},
                     },
                 }
             },
@@ -992,7 +945,7 @@ class TestConfigMergeAndRendering:
                     "defaults": {},
                     "regions": {
                         "us-east-1": {
-                            "management_clusters": {"mc01": {}},
+                            "provision_mcs": {"mc01": {}},
                         },
                     },
                 }
@@ -1059,7 +1012,7 @@ class TestMainIntegration:
                 "staging": {
                     "defaults": {},
                     "regions": {
-                        "us-east-1": {"management_clusters": {}},
+                        "us-east-1": {"provision_mcs": {}},
                     },
                 }
             },
@@ -1082,8 +1035,8 @@ class TestMainIntegration:
                 "prod": {
                     "defaults": {},
                     "regions": {
-                        "us-east-1": {"management_clusters": {}},
-                        "us-west-2": {"management_clusters": {}},
+                        "us-east-1": {"provision_mcs": {}},
+                        "us-west-2": {"provision_mcs": {}},
                     },
                 }
             },
@@ -1103,13 +1056,13 @@ class TestMainIntegration:
                 "staging": {
                     "defaults": {},
                     "regions": {
-                        "us-east-1": {"management_clusters": {}},
+                        "us-east-1": {"provision_mcs": {}},
                     },
                 },
                 "prod": {
                     "defaults": {},
                     "regions": {
-                        "eu-west-1": {"management_clusters": {}},
+                        "eu-west-1": {"provision_mcs": {}},
                     },
                 },
             },
@@ -1118,7 +1071,7 @@ class TestMainIntegration:
         assert (deploy_dir / "staging" / "region-definitions.json").exists()
         assert (deploy_dir / "prod" / "region-definitions.json").exists()
 
-    def test_region_definitions_with_management_clusters(self, tmp_path):
+    def test_region_definitions_with_provision_mcs(self, tmp_path):
         deploy_dir = self._run_main(
             tmp_path,
             global_defaults={},
@@ -1127,7 +1080,7 @@ class TestMainIntegration:
                     "defaults": {},
                     "regions": {
                         "us-east-1": {
-                            "management_clusters": {
+                            "provision_mcs": {
                                 "mc01": {},
                                 "mc02": {},
                             },
@@ -1149,7 +1102,7 @@ class TestMainIntegration:
                 "staging": {
                     "defaults": {},
                     "regions": {
-                        "us-east-1": {"management_clusters": {}},
+                        "us-east-1": {"provision_mcs": {}},
                     },
                 }
             },
@@ -1174,7 +1127,7 @@ class TestMainIntegration:
                 "staging": {
                     "defaults": {},
                     "regions": {
-                        "us-east-1": {"management_clusters": {}},
+                        "us-east-1": {"provision_mcs": {}},
                     },
                 }
             },
@@ -1207,7 +1160,7 @@ class TestMainIntegration:
                     "defaults": {},
                     "regions": {
                         "us-east-1": {
-                            "management_clusters": {"mc01": {}},
+                            "provision_mcs": {"mc01": {}},
                         },
                     },
                 }
@@ -1243,7 +1196,7 @@ class TestMainIntegration:
                 "staging": {
                     "defaults": {},
                     "regions": {
-                        "us-east-1": {"management_clusters": {}},
+                        "us-east-1": {"provision_mcs": {}},
                     },
                 }
             },
@@ -1284,7 +1237,7 @@ class TestMainIntegration:
                     "defaults": {},
                     "regions": {
                         "us-east-1": {
-                            "management_clusters": {
+                            "provision_mcs": {
                                 "mc01": {},
                             },
                         },
@@ -1324,7 +1277,7 @@ class TestMainIntegration:
                     "defaults": {},
                     "regions": {
                         "us-east-1": {
-                            "management_clusters": {
+                            "provision_mcs": {
                                 "mc01": {"account_id": "111"},
                                 "mc02": {"account_id": "222"},
                             },
@@ -1356,7 +1309,7 @@ class TestMainIntegration:
                 "staging": {
                     "defaults": {},
                     "regions": {
-                        "us-east-1": {"management_clusters": {}},
+                        "us-east-1": {"provision_mcs": {}},
                     },
                 }
             },
@@ -1378,7 +1331,7 @@ class TestMainIntegration:
                 "staging": {
                     "defaults": {},
                     "regions": {
-                        "us-east-1": {"management_clusters": {}},
+                        "us-east-1": {"provision_mcs": {}},
                     },
                 }
             },
@@ -1397,7 +1350,7 @@ class TestMainIntegration:
                 "staging": {
                     "defaults": {},
                     "regions": {
-                        "us-east-1": {"management_clusters": {}},
+                        "us-east-1": {"provision_mcs": {}},
                     },
                 }
             },
@@ -1424,7 +1377,7 @@ class TestMainIntegration:
                     "regions": {
                         "us-east-1": {
                             "git": {"revision": "abc1234def5678901234567890abcdef12345678"},
-                            "management_clusters": {},
+                            "provision_mcs": {},
                         },
                     },
                 }
@@ -1449,7 +1402,7 @@ class TestMainIntegration:
                 "staging": {
                     "defaults": {},
                     "regions": {
-                        "us-east-1": {"management_clusters": {}},
+                        "us-east-1": {"provision_mcs": {}},
                     },
                 }
             },
@@ -1475,7 +1428,7 @@ class TestMainIntegration:
                 "staging": {
                     "defaults": {},
                     "regions": {
-                        "us-east-1": {"management_clusters": {}},
+                        "us-east-1": {"provision_mcs": {}},
                     },
                 }
             },
@@ -1506,7 +1459,7 @@ class TestMainIntegration:
                     "defaults": {},
                     "regions": {
                         "us-east-1": {
-                            "management_clusters": {"mc01": {}},
+                            "provision_mcs": {"mc01": {}},
                         },
                     },
                 }
@@ -1533,7 +1486,7 @@ class TestMainIntegration:
                 "integration": {
                     "defaults": {"dns": {"domain": "int0.rosa.devshift.net"}},
                     "regions": {
-                        "us-east-1": {"management_clusters": {}},
+                        "us-east-1": {"provision_mcs": {}},
                     },
                 }
             },
@@ -1555,16 +1508,18 @@ class TestMainIntegration:
             tmp_path,
             global_defaults={
                 "aws": {"account_id": "111", "management_cluster_account_id": "222"},
-                "terraform_common": {
-                    "node_instance_types_management": ["t3.medium", "t3a.medium"],
-                    "node_instance_types_regional": ["t3.medium", "t3a.medium"],
+                "regional_cluster": {
+                    "node_instance_types": ["t3.medium", "t3a.medium"],
+                },
+                "management_cluster_defaults": {
+                    "node_instance_types": ["t3.medium", "t3a.medium"],
                 },
             },
             environments={
                 "test": {
                     "defaults": {},
                     "regions": {
-                        "us-east-1": {"management_clusters": {"mc01": {}}},
+                        "us-east-1": {"provision_mcs": {"mc01": {}}},
                     },
                 }
             },
@@ -1579,7 +1534,7 @@ class TestMainIntegration:
             / "terraform.json"
         )
         mc_data = json.loads(mc_file.read_text())
-        assert mc_data["node_instance_types_management"] == ["t3.medium", "t3a.medium"]
+        assert mc_data["node_instance_types"] == ["t3.medium", "t3a.medium"]
 
         # Check RC terraform.json
         rc_file = (
@@ -1590,7 +1545,7 @@ class TestMainIntegration:
             / "terraform.json"
         )
         rc_data = json.loads(rc_file.read_text())
-        assert rc_data["node_instance_types_regional"] == ["t3.medium", "t3a.medium"]
+        assert rc_data["node_instance_types"] == ["t3.medium", "t3a.medium"]
 
     def test_instance_types_environment_override(self, tmp_path):
         """Instance types can be overridden at environment level"""
@@ -1598,21 +1553,25 @@ class TestMainIntegration:
             tmp_path,
             global_defaults={
                 "aws": {"account_id": "111", "management_cluster_account_id": "222"},
-                "terraform_common": {
-                    "node_instance_types_management": ["t3.medium"],
-                    "node_instance_types_regional": ["t3.medium"],
+                "regional_cluster": {
+                    "node_instance_types": ["t3.medium"],
+                },
+                "management_cluster_defaults": {
+                    "node_instance_types": ["t3.medium"],
                 },
             },
             environments={
                 "prod": {
                     "defaults": {
-                        "terraform_common": {
-                            "node_instance_types_management": ["m5.large", "m5a.large"],
-                            "node_instance_types_regional": ["m5.xlarge", "m5a.xlarge"],
-                        }
+                        "regional_cluster": {
+                            "node_instance_types": ["m5.xlarge", "m5a.xlarge"],
+                        },
+                        "management_cluster_defaults": {
+                            "node_instance_types": ["m5.large", "m5a.large"],
+                        },
                     },
                     "regions": {
-                        "us-east-1": {"management_clusters": {"mc01": {}}},
+                        "us-east-1": {"provision_mcs": {"mc01": {}}},
                     },
                 }
             },
@@ -1626,7 +1585,7 @@ class TestMainIntegration:
             / "terraform.json"
         )
         mc_data = json.loads(mc_file.read_text())
-        assert mc_data["node_instance_types_management"] == ["m5.large", "m5a.large"]
+        assert mc_data["node_instance_types"] == ["m5.large", "m5a.large"]
 
         rc_file = (
             deploy_dir
@@ -1636,7 +1595,7 @@ class TestMainIntegration:
             / "terraform.json"
         )
         rc_data = json.loads(rc_file.read_text())
-        assert rc_data["node_instance_types_regional"] == ["m5.xlarge", "m5a.xlarge"]
+        assert rc_data["node_instance_types"] == ["m5.xlarge", "m5a.xlarge"]
 
     def test_instance_types_region_override(self, tmp_path):
         """Instance types can be overridden at region level"""
@@ -1644,9 +1603,11 @@ class TestMainIntegration:
             tmp_path,
             global_defaults={
                 "aws": {"account_id": "111", "management_cluster_account_id": "222"},
-                "terraform_common": {
-                    "node_instance_types_management": ["t3.medium"],
-                    "node_instance_types_regional": ["t3.medium"],
+                "regional_cluster": {
+                    "node_instance_types": ["t3.medium"],
+                },
+                "management_cluster_defaults": {
+                    "node_instance_types": ["t3.medium"],
                 },
             },
             environments={
@@ -1654,10 +1615,10 @@ class TestMainIntegration:
                     "defaults": {},
                     "regions": {
                         "us-east-1": {
-                            "terraform_common": {
-                                "node_instance_types_regional": ["c5.2xlarge"],
+                            "regional_cluster": {
+                                "node_instance_types": ["c5.2xlarge"],
                             },
-                            "management_clusters": {"mc01": {}},
+                            "provision_mcs": {"mc01": {}},
                         },
                     },
                 }
@@ -1672,7 +1633,25 @@ class TestMainIntegration:
             / "terraform.json"
         )
         rc_data = json.loads(rc_file.read_text())
-        assert rc_data["node_instance_types_regional"] == ["c5.2xlarge"]
+        assert rc_data["node_instance_types"] == ["c5.2xlarge"]
+
+    def test_merged_config_yaml_output(self, tmp_path):
+        """Verify _merged_config.yaml is written with merged configuration"""
+        deploy_dir = self._run_main(
+            tmp_path,
+            global_defaults={"terraform_tags": {"app_code": "test"}},
+            environments={
+                "staging": {
+                    "defaults": {},
+                    "regions": {"us-east-1": {"provision_mcs": {}}},
+                }
+            },
+        )
+
+        config_file = deploy_dir / "staging" / "us-east-1" / "_merged_config.yaml"
+        assert config_file.exists()
+        data = yaml.safe_load(config_file.read_text())
+        assert data["terraform_tags"]["app_code"] == "test"
 
 
 # =============================================================================

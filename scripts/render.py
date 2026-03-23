@@ -4,6 +4,7 @@
 # dependencies = [
 #     "PyYAML>=6.0",
 #     "Jinja2>=3.1",
+#     "ruamel.yaml>=0.18",
 # ]
 # ///
 """
@@ -22,9 +23,15 @@ from typing import Any
 
 import yaml
 from jinja2 import Environment
+from ruamel.yaml import YAML
+from ruamel.yaml.comments import CommentedMap
 
 
 # -- Core utilities -----------------------------------------------------------
+
+_ruamel = YAML()
+_ruamel.preserve_quotes = True
+_ruamel.width = 4096
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
@@ -35,6 +42,15 @@ def load_yaml(path: Path) -> dict[str, Any]:
         return yaml.safe_load(f) or {}
 
 
+def load_yaml_ruamel(path: Path) -> CommentedMap:
+    """Load a YAML file with ruamel, preserving comments."""
+    if not path.exists():
+        return CommentedMap()
+    with open(path) as f:
+        result = _ruamel.load(f)
+        return result if isinstance(result, CommentedMap) else CommentedMap()
+
+
 def deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
     """Recursively merge two dicts. Overlay wins on conflicts."""
     result = base.copy()
@@ -43,6 +59,17 @@ def deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
             result[key] = deep_merge(result[key], value)
         else:
             result[key] = value
+    return result
+
+
+def deep_merge_ruamel(base: CommentedMap, overlay: CommentedMap) -> CommentedMap:
+    """Recursively merge CommentedMaps, preserving comments from base."""
+    result = base.copy()
+    for key in overlay:
+        if key in result and isinstance(result[key], CommentedMap) and isinstance(overlay[key], CommentedMap):
+            result[key] = deep_merge_ruamel(result[key], overlay[key])
+        else:
+            result[key] = overlay[key]
     return result
 
 
@@ -111,26 +138,6 @@ def render_file(templates_dir: Path, template_rel: str, context: dict[str, Any],
     return True
 
 
-# -- ApplicationSet -----------------------------------------------------------
-
-
-def create_applicationset_content(
-    base_applicationset_path: Path, config_revision: str | None
-) -> str:
-    """Load base ApplicationSet YAML, optionally pinning to a specific revision."""
-    appset = load_yaml(base_applicationset_path)
-    if config_revision:
-        generators = appset["spec"]["generators"][0]["matrix"]["generators"]
-        for gen in generators:
-            if "git" in gen:
-                gen["git"]["revision"] = config_revision
-                break
-        for source in appset["spec"]["template"]["spec"]["sources"]:
-            if "targetRevision" in source and "ref" not in source:
-                source["targetRevision"] = config_revision
-    return yaml.dump(appset, default_flow_style=False, sort_keys=False, width=float("inf"))
-
-
 # -- Cleanup ------------------------------------------------------------------
 
 
@@ -185,13 +192,14 @@ def build_context(
 ) -> dict[str, Any]:
     """Build the template context from merged config values."""
     ctx = dict(merged)
-    regional_id = f"{ci_prefix}-regional" if ci_prefix else "regional"
-    ctx.update(environment=env_name, aws_region=region, region=region, regional_id=regional_id)
+    ctx.update(environment=env_name, aws_region=region, ci_prefix=ci_prefix)
 
     # Resolve templated config values that other templates depend on
     aws = ctx.get("aws", {})
     ctx["account_id"] = resolve_templates(aws.get("account_id", ""), ctx)
-    ctx["terraform_common"] = resolve_templates(ctx.get("terraform_common", {}), ctx)
+    ctx["terraform_tags"] = resolve_templates(ctx.get("terraform_tags", {}), ctx)
+    ctx["regional_cluster"] = resolve_templates(ctx.get("regional_cluster", {}), ctx)
+    ctx["management_cluster_defaults"] = resolve_templates(ctx.get("management_cluster_defaults", {}), ctx)
     ctx["dns"] = ctx.get("dns", {})
 
     return ctx
@@ -199,12 +207,11 @@ def build_context(
 
 def build_mc_list(
     ctx: dict[str, Any], merged: dict[str, Any], ci_prefix: str
-) -> tuple[list[dict], list[str]]:
+) -> list[dict]:
     """Build management cluster entries with resolved template values."""
-    mc_dict = merged.get("management_clusters", {})
+    mc_dict = merged.get("provision_mcs", {})
     default_mc_account = merged.get("aws", {}).get("management_cluster_account_id")
     mc_list = []
-    mc_account_ids = []
 
     for mc_key, mc_val in mc_dict.items():
         mc = dict(mc_val) if mc_val else {}
@@ -213,21 +220,20 @@ def build_mc_list(
             mc["account_id"] = default_mc_account
         mc = resolve_templates(mc, {**ctx, "cluster_prefix": mc_key})
         mc_list.append(mc)
-        if mc.get("account_id"):
-            mc_account_ids.append(mc["account_id"])
 
-    return mc_list, mc_account_ids
+    return mc_list
 
 
 # -- Documentation ------------------------------------------------------------
 
 # Variables injected by render.py, not from config files.
 CONTEXT_VARS = {
-    "environment", "aws_region", "region", "regional_id",
-    "account_id", "management_cluster_account_ids",
-    "cluster_type", "config_revision", "applicationset_content",
-    "application_values", "region_definitions",
-    "delete", "delete_pipeline",
+    "environment", "aws_region",
+    "account_id", "management_clusters",
+    "cluster_type",
+    "application_values", "region_configs", "ci_prefix",
+    "delete", "delete_pipeline", "mc_key", "region",
+    "pinned", "mc_account_ids",
 }
 
 _DOC_RE = re.compile(r"^\s*#\s*(?:#\s*)?@doc\s+(\S+)\s+(.+)$", re.MULTILINE)
@@ -465,7 +471,6 @@ def main() -> int:
 
     deploy_dir = project_root / "deploy"
     argocd_config_dir = project_root / "argocd" / "config"
-    base_appset_path = argocd_config_dir / "applicationset" / "base-applicationset.yaml"
 
     if not config_dir.exists():
         print(f"Error: Config directory not found: {config_dir}", file=sys.stderr)
@@ -481,6 +486,7 @@ def main() -> int:
         if d.is_dir() and not d.name.startswith(".") and d.name.endswith("cluster")
     )
     global_defaults = load_yaml(config_dir / "defaults.yaml")
+    global_defaults_ruamel = load_yaml_ruamel(config_dir / "defaults.yaml")
 
     if ci_prefix:
         print(f"CI prefix: {ci_prefix}")
@@ -496,6 +502,7 @@ def main() -> int:
     for env_name in environments:
         env_dir = config_dir / env_name
         env_defaults = load_yaml(env_dir / "defaults.yaml")
+        env_defaults_ruamel = load_yaml_ruamel(env_dir / "defaults.yaml")
         regions = discover_regions(env_dir)
         if not regions:
             continue
@@ -504,29 +511,38 @@ def main() -> int:
         env_regions[env_name] = set(regions)
         env_region_mcs[env_name] = {}
 
-        # Merge configs for all regions
+        # -- Stage 1: Merge config hierarchy → _merged_config.yaml --------
         region_configs = {}
+        region_configs_ruamel = {}
         for region in regions:
             region_yaml = load_yaml(env_dir / f"{region}.yaml")
             region_configs[region] = deep_merge(deep_merge(global_defaults, env_defaults), region_yaml)
+            region_yaml_ruamel = load_yaml_ruamel(env_dir / f"{region}.yaml")
+            region_configs_ruamel[region] = deep_merge_ruamel(
+                deep_merge_ruamel(global_defaults_ruamel, env_defaults_ruamel), region_yaml_ruamel
+            )
 
-        # Region definitions (env-level)
-        region_defs = {}
-        for region, cfg in region_configs.items():
-            mc_ids = [f"{ci_prefix}-{k}" if ci_prefix else k for k in cfg.get("management_clusters", {})]
-            region_defs[region] = {
-                "name": env_name, "environment": env_name,
-                "aws_region": region, "management_clusters": mc_ids,
-            }
-        render_file(templates_dir, "region-definitions.json", {"region_definitions": region_defs}, deploy_dir / env_name / "region-definitions.json")
+            out_dir = deploy_dir / env_name / region
+            config_output = out_dir / "_merged_config.yaml"
+            config_output.parent.mkdir(parents=True, exist_ok=True)
+            with open(config_output, "w") as f:
+                f.write(f"# Merged config: defaults.yaml → {env_name}/defaults.yaml → {env_name}/{region}.yaml\n")
+                f.write("# This file is the output of stage 1 (merge). Stage 2 feeds it to config/templates/.\n")
+                f.write("\n")
+                _ruamel.dump(region_configs_ruamel[region], f)
+            print(f"  [OK] {config_output}")
 
-        # Render per-region outputs
+        # Region definitions (env-level) — constructed by template
+        render_file(templates_dir, "region-definitions.json",
+                    {"region_configs": region_configs, "environment": env_name, "ci_prefix": ci_prefix},
+                    deploy_dir / env_name / "region-definitions.json")
+
+        # -- Stage 2: Feed merged config to templates → output files ----
         for region in regions:
             merged = region_configs[region]
             ctx = build_context(merged, env_name, region, ci_prefix)
-            mc_list, mc_account_ids = build_mc_list(ctx, merged, ci_prefix)
+            mc_list = build_mc_list(ctx, merged, ci_prefix)
             ctx["management_clusters"] = mc_list
-            ctx["management_cluster_account_ids"] = mc_account_ids
             env_region_mcs[env_name][region] = {mc["management_id"] for mc in mc_list}
 
             out_dir = deploy_dir / env_name / region
@@ -538,16 +554,10 @@ def main() -> int:
 
             # Per-cluster-type: ArgoCD values + bootstrap
             app_config = resolve_templates(ctx.get("applications", {}), ctx)
-            revision = ctx.get("git", {}).get("revision")
-            pinned = revision if (revision and revision != "main") else None
-            appset_content = create_applicationset_content(base_appset_path, pinned)
-            revision_info = pinned[:8] if pinned else "metadata.annotations.git_revision"
 
             for ct in cluster_types:
                 ct_ctx = {**ctx, "cluster_type": ct, "application_values": app_config.get(ct, {})}
                 render_file(templates_dir, "argocd-values.yaml", ct_ctx, out_dir / f"argocd-values-{ct}.yaml")
-                ct_ctx["config_revision"] = revision_info
-                ct_ctx["applicationset_content"] = appset_content
                 render_file(templates_dir, "argocd-bootstrap/applicationset.yaml", ct_ctx, out_dir / f"argocd-bootstrap-{ct}" / "applicationset.yaml")
 
             # Per-MC templates

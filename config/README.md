@@ -3,6 +3,28 @@
 Configuration for all environments and region deployments. The render script
 (`scripts/render.py`) reads these files and generates the `deploy/` directory.
 
+## Rendering Pipeline
+
+`scripts/render.py` runs in two stages:
+
+```mermaid
+graph LR
+    A["config/defaults.yaml"] --> M["Stage 1: Merge"]
+    B["config/&lt;env&gt;/defaults.yaml"] --> M
+    C["config/&lt;env&gt;/&lt;region&gt;.yaml"] --> M
+    M --> D["deploy/&lt;env&gt;/&lt;region&gt;/_merged_config.yaml"]
+    D --> R["Stage 2: Render"]
+    T["config/templates/*.j2"] --> R
+    R --> O["deploy/&lt;env&gt;/&lt;region&gt;/*.json, *.yaml"]
+```
+
+**Stage 1** deep-merges the config hierarchy (most-specific wins) and writes
+`_merged_config.yaml` — inspect this file to see the effective values for any
+region, with all `@doc` annotations preserved.
+
+**Stage 2** feeds the merged config to Jinja2 templates in `config/templates/`,
+producing the pipeline input files and ArgoCD manifests in `deploy/`.
+
 ## File Layout
 
 ```
