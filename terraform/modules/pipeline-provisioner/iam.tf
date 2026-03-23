@@ -103,7 +103,7 @@ resource "aws_iam_role_policy" "codebuild_policy" {
         Action = [
           "logs:DescribeLogGroups"
         ]
-        Resource = "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:*"
+        Resource = "*"
       },
       {
         Sid    = "CloudWatchLogsLambda"
