@@ -15,7 +15,7 @@ platformApi:
     name: platform-api
     image:
       repository: quay.io/cdoan0/rosa-regional-platform-api
-      tag: latest
+      tag: testing-v0.1.6
       pullPolicy: Always
 
     # Application arguments
