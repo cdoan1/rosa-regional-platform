@@ -206,7 +206,8 @@ class EphemeralEnvOrchestrator:
         # Replace config with overrides if provided
         if self.override_dir and self.override_dir.exists():
             log.info("Applying environment overrides from %s", self.override_dir)
-            # Clear existing env config and copy overrides in
+            # Ensure target directory exists and clear existing config
+            env_config_dir.mkdir(parents=True, exist_ok=True)
             for existing in env_config_dir.glob("*.yaml"):
                 existing.unlink()
             for override_file in self.override_dir.glob("*.yaml"):
