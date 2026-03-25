@@ -96,8 +96,9 @@ append_field() {
 #   $1 = grep pattern to filter candidates
 #   $2 = fzf header text
 #   $3 = "no match" message
+#   $4 = bool - auto select the only result if this is true
 select_env() {
-    local state_filter="$1" header="$2" no_match_msg="$3"
+    local state_filter="$1" header="$2" no_match_msg="$3" auto_select_single=${4:-false}
 
     if [[ -n "${ID:-}" ]]; then
         BUILD_ID="$ID"
@@ -112,9 +113,17 @@ select_env() {
         [[ -n "$candidates" ]] || die "$no_match_msg"
 
         local selected
-        selected=$(echo "$candidates" | fzf --height=20 --header="$header") \
-            || { echo "Aborted."; exit 1; }
-        BUILD_ID=$(echo "$selected" | awk '{print $1}')
+        local candidate_count=$(wc -l <<< "$candidates")
+
+        if [ $auto_select_single == true ] && [ $candidate_count -eq 1 ]; then
+            selected="$candidates"
+            BUILD_ID=$(echo "$selected" | awk '{print $1}')
+            echo "Only one ready environment found. Defaulting to: $BUILD_ID"
+        else
+            selected=$(echo "$candidates" | fzf --height=20 --header="$header") \
+                || { echo "Aborted."; exit 1; }
+            BUILD_ID=$(echo "$selected" | awk '{print $1}')
+        fi
     fi
 
     ENV_LINE=$(grep "^${BUILD_ID} " "$ENVS_FILE" 2>/dev/null) \
@@ -183,7 +192,8 @@ bastion_setup() {
     # Select environment (ready only)
     select_env "STATE=ready" \
         "Select environment for bastion access:" \
-        "No ready environments found."
+        "No ready environments found." \
+        true
 
     local region
     region=$(get_field "$ENV_LINE" REGION)
@@ -556,7 +566,8 @@ cmd_shell() {
     # Select environment (ready only)
     select_env "STATE=ready" \
         "Select environment:" \
-        "No ready environments found."
+        "No ready environments found." \
+        true
 
     local api_url region
     api_url=$(get_field "$ENV_LINE" API_URL)
