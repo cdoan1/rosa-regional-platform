@@ -10,6 +10,7 @@ ARG UV_VERSION=0.6.0
 ARG AWS_CLI_VERSION=2.33.19
 ARG AWS_NUKE_VERSION=3.63.4
 ARG PRETTIER_VERSION=3.8.1
+ARG YQ_VERSION=v4.44.3
 
 # System packages
 RUN dnf install -y \
@@ -91,6 +92,16 @@ RUN arch=$(uname -m) && \
     chmod +x /usr/local/bin/aws-nuke && \
     rm -f "${NUKE_TAR}" checksums.txt && \
     aws-nuke --version
+
+# yq (YAML processor)
+RUN arch=$(uname -m) && \
+    case "${arch}" in \
+        x86_64)  YQ_ARCH="amd64" ;; \
+        aarch64) YQ_ARCH="arm64" ;; \
+    esac && \
+    curl -fsSL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_${YQ_ARCH}" -o /usr/local/bin/yq && \
+    chmod +x /usr/local/bin/yq && \
+    yq --version
 
 # Pre-create cache directories writable by any UID (OpenShift runs as random UID)
 RUN mkdir -p /tmp/.uv-cache /tmp/.uv-python /tmp/.terraform.d /tmp/.cache/go-build /tmp/gopath && \
