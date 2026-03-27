@@ -78,7 +78,7 @@ get_field() {
 # Update the STATE field for a BUILD_ID in .ephemeral-envs.
 update_state() {
     local id="$1" new_state="$2"
-    grep -v "^${id} " "$ENVS_FILE" > "${ENVS_FILE}.tmp"
+    grep -v "^${id} " "$ENVS_FILE" > "${ENVS_FILE}.tmp" || true
     grep "^${id} " "$ENVS_FILE" \
         | sed "s/STATE=[^ ]*/STATE=${new_state}/" >> "${ENVS_FILE}.tmp"
     mv "${ENVS_FILE}.tmp" "$ENVS_FILE"
