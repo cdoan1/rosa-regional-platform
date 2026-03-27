@@ -178,7 +178,9 @@ argocd      argocd          Synced        Healthy
 argocd      cert-manager    Synced        Healthy
 argocd      hypershift      Synced        Healthy
 argocd      maestro-agent   Synced        Healthy
+argocd      monitoring      Synced        Healthy
 argocd      root            Synced        Healthy
+argocd      storageclass    Synced        Healthy
 ```
 
 ### 4.3 Verify the Platform API
