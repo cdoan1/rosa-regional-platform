@@ -110,6 +110,11 @@ variable "iot_log_level" {
   description = "AWS IoT Core default log level (DISABLED, ERROR, WARN, INFO, DEBUG)"
   type        = string
   default     = "WARN"
+
+  validation {
+    condition     = contains(["DISABLED", "ERROR", "WARN", "INFO", "DEBUG"], var.iot_log_level)
+    error_message = "iot_log_level must be one of: DISABLED, ERROR, WARN, INFO, DEBUG"
+  }
 }
 
 # Tagging

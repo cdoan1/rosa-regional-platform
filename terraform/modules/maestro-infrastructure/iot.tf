@@ -81,40 +81,48 @@ resource "aws_iot_policy_attachment" "maestro_server" {
 
 # =============================================================================
 # IoT Core Logging
+#
+# These are account-level singleton resources (one IAM role globally, one
+# logging config per region). We use a null_resource with AWS CLI calls so
+# that teardown of any individual environment does NOT remove the logging
+# configuration or the shared IAM role.
 # =============================================================================
 
-resource "aws_iam_role" "iot_logging" {
-  name = "${var.regional_id}-iot-logging"
+resource "null_resource" "iot_logging" {
+  triggers = {
+    log_level = var.iot_log_level
+  }
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect    = "Allow"
-        Principal = { Service = "iot.amazonaws.com" }
-        Action    = "sts:AssumeRole"
-      }
-    ]
-  })
+  provisioner "local-exec" {
+    command = <<-EOT
+      set -euo pipefail
 
-  tags = merge(
-    local.common_tags,
-    {
-      Name      = "${var.regional_id}-iot-logging"
-      Component = "iot-core"
-    }
-  )
-}
+      ACCOUNT_ID="${data.aws_caller_identity.current.account_id}"
+      ROLE_NAME="iot-logging"
+      ROLE_ARN="arn:aws:iam::$${ACCOUNT_ID}:role/$${ROLE_NAME}"
+      LOG_LEVEL="${var.iot_log_level}"
 
-resource "aws_iam_role_policy_attachment" "iot_logging" {
-  role       = aws_iam_role.iot_logging.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSIoTLogging"
-}
+      # Create IAM role (idempotent — ignore "already exists" error)
+      aws iam create-role \
+        --role-name "$${ROLE_NAME}" \
+        --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"iot.amazonaws.com"},"Action":"sts:AssumeRole"}]}' \
+        --tags 'Key=Component,Value=iot-core' 'Key=Name,Value=iot-logging' \
+        2>&1 || true
 
-resource "aws_iot_logging_options" "this" {
-  role_arn          = aws_iam_role.iot_logging.arn
-  default_log_level = var.iot_log_level
+      # Attach logging policy (idempotent)
+      aws iam attach-role-policy \
+        --role-name "$${ROLE_NAME}" \
+        --policy-arn "arn:aws:iam::aws:policy/service-role/AWSIoTLogging" \
+        2>&1 || true
 
-  depends_on = [aws_iam_role_policy_attachment.iot_logging]
+      # Brief wait for IAM propagation
+      sleep 5
+
+      # Set IoT logging options (idempotent — overwrites existing config)
+      aws iot set-v2-logging-options \
+        --role-arn "$${ROLE_ARN}" \
+        --default-log-level "$${LOG_LEVEL}"
+    EOT
+  }
 }
 
