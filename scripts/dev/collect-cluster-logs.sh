@@ -113,16 +113,16 @@ ensure_logs_bucket() {
     aws s3api create-bucket \
         --bucket "$bucket" \
         --bucket-namespace account-regional \
-        --region "$region"
+        --region "$region" > /dev/null
 
     aws s3api put-public-access-block \
         --bucket "$bucket" \
         --public-access-block-configuration \
-            BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+            BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true > /dev/null
 
     aws s3api put-bucket-lifecycle-configuration \
         --bucket "$bucket" \
-        --lifecycle-configuration '{"Rules":[{"ID":"expire-logs","Status":"Enabled","Filter":{"Prefix":""},"Expiration":{"Days":7},"AbortIncompleteMultipartUpload":{"DaysAfterInitiation":1}}]}'
+        --lifecycle-configuration '{"Rules":[{"ID":"expire-logs","Status":"Enabled","Filter":{"Prefix":""},"Expiration":{"Days":7},"AbortIncompleteMultipartUpload":{"DaysAfterInitiation":1}}]}' > /dev/null
 }
 
 # Discover MC cluster IDs by listing ECS clusters matching ${prefix}mc*-bastion.
@@ -177,11 +177,6 @@ collect_logs_for_cluster() {
         --query 'Subnets[].SubnetId' --output text \
         | tr '\t' ',') \
         || { echo "  Could not find private subnets for ${cluster_id}"; return 1; }
-
-    echo "  Cluster ID:   $cluster_id"
-    echo "  Task def:     $task_def"
-    echo "  S3 bucket:    $s3_bucket"
-    echo "  Namespaces:   $namespaces"
 
     # Launch the log-collector task with namespace and S3 key overrides
     echo "  Launching log-collector task..."
@@ -263,12 +258,10 @@ collect_logs_for_cluster() {
     # In S3-only mode, leave logs in the bucket and print the location.
     # This is used in CI to avoid publishing sensitive data to public artifacts.
     if [[ "${S3_ONLY:-}" == "true" ]]; then
-        echo "  Logs available in S3 (account: ${account_id}):"
-        echo "    # Download tarball:"
-        echo "    mkdir -p /tmp/${cluster_id}-logs && aws s3 cp s3://${s3_bucket}/${s3_key} /tmp/${cluster_id}-logs/${s3_key}"
-        echo "    # Download and extract:"
+        echo "  Logs uploaded to S3. To download and extract:"
+        echo ""
         echo "    mkdir -p /tmp/${cluster_id}-logs && aws s3 cp s3://${s3_bucket}/${s3_key} /tmp/${cluster_id}-logs/${s3_key} && tar xzf /tmp/${cluster_id}-logs/${s3_key} -C /tmp/${cluster_id}-logs"
-        echo "==> ${cluster_id} log collection complete (S3 only)"
+        echo ""
         return 0
     fi
 
@@ -318,9 +311,7 @@ TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 OUTPUT_DIR="${LOG_OUTPUT_DIR:-/tmp/${PREFIX:-cluster-}logs-${TIMESTAMP}}"
 
 echo ""
-echo "==========================================="
-echo "Collecting cluster logs (prefix: \"${PREFIX}\")"
-echo "==========================================="
+echo "Collecting cluster logs..."
 
 failed=0
 
@@ -361,7 +352,10 @@ if [[ -d "$OUTPUT_DIR" ]]; then
 fi
 
 echo ""
-echo "Cluster log collection complete. Output: ${OUTPUT_DIR}"
-[[ $failed -eq 0 ]] || echo "Warning: Some log collection failed. Check output above for details."
+if [[ $failed -eq 0 ]]; then
+    echo "Log collection complete."
+else
+    echo "Log collection finished with errors. Check output above for details."
+fi
 
 exit 0
