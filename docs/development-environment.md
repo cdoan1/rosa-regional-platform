@@ -219,6 +219,16 @@ make ephemeral-e2e
 make ephemeral-e2e ID=6bd2d3d7
 ```
 
+By default, tests are cloned from the `main` branch of `rosa-regional-platform-api`. Use `E2E_REF` and `E2E_REPO` to run against a different branch or fork:
+
+```bash
+# Run tests from a feature branch
+make ephemeral-e2e ID=6bd2d3d7 E2E_REF=my-feature-branch
+
+# Run tests from a fork
+make ephemeral-e2e ID=6bd2d3d7 E2E_REPO=https://github.com/my-fork/rosa-regional-platform-api.git E2E_REF=my-feature-branch
+```
+
 ## Collect Cluster Logs
 
 Collect kubernetes diagnostic logs (`oc adm inspect`) from the RC and/or MC clusters in an ephemeral environment. Logs are gathered by a dedicated log-collector ECS task, uploaded to S3, and downloaded locally.
