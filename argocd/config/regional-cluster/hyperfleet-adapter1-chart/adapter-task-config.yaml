@@ -289,6 +289,7 @@ spec:
                         subnet:
                           id: "{{ .subnetId }}"
                       endpointAccess: Private
+                      multiArch: true
                       rolesRef:
                         controlPlaneOperatorARN: "{{ .controlPlaneOperatorARN }}"
                         ingressARN: "{{ .ingressARN }}"
