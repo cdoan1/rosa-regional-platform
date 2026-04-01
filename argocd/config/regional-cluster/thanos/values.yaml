@@ -18,8 +18,21 @@ receive:
   replicationFactor: 1
   retention: 2h
 
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
   router:
     replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
 
   storage:
     size: 50Gi
@@ -29,12 +42,32 @@ query:
   enabled: true
   replicas: 2
 
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
   frontend:
     replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
 
 storeGateway:
   enabled: true
   replicas: 2
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
 
   storage:
     size: 20Gi
@@ -42,6 +75,13 @@ storeGateway:
 
 compactor:
   enabled: true
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
 
   retentionResolutionRaw: 90d
   retentionResolution5m: 180d

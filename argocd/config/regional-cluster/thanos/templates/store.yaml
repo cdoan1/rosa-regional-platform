@@ -10,6 +10,12 @@ metadata:
     {{- include "thanos-operator.annotations" . | nindent 4 }}
 spec:
   replicas: {{ .Values.storeGateway.replicas }}
+  resources:
+    requests:
+      cpu: {{ .Values.storeGateway.resources.requests.cpu }}
+      memory: {{ .Values.storeGateway.resources.requests.memory }}
+    limits:
+      memory: {{ .Values.storeGateway.resources.limits.memory }}
   objectStorageConfig:
     name: {{ .Values.objectStore.secretName }}
     key: objstore.yml

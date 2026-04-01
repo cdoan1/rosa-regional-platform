@@ -12,6 +12,30 @@ kube-prometheus-stack:
   grafana:
     enabled: false
 
+  prometheusOperator:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+
+  kube-state-metrics:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+
+  prometheus-node-exporter:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+
   prometheus:
     prometheusSpec:
       replicas: 2
@@ -25,6 +49,13 @@ kube-prometheus-stack:
         cluster_type: '{{ .Values.global.cluster_type | default "regional" }}'
       remoteWrite:
         - url: http://thanos-receive-router-thanos-receive.thanos:19291/api/v1/receive
+      resources:
+        requests:
+          cpu: 200m
+          memory: 512Mi
+        limits:
+          memory: 2Gi
+
       serviceMonitorNamespaceSelector: {}
       serviceMonitorSelector: {}
 

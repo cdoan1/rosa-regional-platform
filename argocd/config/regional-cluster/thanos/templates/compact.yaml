@@ -9,6 +9,12 @@ metadata:
   annotations:
     {{- include "thanos-operator.annotations" . | nindent 4 }}
 spec:
+  resources:
+    requests:
+      cpu: {{ .Values.compactor.resources.requests.cpu }}
+      memory: {{ .Values.compactor.resources.requests.memory }}
+    limits:
+      memory: {{ .Values.compactor.resources.limits.memory }}
   objectStorageConfig:
     name: {{ .Values.objectStore.secretName }}
     key: objstore.yml

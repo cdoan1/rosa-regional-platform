@@ -18,6 +18,12 @@ spec:
         replicas: {{ .Values.receive.replicas }}
         tsdbConfig:
           retention: {{ .Values.receive.retention }}
+        resources:
+          requests:
+            cpu: {{ .Values.receive.resources.requests.cpu }}
+            memory: {{ .Values.receive.resources.requests.memory }}
+          limits:
+            memory: {{ .Values.receive.resources.limits.memory }}
         storage:
           size: {{ .Values.receive.storage.size }}
           {{- if .Values.receive.storage.storageClass }}
@@ -26,6 +32,12 @@ spec:
   routerSpec:
     replicas: {{ .Values.receive.router.replicas | default 1 }}
     replicationFactor: {{ .Values.receive.replicationFactor }}
+    resources:
+      requests:
+        cpu: {{ .Values.receive.router.resources.requests.cpu }}
+        memory: {{ .Values.receive.router.resources.requests.memory }}
+      limits:
+        memory: {{ .Values.receive.router.resources.limits.memory }}
     externalLabels:
       receive: "true"
       region: {{ .Values.global.aws_region | quote }}
