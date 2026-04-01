@@ -9,11 +9,39 @@ set -euo pipefail
 #
 # Credentials are mounted at /var/run/rosa-credentials/ by ci-operator.
 #
-# All three account purges run in parallel to reduce wall-clock time.
+# Usage:
+#   ./ci/ephemeral-resources-janitor.sh                    # purge all accounts
+#   ./ci/ephemeral-resources-janitor.sh customer            # purge customer only
+#   ./ci/ephemeral-resources-janitor.sh regional customer   # purge regional + customer
+#
+# Valid accounts: regional, management, central, customer
+#
+# Selected account purges run in parallel to reduce wall-clock time.
 # Per-account logs are written to ARTIFACT_DIR for the Prow artifacts UI.
 # =============================================================================
 
 DRY_RUN=false
+
+ALL_ACCOUNTS=(regional management central customer)
+ACCOUNTS=("${@:-}")
+if [ ${#ACCOUNTS[@]} -eq 0 ] || [ -z "${ACCOUNTS[0]}" ]; then
+  ACCOUNTS=("${ALL_ACCOUNTS[@]}")
+fi
+
+# Validate requested accounts.
+for acct in "${ACCOUNTS[@]}"; do
+  valid=false
+  for known in "${ALL_ACCOUNTS[@]}"; do
+    if [ "${acct}" = "${known}" ]; then
+      valid=true
+      break
+    fi
+  done
+  if [ "${valid}" = false ]; then
+    echo "ERROR: unknown account '${acct}'. Valid accounts: ${ALL_ACCOUNTS[*]}" >&2
+    exit 1
+  fi
+done
 
 export AWS_PAGER=""
 
@@ -47,6 +75,13 @@ purge_management() {
     "${PURGE_SCRIPT}" "${PURGE_ARGS[@]+"${PURGE_ARGS[@]}"}"
 }
 
+# purge_customer runs aws-nuke against the HCP customer ephemeral account.
+purge_customer() {
+  AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/customer_access_key")" \
+  AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/customer_secret_key")" \
+    "${PURGE_SCRIPT}" "${PURGE_ARGS[@]+"${PURGE_ARGS[@]}"}"
+}
+
 # purge_central assumes the central CI role and runs aws-nuke.
 purge_central() {
   local key secret token
@@ -65,20 +100,16 @@ purge_central() {
     "${PURGE_SCRIPT}" "${PURGE_ARGS[@]+"${PURGE_ARGS[@]}"}"
 }
 
-# Launch all three purges in parallel, logging output to artifact files.
-echo "Starting parallel account purges (logs in ${LOG_DIR}/)"
+# Launch selected purges in parallel, logging output to artifact files.
+echo "Starting parallel account purges: ${ACCOUNTS[*]} (logs in ${LOG_DIR}/)"
 
-purge_regional  &> "${LOG_DIR}/regional.log" &
-PIDS["regional"]=$!
-
-purge_management &> "${LOG_DIR}/management.log" &
-PIDS["management"]=$!
-
-purge_central &> "${LOG_DIR}/central.log" &
-PIDS["central"]=$!
+for label in "${ACCOUNTS[@]}"; do
+  "purge_${label}" &> "${LOG_DIR}/${label}.log" &
+  PIDS["${label}"]=$!
+done
 
 # Wait for all background jobs and report results.
-for label in regional management central; do
+for label in "${ACCOUNTS[@]}"; do
   if wait "${PIDS[${label}]}"; then
     echo ">> ${label} account purge succeeded"
   else
