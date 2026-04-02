@@ -203,7 +203,7 @@ terraform output -raw api_test_command
 # awscurl --service execute-api --region us-east-2 https://<id>.execute-api.<region>.amazonaws.com/prod/v0/live
 ```
 
-> **Note:** `awscurl` must be run from the Regional account, which is the only account authorized by default.
+> **Note:** The API Gateway accepts requests from any authenticated AWS principal. Authorization is enforced by the Platform API backend — only accounts registered with the Platform API (starting with the bootstrap account) receive a successful response.
 
 ### 4.4 Verify Maestro Connectivity
 
