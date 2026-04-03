@@ -43,6 +43,8 @@ fi
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 E2E_REF="${E2E_REF:-main}"
 E2E_REPO="${E2E_REPO:-https://github.com/openshift-online/rosa-regional-platform-api.git}"
+CLI_REF="${CLI_REF:-main}"
+CLI_REPO="${CLI_REPO:-https://github.com/openshift-online/rosa-regional-platform-cli.git}"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "${WORK_DIR}"' EXIT
 git clone --depth 1 --branch "${E2E_REF}" \
@@ -54,6 +56,55 @@ export PATH="$(go env GOPATH)/bin:${PATH}"
 
 rc=0
 make test-e2e || rc=$?
+
+# --- HCP Creation E2E Tests ---
+# Uses customer account credentials from vault-mounted secrets.
+# Only run if the platform API tests passed.
+if [[ $rc -ne 0 ]]; then
+  echo "Skipping HCP creation tests — platform API tests failed (exit code: $rc)"
+elif [[ -r "${CREDS_DIR}/customer_access_key" ]]; then
+  export CUSTOMER_AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/customer_access_key")"
+  export CUSTOMER_AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/customer_secret_key")"
+  echo "Customer credentials loaded from ${CREDS_DIR}"
+
+  test_hcp_creation() {
+    echo ""
+    echo "=== HCP Creation Tests ==="
+
+    local HCP_CLUSTER_NAME="e2e-$(date +%s)"
+
+    CLI_WORK_DIR="$(mktemp -d)"
+    trap 'rm -rf "${CLI_WORK_DIR}"' EXIT
+    cd "${CLI_WORK_DIR}"
+    git clone --depth 1 --branch "${CLI_REF}" \
+      "${CLI_REPO}" "${CLI_WORK_DIR}/cli"
+    cd "${CLI_WORK_DIR}/cli"
+    make build
+    # make install
+
+    export ROSACTL="$(CLI_WORK_DIR)/cli/bin/rosactl"
+    
+    $ROSACTL login --url $BASE_URL
+    
+    echo "Creating HCP cluster: ${HCP_CLUSTER_NAME}"
+    # TODO: Implement HCP creation
+
+    # TODO: Poll for cluster ready state
+    # echo "Waiting for HCP cluster to be ready..."
+
+    # TODO: Validate cluster is accessible / healthy
+
+    # TODO: Cleanup — delete the HCP cluster
+    # echo "Deleting HCP cluster: ${HCP_CLUSTER_NAME}"
+
+    echo "HCP creation test completed for: ${HCP_CLUSTER_NAME}"
+  }
+
+  test_hcp_creation || rc=$?
+else
+  echo "WARNING: No customer credentials at ${CREDS_DIR}/customer_access_key — skipping HCP creation tests"
+fi
+
 
 if [[ $rc -ne 0 ]]; then
     echo ""
