@@ -1,6 +1,5 @@
 # Provision a New Hosted Cluster
 
-
 ## Get the CLI
 
 ```bash
@@ -24,7 +23,6 @@ make install
 export AWS_PROFILE=rrp-customer-dev
 ```
 
-
 ## Using the rosactl command
 
 ```bash
@@ -47,7 +45,6 @@ rosactl cluster create cdoan-t1 --region us-east-1 --placement $PLACEMENT
 # 4. create the oidc for the hcp
 rosactl cluster-oidc create cdoan-t1 --region us-east-1 --oidc-issuer-url $CLOUDURL
 ```
-
 
 # Notes
 
