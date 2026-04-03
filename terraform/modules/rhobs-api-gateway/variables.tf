@@ -22,12 +22,6 @@ variable "alb_dns_name" {
   type        = string
 }
 
-variable "allowed_account_ids" {
-  description = "AWS account IDs allowed to invoke the RHOBS API (MC accounts for cross-account metrics ingestion)"
-  type        = list(string)
-  default     = []
-}
-
 variable "stage_name" {
   description = "API Gateway stage name"
   type        = string

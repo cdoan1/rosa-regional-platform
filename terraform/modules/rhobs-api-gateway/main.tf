@@ -142,6 +142,7 @@ resource "aws_api_gateway_deployment" "rhobs" {
       aws_api_gateway_method.thanos_receive.id,
       aws_api_gateway_integration.thanos_receive.id,
       aws_api_gateway_rest_api.rhobs.binary_media_types,
+      aws_api_gateway_rest_api_policy.rhobs.policy,
     ]))
   }
 
