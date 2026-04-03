@@ -115,11 +115,10 @@ module "api_gateway" {
 module "rhobs_api_gateway" {
   source = "../../modules/rhobs-api-gateway"
 
-  regional_id         = var.regional_id
-  vpc_link_id         = module.api_gateway.vpc_link_id
-  alb_arn             = module.api_gateway.alb_arn
-  alb_dns_name        = module.api_gateway.alb_dns_name
-  allowed_account_ids = distinct(compact(split(",", var.api_additional_allowed_accounts)))
+  regional_id  = var.regional_id
+  vpc_link_id  = module.api_gateway.vpc_link_id
+  alb_arn      = module.api_gateway.alb_arn
+  alb_dns_name = module.api_gateway.alb_dns_name
 }
 
 # =============================================================================
