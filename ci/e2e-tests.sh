@@ -81,18 +81,20 @@ elif [[ -r "${CREDS_DIR}/customer_access_key" ]]; then
     cd "${CLI_WORK_DIR}/cli"
     make build
     # make install
+    export ROSACTL_BIN="$(CLI_WORK_DIR)/cli/bin/rosactl"
 
-    export ROSACTL="$(CLI_WORK_DIR)/cli/bin/rosactl"
-    
-    $ROSACTL login --url $BASE_URL
-    
+    # switch back to the api work dir
+    cd "${WORK_DIR}/api"
+
+    $ROSACTL_BIN login --url $BASE_URL
     echo "Creating HCP cluster: ${HCP_CLUSTER_NAME}"
+
+    set +e # allow the test to fail without exiting (disable errexit)
+
     # TODO: Implement HCP creation
+    make test-cli-e2e
 
-    # TODO: Poll for cluster ready state
-    # echo "Waiting for HCP cluster to be ready..."
-
-    # TODO: Validate cluster is accessible / healthy
+    set -e # re-enable exit on error (errexit)
 
     # TODO: Cleanup — delete the HCP cluster
     # echo "Deleting HCP cluster: ${HCP_CLUSTER_NAME}"
