@@ -41,6 +41,13 @@ spec:
               ? status.conditions.filter(c, c.type == "Ready")[0].status
               : "False"
 
+        - name: "specDeletionRequested"
+          expression: |
+            has(spec.deletionRequested) && spec.deletionRequested != ""
+              ? "True"
+              : "False"
+          description: "Deletion requested for the cluster, if true, stop processing the cluster"
+
         # expression: "\"mc01\""  # TBC coming from placement adapter
         - name: "placementClusterName"
           expression: |
@@ -131,11 +138,14 @@ spec:
         - field: "readyConditionStatus"
           operator: "equals"
           value: "False"
+        - field: "specDeletionRequested"
+          operator: "equals"
+          value: "False"
 
     - name: "validationCheck"
       # Valid CEL expression
       expression: |
-        readyConditionStatus == "False"
+        readyConditionStatus == "False" && specDeletionRequested == "False"
 
   # Resources with valid K8s manifests
   resources:
