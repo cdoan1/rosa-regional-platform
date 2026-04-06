@@ -57,6 +57,13 @@ export PATH="$(go env GOPATH)/bin:${PATH}"
 rc=0
 make test-e2e || rc=$?
 
+
+# Get regional account ID for CLI tests
+if [[ -z "${E2E_ACCOUNT_ID:-}" ]]; then
+  export E2E_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+  echo "Regional account ID: ${E2E_ACCOUNT_ID}"
+fi
+
 # --- HCP Creation E2E Tests ---
 # Uses customer account credentials from vault-mounted secrets.
 # Only run if the platform API tests passed.
