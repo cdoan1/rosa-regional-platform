@@ -114,7 +114,7 @@ elif [[ -r "${CREDS_DIR}/customer_access_key" ]]; then
 
     export GINKGO_NO_COLOR=TRUE
     # make test-e2e-cli
-    make test-e2e-cli
+    make test-e2e-cli || return rc=$?
 
     # set -e # re-enable exit on error (errexit)
 
