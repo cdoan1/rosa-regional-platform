@@ -110,13 +110,13 @@ elif [[ -r "${CREDS_DIR}/customer_access_key" ]]; then
     # Regional credentials stay as AWS_ACCESS_KEY_ID for platform operations
     # Customer credentials are already exported as CUSTOMER_AWS_ACCESS_KEY_ID
 
-    set +e # allow the test to fail without exiting (disable errexit)
+    # set +e # allow the test to fail without exiting (disable errexit)
 
     export GINKGO_NO_COLOR=TRUE
     # make test-e2e-cli
     make test-e2e-cli
 
-    set -e # re-enable exit on error (errexit)
+    # set -e # re-enable exit on error (errexit)
 
     # TODO: Cleanup — delete the HCP cluster
     # echo "Deleting HCP cluster: ${HCP_CLUSTER_NAME}"
