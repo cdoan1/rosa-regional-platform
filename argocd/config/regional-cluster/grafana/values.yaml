@@ -27,6 +27,14 @@ grafana:
   # Login form is disabled; this value is not used for access.
   adminPassword: "admin"
 
+  # Setting GF_SECURITY_ADMIN_USER and GF_SECURITY_ADMIN_PASSWORD via env
+  # prevents the chart from injecting REQ_USERNAME/REQ_PASSWORD (basic auth)
+  # into the k8s-sidecar container. The sidecar instead uses a service account
+  # Bearer token (see grafana-sidecar-secret.yaml / REQ_HEADERS below).
+  env:
+    GF_SECURITY_ADMIN_USER: admin
+    GF_SECURITY_ADMIN_PASSWORD: admin
+
   serviceAccount:
     create: true
     name: grafana
@@ -66,6 +74,29 @@ grafana:
       mode: console
       level: info
 
+  # Load GF_SIDECAR_TOKEN (and REQ_HEADERS) from the sidecar auth Secret into
+  # the Grafana pod so the service account provisioning file can reference it
+  # via ${GF_SIDECAR_TOKEN}.
+  envFromSecrets:
+    - name: grafana-sidecar-auth
+
+  # Load AWS_DEFAULT_REGION from the region ConfigMap (rendered from
+  # global.aws_region by ApplicationSet) for CloudWatch datasource provisioning.
+  envFromConfigMaps:
+    - name: grafana-region-env
+
+  # Mount the service account provisioning file so Grafana creates the k8s-sidecar
+  # service account with the Bearer token on startup.
+  extraVolumes:
+    - name: service-account-provisioning
+      configMap:
+        name: grafana-service-account-provisioning
+
+  extraVolumeMounts:
+    - name: service-account-provisioning
+      mountPath: /etc/grafana/provisioning/access-control
+      readOnly: true
+
   service:
     type: ClusterIP
     port: 80
@@ -94,15 +125,15 @@ grafana:
 
         # CloudWatch datasource — credentials supplied via EKS Pod Identity
         # (see terraform/config/regional-cluster/grafana.tf).
-        # defaultRegion: default resolves the region from EC2 instance metadata,
-        # so no per-region configuration change is needed.
+        # AWS_DEFAULT_REGION is injected via grafana-region-env ConfigMap
+        # (see templates/grafana-region-env.yaml) using global.aws_region.
         - name: CloudWatch
           type: cloudwatch
           access: proxy
           editable: false
           jsonData:
             authType: default
-            defaultRegion: default
+            defaultRegion: ${AWS_DEFAULT_REGION}
 
   resources:
     requests:
@@ -147,6 +178,13 @@ grafana:
       labelValue: "1"
       searchNamespace: grafana
       folderAnnotation: k8s-sidecar-target-directory
+      # Inject Bearer token from the grafana-sidecar-auth Secret so the sidecar
+      # authenticates with the k8s-sidecar service account instead of basic auth.
+      envValueFrom:
+        REQ_HEADERS:
+          secretKeyRef:
+            name: grafana-sidecar-auth
+            key: REQ_HEADERS
       provider:
         foldersFromFilesStructure: true
         allowUiUpdates: true
