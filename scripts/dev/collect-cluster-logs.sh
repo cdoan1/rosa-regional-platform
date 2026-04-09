@@ -110,10 +110,16 @@ ensure_logs_bucket() {
     fi
 
     echo "  Creating log-collection bucket ${bucket}..."
-    aws s3api create-bucket \
-        --bucket "$bucket" \
-        --bucket-namespace account-regional \
-        --region "$region" > /dev/null
+    if [[ "$region" == "us-east-1" ]]; then
+        aws s3api create-bucket \
+            --bucket "$bucket" \
+            --region "$region" > /dev/null
+    else
+        aws s3api create-bucket \
+            --bucket "$bucket" \
+            --region "$region" \
+            --create-bucket-configuration LocationConstraint="$region" > /dev/null
+    fi
 
     aws s3api put-public-access-block \
         --bucket "$bucket" \

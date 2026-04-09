@@ -1,4 +1,4 @@
-.PHONY: help terraform-fmt terraform-init terraform-validate terraform-upgrade terraform-output-management terraform-output-regional helm-lint check-rendered-files ephemeral-provision ephemeral-teardown ephemeral-resync ephemeral-list ephemeral-shell ephemeral-bastion-rc ephemeral-bastion-mc ephemeral-port-forward-rc ephemeral-port-forward-mc ephemeral-port-forward-rc-all ephemeral-port-forward-mc-all ephemeral-e2e ephemeral-collect-logs int-shell int-bastion-rc int-bastion-mc int-port-forward-rc int-port-forward-mc int-port-forward-rc-all int-port-forward-mc-all int-e2e int-collect-logs check-docs pre-push
+.PHONY: help terraform-fmt terraform-init terraform-validate terraform-upgrade terraform-output-management terraform-output-regional helm-lint check-rendered-files ephemeral-provision ephemeral-teardown ephemeral-resync ephemeral-list ephemeral-shell ephemeral-bastion-rc ephemeral-bastion-mc ephemeral-port-forward-rc ephemeral-port-forward-mc ephemeral-port-forward-rc-all ephemeral-port-forward-mc-all ephemeral-e2e ephemeral-collect-logs ephemeral-fetch-pod-logs int-shell int-bastion-rc int-bastion-mc int-port-forward-rc int-port-forward-mc int-port-forward-rc-all int-port-forward-mc-all int-e2e int-collect-logs check-docs pre-push
 
 # Default target
 help:
@@ -31,6 +31,7 @@ help:
 	@echo "  ephemeral-port-forward-mc-all         - Automatically port forward all services for an MC in an ephemeral env"
 	@echo "  ephemeral-e2e                         - Run e2e tests against an ephemeral env"
 	@echo "  ephemeral-collect-logs                - Collect kubernetes logs from an ephemeral env (CLUSTER=rc|mc, default: both)"
+	@echo "  ephemeral-fetch-pod-logs              - Fetch logs from a specific pod (POD=<name> NAMESPACE=<ns> OUTPUT=<file>)"
 	@echo ""
 	@echo "🔧 Integration Environment — Interacting:"
 	@echo "  int-shell                             - Interactive shell for Platform API access"
@@ -226,6 +227,9 @@ ephemeral-e2e:
 
 ephemeral-collect-logs:
 	@ID="$(ID)" ./scripts/dev/ephemeral-env.sh collect-logs $(CLUSTER)
+
+ephemeral-fetch-pod-logs:
+	@ID="$(ID)" NAMESPACE="$(NAMESPACE)" POD="$(POD)" OUTPUT="$(OUTPUT)" CLUSTER_TYPE="$(or $(CLUSTER_TYPE),regional)" ./scripts/dev/ephemeral-env.sh fetch-pod-logs
 
 # =============================================================================
 # Integration Environment

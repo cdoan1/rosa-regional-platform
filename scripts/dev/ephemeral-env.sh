@@ -59,6 +59,7 @@ usage() {
     echo "  port-forward    Forward ports through RC/MC bastion in an ephemeral env"
     echo "  e2e             Run e2e tests against an ephemeral env"
     echo "  collect-logs    Collect kubernetes logs from RC/MC in an ephemeral env"
+    echo "  fetch-pod-logs  Fetch logs from a specific pod to local file"
 }
 
 usage_bastion_interactive() {
@@ -969,6 +970,48 @@ cmd_collect_logs() {
     "${REPO_ROOT}/scripts/dev/collect-cluster-logs.sh" "$cluster_type"
 }
 
+cmd_fetch_pod_logs() {
+    local namespace="${NAMESPACE:-hyperfleet-system}"
+    local pod="${POD:-}"
+    local output="${OUTPUT:-pod.log}"
+    local cluster_type="${CLUSTER_TYPE:-regional}"
+
+    # Validate required parameters
+    [[ -n "$pod" ]] || die "POD environment variable is required. Usage: POD=<pod-name> make ephemeral-fetch-pod-logs"
+
+    # Setup bastion connection
+    bastion_setup "$cluster_type"
+
+    echo ""
+    echo "==> Fetching logs from pod: $pod"
+    echo "    Namespace:    $namespace"
+    echo "    Output file:  $output"
+    echo ""
+
+    # Execute kubectl logs command via bastion and save to local file
+    aws ecs execute-command \
+        --cluster "$ecs_cluster" \
+        --task "$task_id" \
+        --container bastion \
+        --interactive \
+        --command "kubectl logs -n $namespace $pod" > "$output" 2>&1
+
+    # Filter out ECS session noise (everything before the actual log content)
+    # ECS exec adds session initialization messages that we want to remove
+    if [[ -f "$output" ]]; then
+        # Remove ECS session header lines (typically "Starting session with SessionId: ..." and blank lines before logs)
+        sed -i.bak '/^$/d; /^Starting session with SessionId:/d; /^Exiting session with SessionId:/d' "$output" 2>/dev/null || \
+        sed -i '' '/^$/d; /^Starting session with SessionId:/d; /^Exiting session with SessionId:/d' "$output" 2>/dev/null || true
+        rm -f "${output}.bak"
+
+        echo "==> Logs saved to: $output"
+        echo "    Size: $(wc -l < "$output" | tr -d ' ') lines"
+    else
+        echo "Error: Failed to save logs to $output"
+        exit 1
+    fi
+}
+
 # =============================================================================
 # Main
 # =============================================================================
@@ -982,7 +1025,7 @@ esac
 
 # Bastion needs vault + aws but not container engine
 case "${1:-help}" in
-    bastion|collect-logs)
+    bastion|collect-logs|fetch-pod-logs)
         for tool in vault aws; do
             command -v "$tool" >/dev/null 2>&1 || die "Missing required tool: $tool"
         done
@@ -1008,6 +1051,7 @@ case "${1:-help}" in
     port-forward)   shift; cmd_bastion_port_forward "$@" ;;
     e2e)            cmd_e2e ;;
     collect-logs)   shift; cmd_collect_logs "$@" ;;
+    fetch-pod-logs) cmd_fetch_pod_logs ;;
     help|*)
         usage
         ;;
