@@ -27,36 +27,36 @@ graph LR
 
 Adapter1 reports three conditions for each cluster to the Platform API:
 
-| Condition | Source | Status Logic | Purpose |
-|-----------|--------|--------------|---------|
-| **Applied** | ManifestWork `.status.conditions[Applied]` | `True` if Maestro successfully applied the ManifestWork<br>`False` if not yet applied or application failed | Indicates whether the cluster manifests have been delivered and applied to the management cluster |
-| **Health** | HostedCluster `.status.conditions[Degraded]` | `True` if degradedCondition = "False"<br>`False` if degraded or feedback not available | Indicates whether the HostedCluster control plane is healthy (not degraded) |
-| **Available** | HostedCluster `.status.conditions[Available]` | Value from availableCondition<br>`False` if feedback not available | Indicates whether the HostedCluster API is available and serving requests |
+| Condition     | Source                                        | Status Logic                                                                                                | Purpose                                                                                           |
+| ------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **Applied**   | ManifestWork `.status.conditions[Applied]`    | `True` if Maestro successfully applied the ManifestWork<br>`False` if not yet applied or application failed | Indicates whether the cluster manifests have been delivered and applied to the management cluster |
+| **Health**    | HostedCluster `.status.conditions[Degraded]`  | `True` if degradedCondition = "False"<br>`False` if degraded or feedback not available                      | Indicates whether the HostedCluster control plane is healthy (not degraded)                       |
+| **Available** | HostedCluster `.status.conditions[Available]` | Value from availableCondition<br>`False` if feedback not available                                          | Indicates whether the HostedCluster API is available and serving requests                         |
 
 ## Status Values and Reasons
 
 ### Applied Condition
 
-| Status | Reason | Message | When |
-|--------|--------|---------|------|
-| `True` | _(from ManifestWork)_ | _(from ManifestWork)_ | ManifestWork has been applied successfully |
+| Status  | Reason                   | Message                                         | When                                                    |
+| ------- | ------------------------ | ----------------------------------------------- | ------------------------------------------------------- |
+| `True`  | _(from ManifestWork)_    | _(from ManifestWork)_                           | ManifestWork has been applied successfully              |
 | `False` | `ManifestWorkNotApplied` | `ManifestWork not yet applied by Maestro agent` | ManifestWork does not exist or has no Applied condition |
 
 ### Health Condition
 
-| Status | Reason | Message | When |
-|--------|--------|---------|------|
-| `True` | `NotDegraded` | `HostedCluster is healthy` | HostedCluster degradedCondition = "False" |
-| `False` | `HostedClusterDegraded` | `HostedCluster is degraded` | HostedCluster degradedCondition = "True" |
-| `False` | `StatusNotReady` | `Waiting for HostedCluster status feedback` | Status feedback not yet available from management cluster |
+| Status  | Reason                  | Message                                     | When                                                      |
+| ------- | ----------------------- | ------------------------------------------- | --------------------------------------------------------- |
+| `True`  | `NotDegraded`           | `HostedCluster is healthy`                  | HostedCluster degradedCondition = "False"                 |
+| `False` | `HostedClusterDegraded` | `HostedCluster is degraded`                 | HostedCluster degradedCondition = "True"                  |
+| `False` | `StatusNotReady`        | `Waiting for HostedCluster status feedback` | Status feedback not yet available from management cluster |
 
 ### Available Condition
 
-| Status | Reason | Message | When |
-|--------|--------|---------|------|
-| `True` | `HostedClusterAvailable` | `HostedCluster is available` | HostedCluster availableCondition = "True" |
-| `False` | `HostedClusterNotAvailable` | `HostedCluster not yet available` | HostedCluster availableCondition = "False" |
-| `False` | `StatusNotReady` | `Waiting for HostedCluster status feedback` | Status feedback not yet available from management cluster |
+| Status  | Reason                      | Message                                     | When                                                      |
+| ------- | --------------------------- | ------------------------------------------- | --------------------------------------------------------- |
+| `True`  | `HostedClusterAvailable`    | `HostedCluster is available`                | HostedCluster availableCondition = "True"                 |
+| `False` | `HostedClusterNotAvailable` | `HostedCluster not yet available`           | HostedCluster availableCondition = "False"                |
+| `False` | `StatusNotReady`            | `Waiting for HostedCluster status feedback` | Status feedback not yet available from management cluster |
 
 ## Status Feedback Configuration
 
@@ -73,9 +73,9 @@ manifestConfigs:
       - type: "JSONPaths"
         jsonPaths:
           - name: "availableCondition"
-            path: ".status.conditions[?(@.type==\"Available\")].status"
+            path: '.status.conditions[?(@.type=="Available")].status'
           - name: "degradedCondition"
-            path: ".status.conditions[?(@.type==\"Degraded\")].status"
+            path: '.status.conditions[?(@.type=="Degraded")].status'
           - name: "controlPlaneEndpoint"
             path: ".status.controlPlaneEndpoint.host"
           - name: "version"
