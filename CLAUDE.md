@@ -41,6 +41,52 @@ The **ROSA Regional Platform** is a strategic redesign of Red Hat OpenShift Serv
 - **Languages**: Go (primary backend), Shell scripting
 - **Container Orchestration**: Kubernetes via EKS
 
+## Related Repositories
+
+This project integrates with and depends on several external repositories:
+
+### Core Services
+
+- **CLM (Cluster Lifecycle Manager)**: Multi-component system for cluster state management
+  - Runs in Regional Cluster (RC)
+  - Connection: Stores declarative cluster state in RDS, coordinates with Maestro for MC communication
+  - Components:
+    - **hyperfleet-api**: [openshift-hyperfleet/hyperfleet-api](https://github.com/openshift-hyperfleet/hyperfleet-api) - API service for cluster lifecycle operations
+    - **hyperfleet-adapter**: [openshift-hyperfleet/hyperfleet-adapter](https://github.com/openshift-hyperfleet/hyperfleet-adapter) - Adapter for external integrations
+    - **hyperfleet-sentinel**: [openshift-hyperfleet/hyperfleet-sentinel](https://github.com/openshift-hyperfleet/hyperfleet-sentinel) - Monitoring and health checking component
+    - **hyperfleet-broker**: [openshift-hyperfleet/hyperfleet-broker](https://github.com/openshift-hyperfleet/hyperfleet-broker) - Broker implementation for message distribution
+
+- **Maestro**: [repository-url]
+  - MQTT-based resource distribution system
+  - Handles CLM ↔ Management Cluster (MC) communication
+  - Connection: Distributes cluster configuration from CLM to target MCs
+
+- **ROSA Regional Platform API**: [openshift-online/rosa-regional-platform-api](https://github.com/openshift-online/rosa-regional-platform-api)
+  - Runs in the Regional Cluster (RC)
+  - Customer-facing regional API
+  - AWS IAM-authenticated service
+  - Connection: Frontend for cluster operations, backed by CLM state
+
+- **ROSA Regional Platform CLI**: [openshift-online/rosa-regional-platform-cli](https://github.com/openshift-online/rosa-regional-platform-cli)
+  - Command-line interface for ROSA Regional Platform
+  - Connection: Client tool for interacting with Platform API
+
+### Kubernetes Components
+
+- **HyperShift**: [repository-url]
+  - Operators that host customer control planes on Management Clusters
+  - Connection: Deployed on MCs to run ROSA HCP customer control planes
+
+### CI/CD and Testing
+
+- **openshift/release**: [repository-url]
+  - OpenShift CI configuration repository
+  - Connection: Contains pre-merge e2e test configurations for cross-component testing
+
+### Shared Resources
+
+- _Add shared Terraform modules, libraries, or other dependencies here_
+
 ## Development Guidelines
 
 ### Agent Usage

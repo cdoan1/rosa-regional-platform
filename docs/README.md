@@ -16,6 +16,16 @@ The architecture consists of three layers within each region:
 
 ## Documentation Index
 
+### Architecture
+
+High-level architecture diagrams and flow documentation:
+
+| Document                                                                             | Topic                                                           |
+| ------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| [Adapter-Lambda Flow](architecture/adapter-lambda-flow.md)                           | Automated customer infrastructure provisioning via Lambda       |
+| [Adapter-Lambda IAM Configuration](architecture/adapter-lambda-iam-configuration.md) | IAM roles, policies, and trust relationships for adapter-lambda |
+| [HyperFleet Integration](architecture/hyperfleet-integration.md)                     | CLM, Maestro, and HyperShift integration                        |
+
 ### Design Decisions
 
 Detailed architecture and rationale for key technical decisions:
