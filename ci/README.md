@@ -16,14 +16,16 @@ CI is managed through the [OpenShift CI](https://docs.ci.openshift.org/) system 
 | [`ephemeral-resources-janitor`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-ephemeral-resources-janitor)                       | Weekly (Sunday 12:00 UTC) | Purges leaked AWS resources across all ephemeral CI accounts using [aws-nuke](https://github.com/ekristen/aws-nuke)                                     |
 | [`customer-account-ephemeral-ci-janitor`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-customer-account-ephemeral-ci-janitor)   | Daily at 02:00 UTC        | Purges leaked HCP customer account resources (ephemeral CI) — mitigates missing HCP teardown flow                                                       |
 | [`customer-account-ephemeral-dev-janitor`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-customer-account-ephemeral-dev-janitor) | Daily at 02:00 UTC        | Purges leaked HCP customer account resources (ephemeral dev) — mitigates missing HCP teardown flow                                                      |
-| `nightly-m6i`                                                                                                                                                                                                       | Mon/Wed/Fri at 05:00 UTC  | Nightly ephemeral with `m6i.large` instance types — validates general-purpose Intel machines                                                            |
-| `nightly-c6i`                                                                                                                                                                                                       | Tue/Thu/Sat at 05:00 UTC  | Nightly ephemeral with `c6i.xlarge` instance types — validates compute-optimized Intel machines                                                         |
+| `nightly-m6i` (planned)                                                                                                                                                                                             | Mon/Wed/Fri at 05:00 UTC  | Nightly ephemeral with `m6i.large` instance types — validates general-purpose Intel machines                                                            |
+| `nightly-c6i` (planned)                                                                                                                                                                                             | Tue/Thu/Sat at 05:00 UTC  | Nightly ephemeral with `c6i.xlarge` instance types — validates compute-optimized Intel machines                                                         |
 
-## Load Testing
+> **Note:** `nightly-m6i` and `nightly-c6i` are pending periodic job definitions in [openshift/release](https://github.com/openshift/release). Scripts and override files are ready in this repo.
 
-The nightly pipeline includes k6-based load tests that run after functional e2e tests pass. Load tests exercise the Platform API under sustained traffic (50 concurrent users for 10 minutes) and validate HCP lifecycle operations under parallel cluster creation.
+## Load Testing (Planned)
 
-- **Entrypoint**: `ci/nightly-load-test.sh` (runs as a Prow step after e2e, before teardown)
+Load testing scripts are implemented but not yet wired into the Prow workflow. The `rosa-regional-platform-load-test` step needs to be added to the `rosa-regional-platform-ephemeral-e2e` workflow in [openshift/release](https://github.com/openshift/release).
+
+- **Entrypoint**: `ci/nightly-load-test.sh` (will run as a Prow step after e2e, before teardown)
 - **Scripts**: `ci/load-test/scripts/platform-api-load.js` (API throughput), `ci/load-test/scripts/hcp-lifecycle-load.js` (concurrent HCP creation)
 - **Results**: JSON summaries saved to `${ARTIFACT_DIR}/load-test-results/` (visible in Prow artifacts)
 - **Baseline comparison**: `ci/load-test/compare-baseline.py` checks for regressions against an S3-stored baseline

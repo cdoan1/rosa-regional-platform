@@ -160,11 +160,12 @@ export default function () {
   const clusterNames = [];
   const timestamp = Date.now();
 
-  // Phase 1: Create N management clusters concurrently
+  // Phase 1: Create N management clusters concurrently via http.batch
   console.log(
     `VU ${__VU}: Creating ${HCP_COUNT} management clusters concurrently`,
   );
 
+  const requests = [];
   for (let i = 0; i < HCP_COUNT; i++) {
     const name = `hcp-load-${__VU}-${i}-${timestamp}`;
     clusterNames.push(name);
@@ -179,7 +180,15 @@ export default function () {
       },
     });
 
-    const res = signedPost("/prod/api/v0/management_clusters", body);
+    const url = `${BASE_URL}/prod/api/v0/management_clusters`;
+    const hdrs = { "content-type": "application/json" };
+    const signed = signRequest("POST", url, body, hdrs);
+    requests.push(["POST", url, body, { headers: signed }]);
+  }
+
+  const responses = http.batch(requests);
+  for (let i = 0; i < responses.length; i++) {
+    const res = responses[i];
     createHcpLatency.add(res.timings.duration);
 
     const ok = check(res, {
@@ -190,7 +199,7 @@ export default function () {
 
     if (!ok) {
       console.error(
-        `VU ${__VU}: Failed to create cluster ${name}: ${res.status} ${res.body}`,
+        `VU ${__VU}: Failed to create cluster ${clusterNames[i]}: ${res.status} ${res.body}`,
       );
     }
   }
@@ -225,6 +234,25 @@ export default function () {
     }
 
     sleep(pollInterval);
+  }
+
+  // Fail the VU if not all clusters became visible
+  {
+    const res = signedGet("/prod/api/v0/management_clusters");
+    let finalFound = 0;
+    if (res.status === 200) {
+      const body = JSON.parse(res.body);
+      const items = body.items || [];
+      finalFound = clusterNames.filter((name) =>
+        items.some((item) => item.name === name || item.metadata?.name === name),
+      ).length;
+    }
+    if (finalFound !== clusterNames.length) {
+      console.error(
+        `VU ${__VU}: Only ${finalFound}/${clusterNames.length} clusters visible after ${maxAttempts} polls`,
+      );
+      errorRate.add(true);
+    }
   }
 
   // Phase 3: Post ManifestWork to each cluster to validate Maestro distribution

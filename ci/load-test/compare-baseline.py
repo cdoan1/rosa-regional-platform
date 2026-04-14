@@ -126,29 +126,41 @@ def main():
     log.info("Loaded current results from %s", results_path)
 
     # Download baseline from S3
-    try:
-        import boto3
+    import boto3
+    from botocore.exceptions import ClientError
 
-        s3 = boto3.client("s3")
+    s3 = boto3.client("s3")
+    try:
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
             s3.download_file(args.bucket, args.key, tmp.name)
             with open(tmp.name) as f:
                 baseline = json.load(f)
         log.info("Downloaded baseline from s3://%s/%s", args.bucket, args.key)
+    except ClientError as e:
+        error_code = e.response.get("Error", {}).get("Code", "")
+        if error_code in ("404", "NoSuchKey"):
+            log.info("No baseline found in S3 — saving current as initial baseline")
+            try:
+                s3.put_object(
+                    Bucket=args.bucket,
+                    Key=args.key,
+                    Body=json.dumps(current, indent=2),
+                    ContentType="application/json",
+                )
+                log.info("Saved initial baseline to s3://%s/%s", args.bucket, args.key)
+            except Exception as upload_err:
+                log.error("Failed to upload initial baseline: %s", upload_err)
+                sys.exit(1)
+            sys.exit(0)
+        else:
+            log.error("S3 error downloading baseline: %s", e)
+            sys.exit(1)
+    except json.JSONDecodeError as e:
+        log.error("Failed to parse baseline JSON from s3://%s/%s: %s", args.bucket, args.key, e)
+        sys.exit(1)
     except Exception as e:
-        log.warning("No baseline found in S3 (%s) — saving current as initial baseline", e)
-        try:
-            s3 = boto3.client("s3")
-            s3.put_object(
-                Bucket=args.bucket,
-                Key=args.key,
-                Body=json.dumps(current, indent=2),
-                ContentType="application/json",
-            )
-            log.info("Saved initial baseline to s3://%s/%s", args.bucket, args.key)
-        except Exception as upload_err:
-            log.warning("Failed to upload initial baseline: %s", upload_err)
-        sys.exit(0)
+        log.error("Unexpected error downloading baseline: %s", e)
+        sys.exit(1)
 
     # Compare
     log.info("Comparing against baseline (threshold: %.0f%%):", args.threshold)
