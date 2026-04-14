@@ -35,11 +35,11 @@ Results are saved as JSON to Prow artifacts (`${ARTIFACT_DIR}/load-test-results/
 
 Nightly ephemeral tests validate the platform across different EC2 instance families, not just the default `t3.medium/t3a.medium`. Override files in `ci/nightly-overrides/machine-types/` are injected via `--provision-override-file` to swap instance types without changing the config hierarchy.
 
-| Job         | Instance Types  | Schedule              |
-| ----------- | --------------- | --------------------- |
-| nightly-m6i | `m6i.large`     | Mon/Wed/Fri 05:00 UTC |
-| nightly-c6i | `c6i.xlarge`    | Tue/Thu/Sat 05:00 UTC |
-| default     | `t3.medium/t3a` | Daily 04:00 UTC       |
+| Job         | Instance Types         | Schedule              |
+| ----------- | ---------------------- | --------------------- |
+| nightly-m6i | `m6i.large`            | Mon/Wed/Fri 05:00 UTC |
+| nightly-c6i | `c6i.xlarge`           | Tue/Thu/Sat 05:00 UTC |
+| default     | `t3.medium/t3a.medium` | Daily 04:00 UTC       |
 
 Jobs are staggered to avoid ephemeral account contention (only one MC account available per run). Each machine-type job uses the same `rosa-regional-platform-ephemeral-e2e` step-registry workflow.
 

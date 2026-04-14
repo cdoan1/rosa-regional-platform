@@ -34,14 +34,21 @@ export BASE_URL
 # ---------------------------------------------------------------------------
 # AWS credentials for SigV4 signing
 # ---------------------------------------------------------------------------
-if [[ -r "${CREDS_DIR}/regional_access_key" ]]; then
+if [[ -r "${CREDS_DIR}/regional_access_key" ]] && [[ -r "${CREDS_DIR}/regional_secret_key" ]]; then
     export AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/regional_access_key")"
     export AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/regional_secret_key")"
     export AWS_DEFAULT_REGION="${AWS_REGION:-us-east-1}"
     echo "AWS credentials loaded from ${CREDS_DIR}"
 else
-    echo "WARNING: No credentials found at ${CREDS_DIR}/regional_access_key"
+    echo "ERROR: AWS credentials not found or not readable at ${CREDS_DIR}/regional_access_key and ${CREDS_DIR}/regional_secret_key" >&2
+    exit 1
 fi
+
+# ---------------------------------------------------------------------------
+# Enable mutating operations (MC create/delete, ManifestWork post) in CI.
+# Unset this when running against standing environments to avoid resource leaks.
+# ---------------------------------------------------------------------------
+export LOAD_TEST_MUTATE="${LOAD_TEST_MUTATE:-true}"
 
 # ---------------------------------------------------------------------------
 # Output directory for results
@@ -84,7 +91,7 @@ echo "Results saved to: ${RESULTS_DIR}/"
 ls -la "${RESULTS_DIR}/"
 
 # ---------------------------------------------------------------------------
-# Baseline comparison (optional — only if S3 baseline exists)
+# Baseline comparison
 # ---------------------------------------------------------------------------
 if [[ -x "${SCRIPT_DIR}/compare-baseline.py" ]]; then
     echo ""
@@ -93,7 +100,5 @@ if [[ -x "${SCRIPT_DIR}/compare-baseline.py" ]]; then
         --results "${RESULTS_DIR}/platform-api-summary.json" \
         --bucket "${LOAD_TEST_BASELINE_BUCKET:-rosa-ci-artifacts}" \
         --key "load-test-baselines/latest.json" \
-        --threshold "${REGRESSION_THRESHOLD_PCT:-20}" || {
-            echo "WARNING: Baseline comparison failed (non-blocking)"
-        }
+        --threshold "${REGRESSION_THRESHOLD_PCT:-20}"
 fi

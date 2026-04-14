@@ -1,7 +1,6 @@
 import http from "k6/http";
 import { check, sleep } from "k6";
 import { Rate, Trend } from "k6/metrics";
-import { SharedArray } from "k6/data";
 import crypto from "k6/crypto";
 
 // ---------------------------------------------------------------------------
@@ -113,11 +112,16 @@ if (!BASE_URL) {
   throw new Error("BASE_URL environment variable is required");
 }
 
+// Gate mutating operations: only run creates when LOAD_TEST_MUTATE is set
+// (e.g. in ephemeral CI environments). Prevents resource leaks in standing envs.
+const MUTATE = !!__ENV.LOAD_TEST_MUTATE;
+
 const errorRate = new Rate("errors");
 const healthLatency = new Trend("health_latency", true);
 const listLatency = new Trend("list_mc_latency", true);
 const createLatency = new Trend("create_mc_latency", true);
 const workLatency = new Trend("work_post_latency", true);
+const deleteLatency = new Trend("delete_mc_latency", true);
 
 export const options = {
   stages: [
@@ -148,6 +152,12 @@ function signedPost(path, body) {
   return http.post(url, body, { headers: signed });
 }
 
+function signedDelete(path) {
+  const url = `${BASE_URL}${path}`;
+  const headers = signRequest("DELETE", url, "", {});
+  return http.del(url, null, { headers });
+}
+
 export default function () {
   // Health check (lightweight, fast)
   {
@@ -169,8 +179,8 @@ export default function () {
     errorRate.add(!ok);
   }
 
-  // Create management cluster (unique per VU iteration to avoid conflicts)
-  {
+  // Create management cluster (only in ephemeral/CI environments)
+  if (MUTATE) {
     const name = `load-test-mc-${__VU}-${__ITER}`;
     const body = JSON.stringify({
       name: name,
@@ -180,9 +190,19 @@ export default function () {
     createLatency.add(res.timings.duration);
     const ok = check(res, {
       "create MC: status 2xx or conflict": (r) =>
-        r.status >= 200 && r.status < 300 || r.status === 409,
+        (r.status >= 200 && r.status < 300) || r.status === 409,
     });
     errorRate.add(!ok);
+
+    // Cleanup: delete the created MC
+    const delRes = signedDelete(
+      `/prod/api/v0/management_clusters/${name}`,
+    );
+    deleteLatency.add(delRes.timings.duration);
+    check(delRes, {
+      "delete MC: status 2xx or 404": (r) =>
+        (r.status >= 200 && r.status < 300) || r.status === 404,
+    });
   }
 
   // List resource bundles
@@ -194,15 +214,16 @@ export default function () {
     errorRate.add(!ok);
   }
 
-  // Post ManifestWork
-  {
+  // Post ManifestWork (only in ephemeral/CI environments)
+  if (MUTATE) {
     const timestamp = Date.now();
+    const workName = `load-test-work-${__VU}-${__ITER}-${timestamp}`;
     const payload = JSON.stringify({
       cluster_id: "mc01",
       data: {
         apiVersion: "work.open-cluster-management.io/v1",
         kind: "ManifestWork",
-        metadata: { name: `load-test-work-${__VU}-${__ITER}-${timestamp}` },
+        metadata: { name: workName },
         spec: {
           workload: {
             manifests: [
