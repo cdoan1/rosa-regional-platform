@@ -107,6 +107,42 @@ resource "aws_api_gateway_deployment" "main" {
   }
 }
 
+# -----------------------------------------------------------------------------
+# API Gateway Account — CloudWatch logging role (account-level, one per region)
+#
+# API Gateway requires an account-level IAM role before any stage can write
+# access logs to CloudWatch. Without aws_api_gateway_account, access_log_settings
+# on the stage is silently ignored.
+# -----------------------------------------------------------------------------
+
+resource "aws_iam_role" "api_gateway_cloudwatch" {
+  name = "${var.regional_id}-api-gateway-cloudwatch"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "apigateway.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+
+  tags = {
+    Name = "${var.regional_id}-api-gateway-cloudwatch"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "api_gateway_cloudwatch" {
+  role       = aws_iam_role.api_gateway_cloudwatch.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+}
+
+resource "aws_api_gateway_account" "main" {
+  cloudwatch_role_arn = aws_iam_role.api_gateway_cloudwatch.arn
+
+  depends_on = [aws_iam_role_policy_attachment.api_gateway_cloudwatch]
+}
+
 # CloudWatch Log Group for API Gateway access logs (FedRAMP AU-02)
 resource "aws_cloudwatch_log_group" "api_gateway_access" {
   name              = "/aws/api-gateway/${var.regional_id}/${var.stage_name}/access"
@@ -131,19 +167,19 @@ resource "aws_api_gateway_stage" "main" {
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.api_gateway_access.arn
     format = jsonencode({
-      requestId      = "$context.requestId"
-      ip             = "$context.identity.sourceIp"
-      caller         = "$context.identity.caller"
-      user           = "$context.identity.user"
-      userArn        = "$context.identity.userArn"
-      requestTime    = "$context.requestTime"
-      httpMethod     = "$context.httpMethod"
-      resourcePath   = "$context.resourcePath"
-      status         = "$context.status"
-      protocol       = "$context.protocol"
-      responseLength = "$context.responseLength"
-      errorMessage   = "$context.error.message"
-      errorType      = "$context.error.responseType"
+      requestId          = "$context.requestId"
+      ip                 = "$context.identity.sourceIp"
+      caller             = "$context.identity.caller"
+      user               = "$context.identity.user"
+      userArn            = "$context.identity.userArn"
+      requestTime        = "$context.requestTime"
+      httpMethod         = "$context.httpMethod"
+      resourcePath       = "$context.resourcePath"
+      status             = "$context.status"
+      protocol           = "$context.protocol"
+      responseLength     = "$context.responseLength"
+      errorMessage       = "$context.error.message"
+      errorType          = "$context.error.responseType"
       integrationLatency = "$context.integrationLatency"
       responseLatency    = "$context.responseLatency"
     })
@@ -153,5 +189,8 @@ resource "aws_api_gateway_stage" "main" {
     Name = "${var.regional_id}-api-${var.stage_name}"
   }
 
-  depends_on = [aws_cloudwatch_log_group.api_gateway_access]
+  depends_on = [
+    aws_cloudwatch_log_group.api_gateway_access,
+    aws_api_gateway_account.main,
+  ]
 }
