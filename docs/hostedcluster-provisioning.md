@@ -44,7 +44,7 @@ export AWS_PROFILE=rrp-customer-dev
 # Example raw ephemeral API Gateway URL:
 # API_URL=https://ra15lectz3.execute-api.us-east-1.amazonaws.com/prod
 # or use our integration env
-API_URL=https://api.int0.rosa.devshift.net
+API_URL=https://api.us-east-1.int0.rosa.devshift.net
 
 # 2. Set your Cluster Variables
 REGION=us-east-1
