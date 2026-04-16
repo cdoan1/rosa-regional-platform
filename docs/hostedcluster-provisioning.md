@@ -78,7 +78,7 @@ Have an already-privileged user allow your account. Provide your account to the 
 
 ```bash
 ACCOUNT=
-API_URL=https://api.int0.rosa.devshift.net
+API_URL=https://api.us-east-1.int0.rosa.devshift.net
 REGION=us-east-1
 awscurl --service execute-api --region "${REGION}" -X POST "${API_URL}/api/v0/accounts" -H "Content-Type: application/json" -d "{\"accountId\": \"${ACCOUNT}\", \"privileged\": true}"
 ```
