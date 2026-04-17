@@ -127,3 +127,42 @@ variable "regional_hosted_zone_id" {
   type        = string
   default     = null
 }
+
+# =============================================================================
+# Method Settings Variables
+# =============================================================================
+
+variable "metrics_enabled" {
+  description = "Enable detailed CloudWatch metrics for all API methods"
+  type        = bool
+  default     = true
+}
+
+variable "logging_level" {
+  description = "CloudWatch logging level for API methods (OFF, ERROR, INFO)"
+  type        = string
+  default     = "ERROR"
+
+  validation {
+    condition     = contains(["OFF", "ERROR", "INFO"], var.logging_level)
+    error_message = "logging_level must be one of: OFF, ERROR, INFO."
+  }
+}
+
+variable "data_trace_enabled" {
+  description = "Enable full request/response data tracing in CloudWatch logs (avoid in production — logs may contain sensitive data)"
+  type        = bool
+  default     = false
+}
+
+variable "throttling_burst_limit" {
+  description = "Maximum concurrent requests allowed (burst). -1 inherits stage/account default."
+  type        = number
+  default     = 500
+}
+
+variable "throttling_rate_limit" {
+  description = "Steady-state requests per second allowed. -1 inherits stage/account default."
+  type        = number
+  default     = 100
+}

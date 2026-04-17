@@ -102,6 +102,13 @@ module "api_gateway" {
   # Custom domain (e.g. api.us-east-1.int0.rosa.devshift.net)
   api_domain_name         = var.environment_domain != null ? "api.${var.region}.${var.environment_domain}" : null
   regional_hosted_zone_id = var.environment_domain != null ? aws_route53_zone.regional[0].zone_id : null
+
+  # Method-level throttling and observability
+  metrics_enabled        = var.api_metrics_enabled
+  logging_level          = var.api_logging_level
+  data_trace_enabled     = var.api_data_trace_enabled
+  throttling_burst_limit = var.api_throttling_burst_limit
+  throttling_rate_limit  = var.api_throttling_rate_limit
 }
 
 # =============================================================================

@@ -105,6 +105,40 @@ variable "environment_hosted_zone_id" {
   default     = null
 }
 
+# =============================================================================
+# API Gateway Method Settings Variables
+# =============================================================================
+
+variable "api_metrics_enabled" {
+  description = "Enable detailed CloudWatch metrics for all API methods"
+  type        = bool
+  default     = true
+}
+
+variable "api_logging_level" {
+  description = "CloudWatch logging level for API methods (OFF, ERROR, INFO)"
+  type        = string
+  default     = "ERROR"
+}
+
+variable "api_data_trace_enabled" {
+  description = "Enable full request/response data tracing in CloudWatch logs (avoid in production)"
+  type        = bool
+  default     = false
+}
+
+variable "api_throttling_burst_limit" {
+  description = "Maximum concurrent requests allowed (burst) for API Gateway methods"
+  type        = number
+  default     = 500
+}
+
+variable "api_throttling_rate_limit" {
+  description = "Steady-state requests per second allowed for API Gateway methods"
+  type        = number
+  default     = 100
+}
+
 # Maestro Configuration Variables
 # =============================================================================
 

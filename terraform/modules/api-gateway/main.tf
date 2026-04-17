@@ -267,10 +267,10 @@ resource "aws_api_gateway_method_settings" "main" {
   method_path = "*/*"
 
   settings {
-    metrics_enabled        = true
-    logging_level          = "ERROR"
-    data_trace_enabled     = false
-    throttling_burst_limit = 500
-    throttling_rate_limit  = 100
+    metrics_enabled        = var.metrics_enabled
+    logging_level          = var.logging_level
+    data_trace_enabled     = var.data_trace_enabled
+    throttling_burst_limit = var.throttling_burst_limit
+    throttling_rate_limit  = var.throttling_rate_limit
   }
 }
