@@ -40,9 +40,10 @@ hyperfleet-api-chart:
       tag: v0.2.1
       pullPolicy: Always
     replicaCount: 2
-    
+
     database:
-      ssl-mode: require
+      ssl:
+        mode: require
       postgresql:
         enabled: false
       external:
