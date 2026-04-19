@@ -38,7 +38,6 @@ preconditions:
           has(spec.deletionRequested) && spec.deletionRequested != ""
             ? "True"
             : "False"
-        description: "Deletion requested for the cluster, if true, stop processing the cluster"
 
       # expression: "\"mc01\""  # TBC coming from placement adapter
       - name: "placementClusterName"
@@ -49,20 +48,17 @@ preconditions:
 
       - name: "adapterName"
         expression: "\"adapter1\""  # TBC coming from config passed to params
-        description: "Unique identifier for the adapter"
 
       - name: "region"
         expression: |
           has(spec.region) && spec.region != ""
             ? spec.region
             : "us-east-1"
-        description: "Region of the cluster"
       - name: "vpcId"
         expression: |
           has(spec.vpcId) && spec.vpcId != ""
             ? spec.vpcId
             : ""
-        description: "VPC ID of the cluster"
       - name: "subnetId"
         expression: |
           has(spec.privateSubnetIds) && spec.privateSubnetIds != ""
@@ -73,55 +69,46 @@ preconditions:
           has(spec.workerInstanceProfileName) && spec.workerInstanceProfileName != ""
             ? spec.workerInstanceProfileName
             : ""
-        description: "Instance profile of the cluster"
       - name: "securityGroupId"
         expression: |
           has(spec.workerSecurityGroupId) && spec.workerSecurityGroupId != ""
             ? spec.workerSecurityGroupId
             : ""
-        description: "Security group ID of the cluster"
       - name: "controlPlaneOperatorARN"
         expression: |
           has(spec.controlPlaneOperatorRoleArn) && spec.controlPlaneOperatorRoleArn != ""
             ? spec.controlPlaneOperatorRoleArn
             : ""
-        description: "Control plane operator ARN of the cluster"
       - name: "ingressARN"
         expression: |
           has(spec.ingressRoleArn) && spec.ingressRoleArn != ""
             ? spec.ingressRoleArn
             : ""
-        description: "Ingress ARN of the cluster"
       - name: "imageRegistryARN"
         expression: |
           has(spec.imageRegistryRoleArn) && spec.imageRegistryRoleArn != ""
             ? spec.imageRegistryRoleArn
             : ""
-        description: "Image registry ARN of the cluster"
       - name: "kubeCloudControllerARN"
         expression: |
           has(spec.cloudControllerManagerRoleArn) && spec.cloudControllerManagerRoleArn != ""
             ? spec.cloudControllerManagerRoleArn
             : ""
-        description: "Kube cloud controller ARN of the cluster"
       - name: "nodePoolManagementARN"
         expression: |
           has(spec.nodePoolManagementRoleArn) && spec.nodePoolManagementRoleArn != ""
             ? spec.nodePoolManagementRoleArn
             : ""
-        description: "Node pool management ARN of the cluster"
       - name: "networkARN"
         expression: |
           has(spec.networkConfigRoleArn) && spec.networkConfigRoleArn != ""
             ? spec.networkConfigRoleArn
             : ""
-        description: "Network ARN of the cluster"
       - name: "storageARN"
         expression: |
           has(spec.ebscsiRoleArn) && spec.ebscsiRoleArn != ""
             ? spec.ebscsiRoleArn
             : ""
-        description: "Storage ARN of the cluster"
       - name: "cloudUrl"
         expression: "spec.cloudUrl"
 
