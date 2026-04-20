@@ -62,10 +62,17 @@ spec:
               readOnly: true
               volumeAttributes:
                 secretProviderClass: hyperfleet-adapter1-secrets
+          - name: manifestwork
+            configMap:
+              name: {{ .Values.hyperfleetAdapter1Chart.applicationName }}-manifestwork
 
         extraVolumeMounts:
           - name: secrets-store-inline
             mountPath: /mnt/secrets-store
+            readOnly: true
+          - name: manifestwork
+            mountPath: /etc/adapter/manifestwork.yaml
+            subPath: manifestwork.yaml
             readOnly: true
 
         # AdapterConfig loaded from adapter-config.yaml file
