@@ -62,16 +62,10 @@ spec:
               readOnly: true
               volumeAttributes:
                 secretProviderClass: hyperfleet-adapter1-secrets
-          - name: manifestwork
-            configMap:
-              name: {{ .Values.hyperfleetAdapter1Chart.applicationName }}-manifestwork
 
         extraVolumeMounts:
           - name: secrets-store-inline
             mountPath: /mnt/secrets-store
-            readOnly: true
-          - name: manifestwork
-            mountPath: /etc/manifestwork
             readOnly: true
 
         # AdapterConfig loaded from adapter-config.yaml file
@@ -83,9 +77,8 @@ spec:
             {{ .Files.Get "adapter-config.yaml" | nindent 12 }}
 
         adapterTaskConfig:
-          create: true
-          yaml: |
-            {{ .Files.Get "adapter-task-config.yaml" | nindent 12 }}
+          create: false
+          configMapName: {{ .Values.hyperfleetAdapter1Chart.applicationName }}-task
 
   destination:
     server: https://kubernetes.default.svc
