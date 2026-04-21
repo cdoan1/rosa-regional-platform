@@ -1,4 +1,4 @@
-.PHONY: help terraform-fmt terraform-init terraform-validate terraform-upgrade terraform-output-management terraform-output-regional helm-lint check-rendered-files ephemeral-provision ephemeral-teardown ephemeral-resync ephemeral-list ephemeral-shell ephemeral-bastion-rc ephemeral-bastion-mc ephemeral-port-forward-rc ephemeral-port-forward-mc ephemeral-port-forward-rc-all ephemeral-port-forward-mc-all ephemeral-e2e ephemeral-collect-logs int-shell int-bastion-rc int-bastion-mc int-port-forward-rc int-port-forward-mc int-port-forward-rc-all int-port-forward-mc-all int-e2e int-collect-logs check-docs pre-push
+.PHONY: help terraform-fmt terraform-init terraform-validate terraform-upgrade terraform-output-management terraform-output-regional helm-lint check-rendered-files ephemeral-provision ephemeral-teardown ephemeral-resync ephemeral-list ephemeral-shell ephemeral-bastion-rc ephemeral-bastion-mc ephemeral-port-forward-rc ephemeral-port-forward-mc ephemeral-port-forward-rc-all ephemeral-port-forward-mc-all ephemeral-e2e ephemeral-collect-logs ephemeral-pod-logs int-shell int-bastion-rc int-bastion-mc int-port-forward-rc int-port-forward-mc int-port-forward-rc-all int-port-forward-mc-all int-e2e int-collect-logs check-docs pre-push
 
 # Default target — interactive fzf picker, falls back to formatted list
 help: ## Show this help message
@@ -190,6 +190,25 @@ ephemeral-e2e: ## Run e2e tests against an ephemeral env
 
 ephemeral-collect-logs: ## Collect logs from an ephemeral env (CLUSTER=rc|mc)
 	@ID="$(ID)" ./scripts/dev/ephemeral-env.sh collect-logs $(CLUSTER)
+
+ephemeral-pod-logs: ## Get pod logs from an ephemeral env (CLUSTER=rc|mc NAMESPACE=<ns> POD=<pod>)
+	@if [ -z "$(CLUSTER)" ]; then echo "Error: CLUSTER parameter is required (rc or mc)"; exit 1; fi; \
+	if [ -z "$(NAMESPACE)" ]; then echo "Error: NAMESPACE parameter is required"; exit 1; fi; \
+	if [ -z "$(POD)" ]; then echo "Error: POD parameter is required"; exit 1; fi; \
+	cluster_arg=""; \
+	case "$(CLUSTER)" in \
+		rc) cluster_arg="regional" ;; \
+		mc) cluster_arg="management" ;; \
+		regional|management) cluster_arg="$(CLUSTER)" ;; \
+		*) echo "Error: CLUSTER must be 'rc', 'mc', 'regional', or 'management'"; exit 1 ;; \
+	esac; \
+	extra_args=""; \
+	if [ -n "$(OUTPUT)" ]; then extra_args="$$extra_args --output $(OUTPUT)"; fi; \
+	if [ -n "$(CONTAINER)" ]; then extra_args="$$extra_args --container $(CONTAINER)"; fi; \
+	if [ -n "$(TAIL)" ]; then extra_args="$$extra_args --tail $(TAIL)"; fi; \
+	if [ -n "$(SINCE)" ]; then extra_args="$$extra_args --since $(SINCE)"; fi; \
+	if [ "$(PREVIOUS)" = "true" ]; then extra_args="$$extra_args --previous"; fi; \
+	ID="$(ID)" ./scripts/dev/get-pod-logs.sh --cluster-type $$cluster_arg --namespace $(NAMESPACE) --pod $(POD) $$extra_args
 
 # =============================================================================
 # Integration Environment
