@@ -15,11 +15,17 @@ This role should not prevent the IC from working on their project tasks. If the 
 The IC is responsible for the following tasks:
 
 - Ensure that the CI jobs are running correctly, in particular:
-  - [Nightly Ephemeral](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-ephemeral)
-  - [Nightly Integration](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-integration)
-  - [On-demand E2E](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-on-demand-e2e). Note that only consistent failures are the IC's responsibility, as opposed to one-off failures caused by the PR under test.
-- Review open PRs and close any that have gone stale.
-- Work on items in [ROSAENG-140 - Technical Debt and Continuous Improvement of RRP](https://redhat.atlassian.net/browse/ROSAENG-140). This Epic should only contain urgent tasks.
+  - [Nightly Ephemeral](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-ephemeral).
+  - [Nightly Integration](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-integration).
+  - [On-demand E2E](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-on-demand-e2e).
+    - Note that only consistent failures are the IC's responsibility, as opposed to one-off failures caused by the PRs being tested.
+- Monitor the PR queue:
+  - Ensure all [PRs labeled `review-ready`](https://github.com/openshift-online/rosa-regional-platform/issues?q=state%3Aopen%20label%3Areview-ready) have active reviewers.
+  - Close any PRs that have [gone stale](https://github.com/openshift-online/rosa-regional-platform/pulls?q=is%3Apr+is%3Aopen+sort%3Acreated-asc).
+  - Review all [`rrp-bot` PRs](https://github.com/openshift-online/rosa-regional-platform/issues?q=is%3Apr+is%3Aopen+author%3Arrp-bot).
+- Work on items in [ROSAENG-140 - Technical Debt and Continuous Improvement of RRP](https://redhat.atlassian.net/browse/ROSAENG-140).
+  - This Epic should only contain urgent tasks to be addressed during the ongoing week.
+  - Items on this epic should always be down to zero.
 
 ## Rotation
 
