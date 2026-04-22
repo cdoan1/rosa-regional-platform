@@ -124,7 +124,7 @@ class EphemeralEnvOrchestrator:
                 for pipelines to complete. Phase 2 (delete_pipeline flags) and
                 Phase 3 (pipeline-provisioner destruction) are intentionally
                 skipped — teardown is expected to be driven to completion by
-                external means (a periodic janitor job).
+                the in-account aws-nuke-cf janitor.
         """
         # Check out the CI branch first to discover region from its config
         git = GitManager(self.creds_dir, self.repo, self.branch,

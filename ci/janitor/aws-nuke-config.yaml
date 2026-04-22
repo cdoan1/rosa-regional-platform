@@ -30,18 +30,6 @@ resource-types:
 blocklist:
   - prod
 
-bypass-alias-check-accounts:
-# Ephemeral CI accounts
-  - "662212752128" # Central
-  - "720644165472" # Regional
-  - "129678139271" # Management
-  - "313828097858" # HCP (customer)
-# Ephemeral Shared Dev accounts
-  - "791666871613" # Central
-  - "599476212575" # Regional
-  - "855246887846" # Management
-  - "114594328247" # HCP (customer)
-
 presets:
   globals:
     filters:
