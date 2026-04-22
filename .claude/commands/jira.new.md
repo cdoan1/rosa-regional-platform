@@ -22,7 +22,7 @@ Extract the following from `$ARGUMENTS`:
 
 - **Summary** (required): The title/summary of the issue
 - **Description** (optional): Detailed description of the work
-- **Issue Type** (optional): Defaults to `Story`, but can be `Bug` or `Epic`
+- **Issue Type** (optional): Defaults to `Story`, but can be `Bug`, `Task`, or `Epic`
 
 If the user provides a simple sentence, use it as the summary. If they provide multiple lines, use the first line as summary and the rest as description.
 
@@ -126,9 +126,9 @@ Use the JIRA MCP tools to create the issue with:
 
 - **Project**: ROSAENG
 - **Summary**: [user provided summary]
-- **Issue Type**: [Story/Bug/Epic]
+- **Issue Type**: [Story/Bug/Task/Epic]
 - **Description**: [structured description from template]
-- **Component**: ROSA Regionality Platform
+- **Component**: ROSA Regionality Platform (**always required, never omit**)
 
 Then link it to the parent epic if applicable.
 
