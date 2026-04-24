@@ -51,10 +51,30 @@
         font-size: 0.875rem;
         margin-top: 0.25rem;
       }
+      .header-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-top: 0.5rem;
+      }
       .updated {
         color: var(--text-secondary);
         font-size: 0.75rem;
-        margin-top: 0.5rem;
+      }
+      .refresh-btn {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .refresh-btn:hover {
+        color: var(--text);
+        text-decoration: none;
       }
       .label-section {
         margin-bottom: 2.5rem;
@@ -168,7 +188,10 @@
     <header>
       <h1>Review Dashboard</h1>
       <div class="subtitle">ROSA Regional Platform</div>
-      <div class="updated" id="updated"></div>
+      <div class="header-row">
+        <span class="updated" id="updated"></span>
+        <a class="refresh-btn" href="https://github.com/openshift-online/rosa-regional-platform/actions/workflows/review-dashboard.yml" target="_blank" rel="noopener">Refresh</a>
+      </div>
     </header>
     <main>
       <section class="label-section">
@@ -176,8 +199,8 @@
         <div id="review-ready"><span class="empty">Loading...</span></div>
       </section>
       <section class="label-section">
-        <h2>Discussion Needed <span class="count" id="hw-count">-</span></h2>
-        <div id="help-wanted"><span class="empty">Loading...</span></div>
+        <h2>Discussion Needed <span class="count" id="dn-count">-</span></h2>
+        <div id="discussion-needed"><span class="empty">Loading...</span></div>
       </section>
     </main>
     <script>
@@ -202,7 +225,7 @@
             '<div class="error">Failed to load dashboard data: ' +
             esc(err.message) +
             "</div>";
-          document.getElementById("help-wanted").innerHTML = "";
+          document.getElementById("discussion-needed").innerHTML = "";
         });
 
       function render(data) {
@@ -210,10 +233,10 @@
           "Last updated " + timeAgo(data.updated);
         document.getElementById("rr-count").textContent =
           data.review_ready.length;
-        document.getElementById("hw-count").textContent =
-          data.help_wanted.length;
+        document.getElementById("dn-count").textContent =
+          data.discussion_needed.length;
         renderSection("review-ready", data.review_ready);
-        renderSection("help-wanted", data.help_wanted);
+        renderSection("discussion-needed", data.discussion_needed);
       }
 
       function renderSection(containerId, prs) {
@@ -271,6 +294,7 @@
           { key: "number", label: "#" },
           { key: "title", label: "PR" },
           { key: "author", label: "Author" },
+          { key: "reviewers", label: "Reviewers" },
           { key: "labels", label: "Labels" },
           { key: "createdAt", label: "Created" },
           { key: "updatedAt", label: "Updated" },
@@ -279,7 +303,7 @@
         var thead = "<thead><tr>";
         for (var c = 0; c < cols.length; c++) {
           var col = cols[c];
-          var sortable = col.key !== "labels";
+          var sortable = col.key !== "labels" && col.key !== "reviewers";
           var isSorted = state.col === col.key;
           var arrow = "";
           if (sortable) {
@@ -318,6 +342,13 @@
             })
             .join("");
 
+          var reviewers = (pr.reviewRequests || [])
+            .map(function (r) {
+              return esc(r.login || r.name || r.slug || "");
+            })
+            .filter(function (s) { return s; })
+            .join(", ");
+
           tbody +=
             "<tr>" +
             "<td>" +
@@ -334,6 +365,9 @@
             "</a></td>" +
             "<td>" +
             esc(pr.author.login) +
+            "</td>" +
+            "<td>" +
+            (reviewers || '<span class="empty-cell">-</span>') +
             "</td>" +
             '<td class="labels">' +
             labels +

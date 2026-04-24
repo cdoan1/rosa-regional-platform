@@ -2,6 +2,8 @@
 # Fetches open PRs labelled "review-ready" or "discussion-needed" across all
 # ROSA Regional Platform repos and writes dashboard/data.json.
 #
+# Uses `gh pr list` (not `gh search prs`) so we can include reviewRequests.
+#
 # Requires: gh (authenticated), jq
 # Usage:    ./dashboard/fetch-data.sh
 set -euo pipefail
@@ -16,28 +18,41 @@ REPOS=(
   openshift-online/rosa-regional-platform-internal
 )
 
-REPO_FLAGS=""
-for r in "${REPOS[@]}"; do
-  REPO_FLAGS="$REPO_FLAGS --repo $r"
-done
+JSON_FIELDS="number,title,author,labels,reviewRequests,createdAt,updatedAt,url"
 
-JSON_FIELDS="repository,number,title,author,labels,createdAt,updatedAt,url"
+fetch_label() {
+  local label="$1"
+  local tmp
+  tmp=$(mktemp)
+  echo '[]' > "$tmp"
+
+  for repo in "${REPOS[@]}"; do
+    local result
+    result=$(gh pr list --repo "$repo" --label "$label" --state open \
+      --limit 100 --json "$JSON_FIELDS" 2>/dev/null) || result='[]'
+
+    # Inject repository.name into each PR (gh pr list doesn't include it)
+    local repo_name="${repo#*/}"
+    result=$(echo "$result" | jq --arg name "$repo_name" '[.[] | . + {repository: {name: $name}}]')
+
+    jq -s '.[0] + .[1]' "$tmp" <(echo "$result") > "${tmp}.new" && mv "${tmp}.new" "$tmp"
+  done
+
+  cat "$tmp"
+  rm -f "$tmp"
+}
 
 echo "Fetching review-ready PRs..."
-gh search prs --state open --label review-ready \
-  $REPO_FLAGS --limit 100 --json "$JSON_FIELDS" \
-  > /tmp/rr.json 2>/dev/null || echo '[]' > /tmp/rr.json
+fetch_label "review-ready" > /tmp/rr.json
 
-echo "Fetching help-wanted PRs..."
-gh search prs --state open --label "discussion-needed" \
-  $REPO_FLAGS --limit 100 --json "$JSON_FIELDS" \
-  > /tmp/hw.json 2>/dev/null || echo '[]' > /tmp/hw.json
+echo "Fetching discussion-needed PRs..."
+fetch_label "discussion-needed" > /tmp/dn.json
 
 jq -n \
   --arg updated "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --slurpfile rr /tmp/rr.json \
-  --slurpfile hw /tmp/hw.json \
-  '{updated: $updated, review_ready: $rr[0], help_wanted: $hw[0]}' \
+  --slurpfile dn /tmp/dn.json \
+  '{updated: $updated, review_ready: $rr[0], discussion_needed: $dn[0]}' \
   > "$OUT"
 
-echo "Wrote $OUT ($(jq '.review_ready | length' "$OUT") review-ready, $(jq '.help_wanted | length' "$OUT") help-wanted)"
+echo "Wrote $OUT ($(jq '.review_ready | length' "$OUT") review-ready, $(jq '.discussion_needed | length' "$OUT") discussion-needed)"
