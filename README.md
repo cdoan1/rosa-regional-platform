@@ -2,6 +2,12 @@
 
 For the full architecture overview, see [docs/README.md](docs/README.md).
 
+## PR Dashboard
+
+A [PR dashboard](https://openshift-online.github.io/rosa-regional-platform/pr-dashboard) shows open PRs across all platform repositories, grouped by label (`review-ready`, `discussion-needed`) and source (bot PRs). An **IC Tasks** panel at the top surfaces actionable items at a glance: review-ready PRs missing assigned reviewers, and bot PRs awaiting `/ok-to-test`. It refreshes automatically every 10 minutes via GitHub Actions.
+
+To preview locally: `./dashboard/fetch-data.sh && python3 -m http.server -d dashboard 8080`
+
 ## Repository Structure
 
 ```
