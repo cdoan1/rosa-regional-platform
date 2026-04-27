@@ -2,6 +2,12 @@
 
 For the full architecture overview, see [docs/README.md](docs/README.md).
 
+## PR Dashboard
+
+A [PR dashboard](https://openshift-online.github.io/rosa-regional-platform/pr-dashboard) shows open PRs labelled `review-ready` or `discussion-needed` across all platform repositories. It refreshes automatically every 10 minutes via GitHub Actions.
+
+To preview locally: `./dashboard/fetch-data.sh && python3 -m http.server -d dashboard 8080`
+
 ## Repository Structure
 
 ```
@@ -12,7 +18,7 @@ rosa-regional-platform/
 │       ├── management-cluster/       # Management cluster application templates
 │       ├── regional-cluster/         # Regional cluster application templates
 │       └── shared/                   # Shared configurations (ArgoCD, etc.)
-├── ci/                               # CI automation (e2e tests, janitor)
+├── ci/                               # CI automation (e2e tests)
 ├── deploy/                           # Per-environment deployment configs
 ├── docs/                             # Design documents and presentations
 ├── hack/                             # Developer utility scripts
