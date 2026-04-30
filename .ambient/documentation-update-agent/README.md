@@ -56,6 +56,15 @@ If documentation updates are needed:
 
 All branches and PRs go through your own fork, opened against `openshift-online/rosa-regional-platform`.
 
+**Before creating any branch**, sync your fork's main with upstream to avoid opening PRs hundreds of commits behind:
+
+```bash
+gh repo sync ${GH_USER}/rosa-regional-platform --source openshift-online/rosa-regional-platform
+git fetch fork
+git checkout main
+git reset --hard fork/main
+```
+
 ```bash
 git checkout -b docs/update-<area>-<date> main
 # ... make documentation updates ...

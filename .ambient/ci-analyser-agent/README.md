@@ -48,6 +48,15 @@ GH_USER=$(gh api user --jq .login)
 
 All branches and PRs go through your own fork, opened against `openshift-online/rosa-regional-platform`.
 
+**Before creating any branch**, sync your fork's main with upstream to avoid opening PRs hundreds of commits behind:
+
+```bash
+gh repo sync ${GH_USER}/rosa-regional-platform --source openshift-online/rosa-regional-platform
+git fetch fork
+git checkout main
+git reset --hard fork/main
+```
+
 ### New PR (no existing PR for this job):
 
 ```bash
