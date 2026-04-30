@@ -105,6 +105,12 @@ variable "enable_api_custom_domain" {
   default     = false
 }
 
+variable "enable_sns_alerting" {
+  description = "Enable SNS alerting for alert fan-out"
+  type        = bool
+  default     = false
+}
+
 # =============================================================================
 # Platform API Variables
 # =============================================================================
