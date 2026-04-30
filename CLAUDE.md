@@ -82,6 +82,10 @@ argocd/
 │   └── shared/              # Shared configurations
 └── README.md
 
+.ambient/
+├── ci-analyser-agent/        # Nightly CI failure diagnosis & fix PRs (rrp-bot)
+└── documentation-update-agent/ # Daily doc staleness detection & update PRs (rrp-bot)
+
 docs/
 ├── README.md                 # Architecture overview
 ├── FAQ.md                   # Architecture decisions Q&A
