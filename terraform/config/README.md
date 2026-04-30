@@ -24,7 +24,7 @@ Three-stage CodePipeline (validate → deploy → bootstrap) for provisioning a 
 
 ### `regional-cluster/`
 
-Provisions the full regional cluster stack: EKS, VPC, API Gateway, Maestro IoT broker, RDS, authorization (DynamoDB + Pod Identity), ECS bootstrap, CloudTrail (multi-region audit logging), and optional bastion.
+Provisions the full regional cluster stack: EKS, VPC, API Gateway, Maestro IoT broker, RDS, authorization (DynamoDB + Pod Identity), ECS bootstrap, optional CloudTrail audit logging (disabled by default; enable with `enable_cloudtrail` for compliance environments), and optional bastion.
 
 ### `management-cluster/`
 
