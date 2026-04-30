@@ -202,6 +202,28 @@ The feasibility study is successful if it produces:
 5. **Decision Support**: Sufficient information for leadership to make informed investment decisions
 6. **Ongoing Maintenance Requirements**: Documentation of work needed to maintain adopted infrastructure under Regional Platform management going forward (operational overhead, tooling requirements, team capacity needs)
 
+## Documentation Standards
+
+**All adoption-related documents must be concise:**
+
+- Use tables for structured information (steps, comparisons, metrics)
+- Limit prose to executive summaries and critical context
+- Prioritize scannable formats (bullets, tables, checklists)
+- Keep total page count reasonable (prefer 20 pages over 50)
+- Front-load key findings and recommendations
+- Move detailed procedures to appendices or separate guides
+
+**Rationale**: Adoption feasibility requires quick decision-making. Dense, verbose documentation slows down review cycles and obscures critical information. Concise, table-driven formats enable stakeholders to rapidly assess viability and make informed decisions.
+
+**Adoption Document Set**:
+- `hcp-mc-adoption-feasibility-spec.md` - This specification (study plan)
+- `hcp-mc-adoption-research-findings.md` - Technical analysis and architecture comparison
+- `hcp-mc-adoption-scenarios.md` - Detailed adoption scenarios with trade-offs
+- `hcp-mc-adoption-steps.md` - Implementation steps summary (table format)
+- Final deliverable (TBD) - Executive summary with go/no-go recommendation
+
+---
+
 ## Deliverable Structure
 
 The final summary document should contain:
