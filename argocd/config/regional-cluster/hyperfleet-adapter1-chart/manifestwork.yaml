@@ -173,38 +173,38 @@ spec:
                 type: Route
           infrastructureAvailabilityPolicy: SingleReplica
           controllerAvailabilityPolicy: SingleReplica
-      # - apiVersion: hypershift.openshift.io/v1beta1
-      #   kind: NodePool
-      #   metadata:
-      #     name: "{{ .clusterName }}-workers"
-      #     namespace: "clusters-{{ .clusterId }}"
-      #     labels:
-      #       hyperfleet.io/cluster-id: "{{ .clusterId }}"
-      #     annotations:
-      #       hyperfleet.io/generation: "{{ .generation }}"
-      #   spec:
-      #     clusterName: "{{ .clusterName }}"
-      #     replicas: 2
-      #     management:
-      #       autoRepair: true
-      #       upgradeType: Replace
-      #     release:
-      #       image: quay.io/openshift-release-dev/ocp-release:4.21.1-multi
-      #     platform:
-      #       type: AWS
-      #       aws:
-      #         instanceType: m6a.xlarge
-      #         rootVolume:
-      #           size: 120
-      #           type: gp3
-      #         subnet:
-      #           id: "{{ .subnetId }}"
-      #         instanceProfile: "{{ .instanceProfile }}"
-      #         securityGroups:
-      #           - id: "{{ .securityGroupId }}"
-      #         resourceTags:
-      #           - key: red-hat-managed
-      #             value: "true"
+      - apiVersion: hypershift.openshift.io/v1beta1
+        kind: NodePool
+        metadata:
+          name: "{{ .clusterName }}-workers"
+          namespace: "clusters-{{ .clusterId }}"
+          labels:
+            hyperfleet.io/cluster-id: "{{ .clusterId }}"
+          annotations:
+            hyperfleet.io/generation: "{{ .generation }}"
+        spec:
+          clusterName: "{{ .clusterName }}"
+          replicas: 2
+          management:
+            autoRepair: true
+            upgradeType: Replace
+          release:
+            image: quay.io/openshift-release-dev/ocp-release:4.21.1-multi
+          platform:
+            type: AWS
+            aws:
+              instanceType: m6a.xlarge
+              rootVolume:
+                size: 120
+                type: gp3
+              subnet:
+                id: "{{ .subnetId }}"
+              instanceProfile: "{{ .instanceProfile }}"
+              securityGroups:
+                - id: "{{ .securityGroupId }}"
+              resourceTags:
+                - key: red-hat-managed
+                  value: "true"
       - apiVersion: v1
         kind: Secret
         metadata:
