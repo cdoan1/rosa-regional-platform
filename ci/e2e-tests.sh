@@ -41,8 +41,8 @@ else
 fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-E2E_REF="${E2E_REF:-main}"
-E2E_REPO="${E2E_REPO:-https://github.com/openshift-online/rosa-regional-platform-api.git}"
+E2E_REF="${E2E_REF:-cdoan/ROSAENG-206-increase-poll-duration}"
+E2E_REPO="${E2E_REPO:-https://github.com/cdoan1/rosa-regional-platform-api.git}"
 CLI_REF="${CLI_REF:-main}"
 CLI_REPO="${CLI_REPO:-https://github.com/openshift-online/rosa-regional-platform-cli.git}"
 WORK_DIR="$(mktemp -d)"
@@ -89,11 +89,15 @@ elif [[ -r "${CREDS_DIR}/customer_access_key" ]]; then
 
     CLI_WORK_DIR="$(mktemp -d)"
     # Do not replace the outer EXIT trap (WORK_DIR cleanup); append CLI temp cleanup.
-    trap 'rm -rf "${CLI_WORK_DIR}"; rm -rf "${WORK_DIR}"' EXIT 
+    trap 'rm -rf "${CLI_WORK_DIR}"; rm -rf "${WORK_DIR}"' EXIT
     cd "${CLI_WORK_DIR}"
     git clone --depth 1 --branch "${CLI_REF}" \
       "${CLI_REPO}" "${CLI_WORK_DIR}/cli"
     cd "${CLI_WORK_DIR}/cli"
+
+    # Allow Go to auto-download the required toolchain version if needed
+    # needed because go version differs between the api and cli repos
+    export GOTOOLCHAIN=auto
     make build
     chmod 755 ./bin/rosactl
 
