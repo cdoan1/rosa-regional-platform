@@ -104,8 +104,12 @@ docs/
 #### For Infrastructure Changes
 
 1. Update Terraform modules in `terraform/modules/`
-2. Use `make terraform-fmt` and lint jobs for sanitization
-3. For testing: use `make ephemeral-provision` for ephemeral dev environments, or run `terraform init && terraform apply` directly in the relevant `terraform/config/` directory
+2. Run `make pre-push` before committing or pushing — this is the all-in-one command that runs
+   `terraform-fmt`, `check-docs`, `check-rendered-files`, `helm-lint`, and `terraform-validate`,
+   matching the full CI suite. Individual targets (e.g. `make terraform-fmt`) can still be used
+   for targeted runs.
+3. For testing: use `make ephemeral-provision` for ephemeral dev environments, or run
+   `terraform init && terraform apply` directly in the relevant `terraform/config/` directory
 4. Ensure architect agent reviews any architectural changes
 
 #### For Application Changes
@@ -113,6 +117,8 @@ docs/
 1. Update ArgoCD configurations in `argocd/`
 2. Follow GitOps patterns - ArgoCD will sync changes
 3. Test in development region first
+4. Run `make pre-push` before pushing — `check-docs` (prettier markdown) and other non-Terraform
+   checks apply to all change types
 
 #### For New Regions
 
@@ -120,6 +126,7 @@ docs/
 2. Bootstrap the central pipeline (see `docs/environment-provisioning.md`)
 3. ArgoCD bootstrap handles core service deployment
 4. Management Clusters auto-provision as needed
+5. Run `make pre-push` before pushing to validate all rendered files and documentation
 
 ### Security Guidelines
 
@@ -138,8 +145,12 @@ docs/
 
 ### Testing and Validation
 
+- **Pre-push (required)**: Run `make pre-push` before committing or pushing. This single command
+  runs the full CI validation suite — `terraform-fmt`, `check-docs` (prettier markdown),
+  `check-rendered-files`, `helm-lint`, and `terraform-validate` — matching exactly what CI will
+  enforce. Skipping this step is how formatting and lint failures reach CI (e.g. PR #364).
 - **Terraform Validation**: Always run `terraform validate` and `terraform plan`
-- **Format Check**: Use `make terraform-fmt` before committing
+- **Format Check**: `make terraform-fmt` (also run automatically by `make pre-push`)
 - **ArgoCD Health**: Verify applications sync successfully
 - **Security Review**: Use architect agent for security-sensitive changes
 
