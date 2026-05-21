@@ -9,39 +9,6 @@ metadata:
     operator.thanos.io/prometheus-rule: "true"
 spec:
   groups:
-    - name: hcp-availability-recording
-      interval: 1m
-      rules:
-        # 1 when the HostedCluster Available condition is True, 0 otherwise.
-        # max handles deduplication across Prometheus HA replicas.
-        - record: hcp:hostedcluster_available
-          expr: |
-            max by (namespace, name, cluster) (
-              kube_customresource_hostedcluster_status_condition{
-                type="KubeAPIServerAvailable",
-                status="True",
-                cluster_type="management-cluster"
-              }
-            )
-
-        # Clusters that have never been available.
-        # Stops being emitted once HasBeenAvailable annotation is set.
-        # label_replace maps exported_namespace → namespace for join.
-        - record: hcp:lifecycle_installing
-          expr: |
-            label_replace(
-              hypershift_cluster_waiting_initial_availability_duration_seconds{cluster_type="management-cluster"},
-              "namespace", "$1", "exported_namespace", "(.*)"
-            )
-
-        # Clusters actively being deleted.
-        - record: hcp:lifecycle_deleting
-          expr: |
-            label_replace(
-              hypershift_cluster_deleting_duration_seconds{cluster_type="management-cluster"},
-              "namespace", "$1", "exported_namespace", "(.*)"
-            )
-
     - name: hcp-availability-alerts
       rules:
         # Fast burn: detects severe outages within ~6 minutes.
@@ -58,6 +25,8 @@ spec:
           for: 1m
           labels:
             severity: critical
+            long_window: 5m
+            short_window: 2m
           annotations:
             summary: HCP availability error budget burning fast
             description: >-
@@ -65,22 +34,6 @@ spec:
               {{ "{{" }} $labels.namespace {{ "}}" }} on cluster
               {{ "{{" }} $labels.cluster {{ "}}" }} is consuming its 30-day
               availability error budget at 14.4x the sustainable rate.
-
-        # Cluster has never become available and has exceeded the grace period.
-        # Warning severity — triggers automated remediation, not a human page.
-        - alert: HCPInstallTimeout15m
-          expr: |
-            hcp:lifecycle_installing > 900
-          for: 1m
-          labels:
-            severity: warning
-          annotations:
-            summary: HCP install has not become available within 15 minutes
-            description: >-
-              HostedCluster {{ "{{" }} $labels.name {{ "}}" }} in namespace
-              {{ "{{" }} $labels.namespace {{ "}}" }} on cluster
-              {{ "{{" }} $labels.cluster {{ "}}" }} has never become available
-              and has been waiting for over 15 minutes.
 
         # Slow burn: detects partial degradation within ~32 minutes.
         # Long window (30m) detects the problem; short window (5m)
@@ -96,6 +49,8 @@ spec:
           for: 2m
           labels:
             severity: critical
+            long_window: 30m
+            short_window: 5m
           annotations:
             summary: HCP availability error budget burning steadily
             description: >-

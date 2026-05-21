@@ -16,7 +16,7 @@ echo "=== Rendering alerting-rules chart ==="
 helm template alerting-rules "${CHART_DIR}" > "${WORK_DIR}/rendered.yaml"
 
 echo "=== Extracting PrometheusRule specs ==="
-yq eval-all 'select(.kind == "PrometheusRule") | .spec' "${WORK_DIR}/rendered.yaml" > "${RULES_FILE}"
+yq eval-all '[select(.kind == "PrometheusRule") | .spec.groups[]] | {"groups": .}' "${WORK_DIR}/rendered.yaml" > "${RULES_FILE}"
 trap 'rm -f "${RULES_FILE}"; rm -rf "${WORK_DIR}"' EXIT
 
 echo "=== Checking rules syntax ==="
