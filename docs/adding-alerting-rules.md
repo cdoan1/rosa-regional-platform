@@ -83,51 +83,7 @@ sla:
 
 ## Error Budget Burn Rate Pattern
 
-For SLA-based alerts, use multi-window, multi-burn-rate alerting instead of a simple threshold on a long average. A threshold on a 30-day average only fires after the budget is already gone. Burn rate alerts catch the problem while budget remains.
-
-### How It Works
-
-1. Define a recording rule that produces `1` when the SLA condition is met, `0` otherwise.
-2. Create alerts at two burn rates, each with a long window (detects the problem) and a short window (confirms it's still happening):
-
-| Alert | Burn rate | Long window | Short window | `for` | Detection time |
-| ----- | --------- | ----------- | ------------ | ----- | -------------- |
-| Fast  | 14.4x     | 5m          | 2m           | 1m    | ~6 minutes     |
-| Slow  | 6x        | 30m         | 5m           | 2m    | ~32 minutes    |
-
-Windows are kept short because a 99.95% SLA has only ~21.6 minutes of error budget over 30 days. Longer windows (e.g., 1h) would alert after the budget is already exhausted.
-
-### Worked Example (99.95% SLA)
-
-Error budget = `1 - 0.9995 = 0.0005` (0.05%).
-
-Fast burn threshold: `14.4 * 0.0005 = 0.0072`. If the error rate over 5 minutes exceeds 0.72%, the budget is being consumed at 14.4x the sustainable rate.
-
-```yaml
-- record: my:service_available
-  expr: |
-    max by (namespace, name) (
-      some_availability_metric{status="True"}
-    )
-
-- alert: MyServiceFastBurn
-  expr: |
-    (1 - avg_over_time(my:service_available[5m])) > (14.4 * (1 - {{ .Values.sla.target }}))
-    and
-    (1 - avg_over_time(my:service_available[2m])) > (14.4 * (1 - {{ .Values.sla.target }}))
-  for: 1m
-  labels:
-    severity: critical
-
-- alert: MyServiceSlowBurn
-  expr: |
-    (1 - avg_over_time(my:service_available[30m])) > (6 * (1 - {{ .Values.sla.target }}))
-    and
-    (1 - avg_over_time(my:service_available[5m])) > (6 * (1 - {{ .Values.sla.target }}))
-  for: 2m
-  labels:
-    severity: critical
-```
+For SLA-based alerts, use multi-window, multi-burn-rate alerting as described in the [Google SRE Workbook — Alerting on SLOs](https://sre.google/workbook/alerting-on-slos/). See `templates/hcp-sla.yaml` for a working example with the HCP availability SLA.
 
 ## Testing with promtool
 
