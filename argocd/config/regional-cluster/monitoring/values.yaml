@@ -20,13 +20,15 @@ kube-prometheus-stack:
         # so alerts flow through every matching receiver (SNS, PagerDuty, etc.).
         receiver: "null"
         routes:
-          - receiver: sns-alert-bridge
+          - receiver: sns-alerts
             continue: true
       receivers:
         - name: "null"
-        - name: sns-alert-bridge
-          webhook_configs:
-            - url: http://alert-bridge.monitoring.svc.cluster.local:8080/alerts
+        - name: sns-alerts
+          sns_configs:
+            - topic_arn: 'arn:aws:sns:{{ .Values.global.aws_region }}:{{ .Values.global.aws_account_id }}:{{ .Values.global.cluster_name }}-alerts'
+              sigv4:
+                region: '{{ .Values.global.aws_region }}'
               send_resolved: true
     alertmanagerSpec:
       replicas: 2

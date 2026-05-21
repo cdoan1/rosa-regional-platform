@@ -2,8 +2,8 @@
 # SNS Alerting Module — Phase 2 Alert Fan-Out
 #
 # Creates an encrypted SNS topic for alert distribution, an SSM parameter
-# storing the topic ARN for cluster consumption, and an IAM role for the
-# webhook bridge service to publish alerts via EKS Pod Identity.
+# storing the topic ARN for reference, and an IAM role for Alertmanager
+# to publish alerts via EKS Pod Identity using the native sns_configs receiver.
 # =============================================================================
 
 data "aws_caller_identity" "current" {}
@@ -80,7 +80,7 @@ resource "aws_sns_topic" "alerts" {
 }
 
 # =============================================================================
-# SSM Parameter — Topic ARN for cluster consumption
+# SSM Parameter — Topic ARN for reference
 # =============================================================================
 
 resource "aws_ssm_parameter" "sns_topic_arn" {
@@ -97,15 +97,15 @@ resource "aws_ssm_parameter" "sns_topic_arn" {
 }
 
 # =============================================================================
-# IAM Role for Webhook Bridge
+# IAM Role for Alertmanager
 #
-# Grants the webhook bridge service permission to publish alerts to the SNS
-# topic and read configuration from SSM Parameter Store.
+# Grants Alertmanager permission to publish alerts to the SNS topic via its
+# native sns_configs receiver with SigV4 authentication.
 # =============================================================================
 
-resource "aws_iam_role" "webhook_bridge" {
-  name        = "${var.regional_id}-alert-sns-bridge"
-  description = "IAM role for alert webhook bridge with SNS publish permission"
+resource "aws_iam_role" "alertmanager" {
+  name        = "${var.regional_id}-alertmanager-sns"
+  description = "IAM role for Alertmanager SNS publish permission"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -122,15 +122,15 @@ resource "aws_iam_role" "webhook_bridge" {
   })
 
   tags = {
-    Name      = "${var.regional_id}-alert-sns-bridge-role"
+    Name      = "${var.regional_id}-alertmanager-sns-role"
     Module    = "sns-alerting"
     ManagedBy = "terraform"
   }
 }
 
-resource "aws_iam_role_policy" "webhook_bridge_sns" {
-  name = "${var.regional_id}-alert-sns-bridge-sns-policy"
-  role = aws_iam_role.webhook_bridge.id
+resource "aws_iam_role_policy" "alertmanager_sns" {
+  name = "${var.regional_id}-alertmanager-sns-policy"
+  role = aws_iam_role.alertmanager.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -158,34 +158,14 @@ resource "aws_iam_role_policy" "webhook_bridge_sns" {
   })
 }
 
-resource "aws_iam_role_policy" "webhook_bridge_ssm" {
-  name = "${var.regional_id}-alert-sns-bridge-ssm-policy"
-  role = aws_iam_role.webhook_bridge.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "ssm:GetParameter"
-        ]
-        Resource = [
-          aws_ssm_parameter.sns_topic_arn.arn
-        ]
-      }
-    ]
-  })
-}
-
-resource "aws_eks_pod_identity_association" "webhook_bridge" {
+resource "aws_eks_pod_identity_association" "alertmanager" {
   cluster_name    = var.eks_cluster_name
-  namespace       = var.webhook_bridge_namespace
-  service_account = var.webhook_bridge_service_account
-  role_arn        = aws_iam_role.webhook_bridge.arn
+  namespace       = var.alertmanager_namespace
+  service_account = var.alertmanager_service_account
+  role_arn        = aws_iam_role.alertmanager.arn
 
   tags = {
-    Name      = "${var.regional_id}-alert-sns-bridge-pod-identity"
+    Name      = "${var.regional_id}-alertmanager-sns-pod-identity"
     Module    = "sns-alerting"
     ManagedBy = "terraform"
   }

@@ -5,7 +5,7 @@
 This document describes the alerting architecture for the ROSA Regional Platform. The system routes Prometheus alerts from AlertManager to multiple receivers with selective, label-based filtering. The design is split into two phases:
 
 - **Phase 1**: Native AlertManager routing with `continue`-based fan-out
-- **Phase 2**: SNS/SQS fan-out for decoupled, durable alert distribution
+- **Phase 2**: SNS fan-out for decoupled, durable alert distribution using AlertManager's native SNS receiver
 
 ## Phase 1: Native AlertManager Routing
 
@@ -84,20 +84,19 @@ An alert with `severity=warning, team=storage` would skip PagerDuty and skip the
 - **Blast radius**: A misconfigured route change can break routing for all alerts.
 - **Scale**: Works well for a handful of receivers. Beyond ~10 receivers with complex routing logic, the config becomes difficult to maintain.
 
-## Phase 2: SNS/SQS Fan-Out (Extension of Phase 1)
+## Phase 2: SNS Fan-Out (Extension of Phase 1)
 
 ### Design
 
-Phase 2 extends Phase 1 by adding an SNS/SQS fan-out path alongside the existing AlertManager routes. The Phase 1 PagerDuty route remains in place — it continues to receive critical alerts directly from AlertManager with no additional latency or dependencies. A new webhook bridge route is added using `continue: true`, publishing alerts to an SNS topic that fans out to SQS queues for additional consumers.
+Phase 2 extends Phase 1 by adding an SNS fan-out path alongside the existing AlertManager routes. The Phase 1 PagerDuty route remains in place — it continues to receive critical alerts directly from AlertManager with no additional latency or dependencies. A new route using AlertManager's native `sns_configs` receiver publishes all alerts to an SNS topic that fans out to subscribers.
 
-This additive approach means Phase 2 can be rolled out without disrupting the existing PagerDuty integration. The SNS/SQS path handles receiver growth and decoupled consumption, while the battle-tested PagerDuty route stays as-is.
+This approach uses AlertManager's built-in SNS receiver with SigV4 authentication via EKS Pod Identity — no intermediate webhook bridge service is needed.
 
 ```mermaid
 flowchart LR
     P[Prometheus] --> AM[AlertManager]
     AM -->|severity=critical| PD[PagerDuty]
-    AM -->|continue| B[Webhook Bridge]
-    B --> SNS[SNS Topic]
+    AM -->|continue| SNS[SNS Topic]
     SNS --> Sub1[Subscriber 1]
     SNS --> Sub2[Subscriber 2]
     SNS --> SubN[Subscriber N...]
@@ -105,25 +104,9 @@ flowchart LR
 
 ### Components
 
-#### Webhook Bridge
+#### AlertManager SNS Receiver
 
-A lightweight service running in the alerting namespace that:
-
-1. Receives AlertManager webhook POST requests
-2. Maps alert labels to SNS message attributes
-3. Publishes to the SNS topic
-
-```
-POST /alerts (from AlertManager)
-  → Extract labels: severity, team, alertname, namespace, ...
-  → Publish to SNS with MessageAttributes:
-      severity: "critical"
-      team: "platform"
-      alertname: "HighErrorRate"
-      status: "firing"
-```
-
-The bridge is added as an additional receiver alongside the existing Phase 1 routes:
+AlertManager natively supports publishing to SNS topics via the `sns_configs` receiver (available since v0.22). The receiver authenticates using SigV4, which picks up IAM credentials from EKS Pod Identity automatically.
 
 ```yaml
 route:
@@ -140,27 +123,27 @@ route:
       continue: true
 
     # Phase 2 — All alerts → SNS fan-out
-    - match_re:
-        alertname: ".*"
-      receiver: sns-bridge
+    - receiver: sns-alerts
+      continue: true
 
 receivers:
   - name: default
-    # fallback — no-op or a generic Slack channel
 
   - name: pagerduty
     pagerduty_configs:
       - service_key_file: /etc/alertmanager/secrets/pagerduty-service-key
 
-  - name: sns-bridge
-    webhook_configs:
-      - url: "http://alert-sns-bridge.alerting.svc.cluster.local:8080/alerts"
+  - name: sns-alerts
+    sns_configs:
+      - topic_arn: "arn:aws:sns:<region>:<account-id>:<regional-id>-alerts"
+        sigv4:
+          region: "<region>"
         send_resolved: true
 ```
 
 #### SNS Topic
 
-A single SNS topic (`rrp-alerts`) receives all alerts. No routing logic lives here — SNS just fans out to all subscriptions, with each subscription's filter policy controlling what it receives.
+A single SNS topic (`<regional-id>-alerts`) receives all alerts. No routing logic lives here — SNS just fans out to all subscriptions, with each subscription's filter policy controlling what it receives.
 
 #### Subscribers
 
@@ -171,19 +154,7 @@ Any number of subscribers can be added to the SNS topic. SNS natively supports m
 - **HTTPS** — push to an external endpoint (e.g., a third-party webhook)
 - **Email/SMS** — for human notification paths
 
-Each subscription can include a [filter policy](https://docs.aws.amazon.com/sns/latest/dg/sns-subscription-filter-policies.html) to selectively receive alerts based on message attributes (mapped from alert labels). Subscribers without a filter policy receive all alerts.
-
-```json
-// Example: only receive critical alerts
-{
-  "severity": ["critical"]
-}
-
-// Example: only receive platform team alerts
-{
-  "team": ["platform"]
-}
-```
+Each subscription can include a [filter policy](https://docs.aws.amazon.com/sns/latest/dg/sns-subscription-filter-policies.html) to selectively receive alerts based on message attributes. Subscribers without a filter policy receive all alerts.
 
 > **Note:** PagerDuty is _not_ an SNS subscriber — it receives critical alerts directly from AlertManager via the Phase 1 route. This avoids adding latency or an SNS dependency to the paging path.
 
@@ -232,11 +203,11 @@ resource "aws_sns_topic_subscription" "example_lambda" {
 2. If using SQS, create the queue + DLQ (Terraform).
 3. Deploy the subscriber.
 
-No AlertManager changes required. No bridge changes required. The PagerDuty route is untouched. New subscribers are fully decoupled via the SNS topic.
+No AlertManager changes required. New subscribers are fully decoupled via the SNS topic.
 
 ### What Phase 2 Adds Over Phase 1
 
-| Concern                   | Phase 1 only                        | Phase 2 (Phase 1 + SNS/SQS)                                                      |
+| Concern                   | Phase 1 only                        | Phase 2 (Phase 1 + SNS)                                                          |
 | ------------------------- | ----------------------------------- | -------------------------------------------------------------------------------- |
 | PagerDuty path            | Direct AlertManager → PagerDuty     | Unchanged — same direct path                                                     |
 | New subscriber onboarding | Config change + AlertManager reload | Subscribe to SNS topic + deploy (no AlertManager change)                         |
@@ -245,12 +216,11 @@ No AlertManager changes required. No bridge changes required. The PagerDuty rout
 | Filtering                 | AlertManager label matching         | SNS subscription filter policies                                                 |
 | Cross-account/region      | Difficult                           | Native SNS/SQS cross-account support                                             |
 | Observability             | AlertManager metrics                | AlertManager metrics + CloudWatch metrics per subscriber                         |
-| Additional infrastructure | None                                | SNS topic, bridge service, subscriber resources                                  |
+| Additional infrastructure | None                                | SNS topic, IAM role for Alertmanager                                             |
 
 ### Failure Modes
 
-- **Bridge is down**: AlertManager retries with backoff. Alerts are delayed but not lost (within AlertManager's retry window).
-- **SNS publish fails**: Bridge should retry with backoff and log failures. Consider a local buffer or DLQ within the bridge for extreme cases.
+- **SNS publish fails**: AlertManager retries with exponential backoff. Alerts are delayed but not lost within AlertManager's retry window.
 - **Subscriber is down**: Out of scope. Once an alert is published to the SNS topic, delivery to subscribers is the responsibility of SNS and the subscriber. The platform's obligation ends at successful SNS publish.
 
 ## Cross-Cluster Alert Evaluation via Thanos Ruler
@@ -289,6 +259,4 @@ SLA alerts use multi-window, multi-burn-rate alerting from the [Google SRE Workb
 
 ## Open Questions
 
-- [ ] What alert labels should be mapped to SNS message attributes? (SNS supports up to 10 attributes per message.)
-- [ ] Should the webhook bridge run as a Deployment in the alerting namespace or as a Lambda behind an API Gateway VPC endpoint?
 - [ ] Do we need cross-region alert replication, or is per-region alerting sufficient given regional independence?

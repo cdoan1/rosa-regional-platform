@@ -17,9 +17,9 @@ output "kms_key_arn" {
   value       = aws_kms_key.sns_alerts.arn
 }
 
-output "webhook_bridge_role_arn" {
-  description = "IAM role ARN for the webhook bridge service"
-  value       = aws_iam_role.webhook_bridge.arn
+output "alertmanager_role_arn" {
+  description = "IAM role ARN for Alertmanager SNS access"
+  value       = aws_iam_role.alertmanager.arn
 }
 
 output "sns_topic_arn_parameter_name" {

@@ -461,7 +461,7 @@ module "pagerduty_service" {
 # =============================================================================
 
 module "sns_alerting" {
-  count  = var.enable_sns_alert_bridge ? 1 : 0
+  count  = var.enable_sns_alerting ? 1 : 0
   source = "../../modules/sns-alerting"
 
   regional_id      = var.regional_id

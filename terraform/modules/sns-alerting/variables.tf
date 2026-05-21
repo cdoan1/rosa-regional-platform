@@ -16,14 +16,14 @@ variable "eks_cluster_name" {
 # Optional Variables
 # =============================================================================
 
-variable "webhook_bridge_namespace" {
-  description = "Kubernetes namespace where the webhook bridge service will be deployed"
+variable "alertmanager_namespace" {
+  description = "Kubernetes namespace where Alertmanager is deployed"
   type        = string
   default     = "monitoring"
 }
 
-variable "webhook_bridge_service_account" {
-  description = "Kubernetes service account name for the webhook bridge service"
+variable "alertmanager_service_account" {
+  description = "Kubernetes service account name for Alertmanager"
   type        = string
-  default     = "alert-sns-bridge"
+  default     = "monitoring-alertmanager"
 }
