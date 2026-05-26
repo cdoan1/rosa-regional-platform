@@ -72,12 +72,12 @@ aws ssm put-parameter --name "/infra/${ENV}/${REGION}/mc01/account_id" \
 
 The DNS zone operator trust policy uses `aws:PrincipalOrgPaths` to allow MC accounts to assume the cross-account role. Store the OU path for MC accounts in SSM Parameter Store **in the RC account**.
 
-The OU path format is `o-<org-id>/r-<root-id>/ou-<parent-id>/ou-<child-id>/*`. You can find it by walking the OU tree with `aws organizations list-parents`.
+The OU path format is `o-<org-id>/r-<root-id>/ou-<parent-id>/ou-<child-id>/` (trailing `/`, no wildcard — Terraform appends `*` automatically). You can find it by walking the OU tree with `aws organizations list-parents`.
 
 ```bash
 # Run with RC account credentials
-aws ssm put-parameter --name "/infra/mc_ou_path" \
-  --value "o-xxxxx/r-xxxx/ou-xxxx-xxxxxxxx/ou-xxxx-xxxxxxxx/*" --type String
+aws ssm put-parameter --name "/infra/region-ou-path" \
+  --value "o-xxxxx/r-xxxx/ou-xxxx-xxxxxxxx/ou-xxxx-xxxxxxxx/" --type SecureString
 ```
 
 ### 2.3 Add the environment configuration

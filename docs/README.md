@@ -20,15 +20,16 @@ The architecture consists of three layers within each region:
 
 Detailed architecture and rationale for key technical decisions:
 
-| Document                                                                           | Topic                                                        |
-| ---------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| [ECS Fargate Bootstrap](design/fully-private-eks-bootstrap.md)                     | How fully private EKS clusters are bootstrapped via ECS      |
-| [FIPS-Only EKS Compute](design/fips-eks-compute.md)                                | FIPS NodeClass/NodePool strategy for FedRAMP workload nodes  |
-| [GitOps Cluster Configuration](design/gitops-cluster-configuration.md)             | ApplicationSet pattern, progressive deployment, config modes |
-| [Maestro MQTT Resource Distribution](design/maestro-mqtt-resource-distribution.md) | RC-to-MC communication via AWS IoT Core MQTT                 |
-| [Pipeline-Based Lifecycle](design/pipeline-based-lifecycle.md)                     | CodePipeline hierarchy for cluster provisioning              |
-| [Regional Account Minting](design/regional-account-minting.md)                     | AWS account structure and minting pipelines                  |
-| [Testing Strategy](design/testing-strategy.md)                                     | Ephemeral and long-lived test environments                   |
+| Document                                                                           | Topic                                                              |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| [DNS Architecture](design/dns-architecture.md)                                     | Hierarchical DNS with zone shards, `deployment_name`, DNSSEC chain |
+| [ECS Fargate Bootstrap](design/fully-private-eks-bootstrap.md)                     | How fully private EKS clusters are bootstrapped via ECS            |
+| [FIPS-Only EKS Compute](design/fips-eks-compute.md)                                | FIPS NodeClass/NodePool strategy for FedRAMP workload nodes        |
+| [GitOps Cluster Configuration](design/gitops-cluster-configuration.md)             | ApplicationSet pattern, progressive deployment, config modes       |
+| [Maestro MQTT Resource Distribution](design/maestro-mqtt-resource-distribution.md) | RC-to-MC communication via AWS IoT Core MQTT                       |
+| [Pipeline-Based Lifecycle](design/pipeline-based-lifecycle.md)                     | CodePipeline hierarchy for cluster provisioning                    |
+| [Regional Account Minting](design/regional-account-minting.md)                     | AWS account structure and minting pipelines                        |
+| [Testing Strategy](design/testing-strategy.md)                                     | Ephemeral and long-lived test environments                         |
 
 ### How-To Guides
 

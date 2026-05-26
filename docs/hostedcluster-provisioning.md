@@ -121,27 +121,19 @@ Then bastion into the MC (`make ephemeral-bastion-mc` or `make int-bastion-mc`),
 paste the output above, and run:
 
 ```bash
-# Extract admin kubeconfig
+# Extract admin kubeconfig — the server URL points to the DNS-resolved API hostname
+# (api.<cluster>.<hash4>.<zone-shard>.<deployment-name>.<domain>).
 oc get secret -n clusters-${CLUSTER_ID}-${CLUSTER_NAME} service-network-admin-kubeconfig \
   -o jsonpath='{.data.kubeconfig}' | base64 -d > /tmp/${CLUSTER_NAME}-kubeconfig
-
-# KAS is behind the HCP router (HAProxy), not a dedicated LoadBalancer.
-# Get the router LB address (DNS not yet available).
-LB_HOST=$(oc get svc router \
-  -n clusters-${CLUSTER_ID}-${CLUSTER_NAME} \
-  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-
-# Patch the kubeconfig to use the router LB on port 443
-sed -i'' "s|server: .*|server: https://${LB_HOST}:443|" /tmp/${CLUSTER_NAME}-kubeconfig
 ```
 
 Copy the kubeconfig to your local machine, then:
 
 ```bash
 export KUBECONFIG=/tmp/${CLUSTER_NAME}-kubeconfig
-# TLS cert won't match the LB hostname (issued for the Route hostname),
-# so --insecure-skip-tls-verify is needed until DNS is set up.
-oc get nodes --insecure-skip-tls-verify
+# DNS propagation and Let's Encrypt certificate issuance may take a few minutes
+# after cluster creation. Retry if the connection is initially refused.
+oc get nodes
 ```
 
 ---
