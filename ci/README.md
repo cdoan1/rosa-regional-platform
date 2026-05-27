@@ -54,6 +54,7 @@ The CI image is built from [ci/Containerfile](ci/Containerfile) and includes all
 | Python/uv | Ephemeral provider and scripting              |
 | Prettier  | Markdown formatting checks (`check-docs` job) |
 | yq        | YAML processing                               |
+| promtool  | Prometheus rule validation and unit testing   |
 
 These tools are available in all CI job containers and can be used in scripts run by CI jobs.
 

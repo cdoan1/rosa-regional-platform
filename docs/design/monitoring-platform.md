@@ -79,6 +79,7 @@ graph LR
 | Thanos Query Frontend      | 1        | Caches and splits queries for Grafana                          |
 | Thanos Store Gateway       | 2        | Serves historical blocks from S3                               |
 | Thanos Compactor           | 1        | Compacts and downsamples S3 blocks                             |
+| Thanos Ruler               | 2        | Evaluates alerting and recording rules against Thanos Query    |
 | CloudWatch Exporter (YACE) | 1        | Scrapes AWS CloudWatch for platform services                   |
 | Grafana                    | 1        | Dashboards and visualization                                   |
 

@@ -37,6 +37,7 @@ Detailed architecture and rationale for key technical decisions:
 | -------------------------------------------------------------------- | --------------------------------------- |
 | [Provision a New Environment](environment-provisioning.md)           | Pipeline-based environment provisioning |
 | [Provisioning a Development Environment](development-environment.md) | Ephemeral dev environments              |
+| [Adding Alerting Rules](adding-alerting-rules.md)                    | Platform alerting and recording rules   |
 
 ### Reference
 
