@@ -381,7 +381,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "count(kube_pod_status_phase{phase=\"Running\", namespace=~\"$hyperfleet_namespaces\"})",
+          "expr": "count(kube_pod_status_phase{phase=\"Running\", namespace=~\"$hyperfleet_namespaces\", cluster=~\".*regional|\"})",
           "legendFormat": "Running"
         }
       ],
@@ -413,7 +413,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "count(kube_pod_status_ready{condition=\"false\", namespace=~\"$hyperfleet_namespaces\"} == 1) or vector(0)",
+          "expr": "count(kube_pod_status_ready{condition=\"false\", namespace=~\"$hyperfleet_namespaces\", cluster=~\".*regional|\"} == 1) or vector(0)",
           "legendFormat": "Not Ready"
         }
       ],
@@ -446,7 +446,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=~\"$hyperfleet_namespaces\"}[$__range])) or vector(0)",
+          "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=~\"$hyperfleet_namespaces\", cluster=~\".*regional|\"}[$__range])) or vector(0)",
           "legendFormat": "Restarts"
         }
       ],
@@ -480,7 +480,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (namespace) (increase(kube_pod_container_status_restarts_total{namespace=~\"$hyperfleet_namespaces\"}[5m]))",
+          "expr": "sum by (namespace) (increase(kube_pod_container_status_restarts_total{namespace=~\"$hyperfleet_namespaces\", cluster=~\".*regional|\"}[5m]))",
           "legendFormat": "{{ namespace }}"
         }
       ],
@@ -512,7 +512,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (namespace) (kube_pod_status_ready{condition=\"false\", namespace=~\"$hyperfleet_namespaces\"})",
+          "expr": "sum by (namespace) (kube_pod_status_ready{condition=\"false\", namespace=~\"$hyperfleet_namespaces\", cluster=~\".*regional|\"})",
           "legendFormat": "{{ namespace }}"
         }
       ],
