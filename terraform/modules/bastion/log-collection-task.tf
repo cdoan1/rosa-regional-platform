@@ -47,6 +47,49 @@ resource "aws_ecs_task_definition" "log_collector" {
           # shellcheck disable=SC2086
           oc adm inspect $INSPECT_NAMESPACES --dest-dir=/tmp/inspect-logs || true
 
+          # Collect cluster-scoped and CRD resources in parallel (missing CRDs are silently skipped)
+          for resource in \
+            nodes \
+            hostedclusters.hypershift.openshift.io \
+            hostedcontrolplanes.hypershift.openshift.io \
+            nodepools.hypershift.openshift.io \
+            awsendpointservices.hypershift.openshift.io \
+            controlplanecomponents.hypershift.openshift.io \
+            clustersizingconfigurations.scheduling.hypershift.openshift.io \
+            nodepools.karpenter.sh \
+            nodeclaims.karpenter.sh \
+            ec2nodeclasses.karpenter.k8s.aws \
+            openshiftec2nodeclasses.karpenter.openshift.io \
+            clusters.cluster.x-k8s.io \
+            machines.cluster.x-k8s.io \
+            machinesets.cluster.x-k8s.io \
+            machinedeployments.cluster.x-k8s.io \
+            awsmachines.infrastructure.cluster.x-k8s.io \
+            awsmachinetemplates.infrastructure.cluster.x-k8s.io \
+            awsclusters.infrastructure.cluster.x-k8s.io \
+            applications.argoproj.io \
+            applicationsets.argoproj.io \
+            certificates.cert-manager.io \
+            certificaterequests.cert-manager.io \
+            clusterissuers.cert-manager.io \
+            externalsecrets.external-secrets.io \
+            clustersecretstores.external-secrets.io \
+            prometheusrules.monitoring.coreos.com \
+            thanoscompacts.monitoring.thanos.io \
+            thanosqueries.monitoring.thanos.io \
+            thanosreceivers.monitoring.thanos.io \
+            thanosrulers.monitoring.thanos.io \
+            thanosstores.monitoring.thanos.io \
+            manifestworks.work.open-cluster-management.io \
+            appliedmanifestworks.work.open-cluster-management.io \
+            targetgroupbindings.eks.amazonaws.com \
+            nodeclasses.eks.amazonaws.com \
+            secretproviderclasses.secrets-store.csi.x-k8s.io \
+          ; do
+            oc adm inspect "$resource" --all-namespaces --dest-dir=/tmp/inspect-logs 2>/dev/null || true &
+          done
+          wait
+
           # Tar and upload to S3
           echo "Uploading to S3..."
           tar czf /tmp/inspect-logs.tar.gz -C /tmp inspect-logs
