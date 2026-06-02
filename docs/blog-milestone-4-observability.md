@@ -6,7 +6,7 @@ _ROSA Regional Platform — Observability and Alerting_
 
 When we set out to build observability for the ROSA Regional Platform, we faced a fundamental constraint: each AWS region operates independently with its own EKS-based Regional Cluster (RC) and a fleet of Management Clusters (MCs) running across separate AWS accounts. There is no shared network, no centralized Prometheus, and no global control plane to lean on. Metrics, logs, and alerts all had to be solved regionally — from scratch.
 
-This post covers what we built for Milestone 4 ([ROSA-669](https://redhat.atlassian.net/browse/ROSA-669)), with a focus on two areas we think are worth sharing more broadly: our use of **mid-stream RHOBS components** as the foundation of the metrics stack, and an **alerting architecture designed for multiple consumers** — one where new consumers can plug into the alert pipeline without touching AlertManager configuration or routing through PagerDuty.
+We are pleased to announce that we have successfully completed Milestone 4 ([ROSA-669](https://redhat.atlassian.net/browse/ROSA-669)), which lays the foundation for our observability stack, with a focus on two areas we think are worth sharing more broadly: our use of **mid-stream RHOBS components** as the foundation of the metrics stack, and an **alerting architecture designed for multiple consumers** — one where new consumers can plug into the alert pipeline without touching AlertManager configuration or routing through PagerDuty.
 
 ## The Problem
 
@@ -54,14 +54,14 @@ The hardest piece was getting metrics from Management Clusters — running in se
 The pipeline we built:
 
 ```
-MC Prometheus → sigv4-proxy → RHOBS API Gateway (REST v1) → VPC Link → ALB → Thanos Receive
+MC Prometheus → AWS IAM auth proxy → RHOBS-specific AWS API Gateway → Thanos Receive
 ```
 
-MC Prometheus remote-writes to a local `sigv4-proxy` sidecar, which signs each request with SigV4 using EKS Pod Identity credentials. A dedicated **RHOBS API Gateway** (separate from the customer-facing Platform API Gateway) authenticates via AWS IAM and forwards through a VPC Link to an internal ALB fronting Thanos Receive. The API Gateway resource policy restricts write access to any authenticated principal within the same AWS Organization — meaning adding a new Management Cluster requires zero policy changes as long as its AWS account is in the org.
+MC Prometheus remote-writes through a local signing proxy sidecar, which authenticates each request using AWS native authorization via EKS Pod Identity credentials. A dedicated **RHOBS API Gateway** (separate from the customer-facing Platform API Gateway) authenticates via AWS IAM and forwards through an internal ALB fronting Thanos Receive. The API Gateway resource policy restricts write access to any authenticated principal within the same AWS Organization — meaning adding a new Management Cluster requires zero policy changes as long as its AWS account is in the org.
 
 Cluster identity is carried by Prometheus `externalLabels` (`cluster` and `cluster_type`) injected at scrape time, so PromQL queries filter naturally by cluster without needing Thanos multi-tenancy.
 
-One detail worth calling out: Prometheus remote_write uses snappy-compressed protobuf, but REST API Gateway v1 only accepts `gzip`, `deflate`, and `identity` as `Content-Encoding` values. The sigv4-proxy strips the `Content-Encoding: snappy` header before signing — this is semantically correct because snappy compression is part of the Prometheus application protocol, not HTTP transport-level compression. Thanos Receive expects snappy regardless of what the header says.
+One detail worth calling out: Prometheus remote_write uses snappy-compressed protobuf, but REST API Gateway v1 only accepts `gzip`, `deflate`, and `identity` as `Content-Encoding` values. The signing proxy strips the `Content-Encoding: snappy` header before authenticating — this is semantically correct because snappy compression is part of the Prometheus application protocol, not HTTP transport-level compression. Thanos Receive expects snappy regardless of what the header says.
 
 ## Alerting Architecture: Designed for Fan-Out
 
@@ -131,7 +131,7 @@ Full Prometheus + YACE (Yet Another Cloudwatch Exporter) coverage across both cl
 
 ### Secure Cross-Account Transit
 
-The SigV4-authenticated remote_write pipeline from MC → RHOBS API Gateway → Thanos Receive, with organization-scoped IAM policies and no direct MC-to-RC network path.
+AWS IAM-authenticated remote_write pipeline from MC → RHOBS API Gateway → Thanos Receive, with organization-scoped IAM policies and no direct MC-to-RC network path.
 
 ### Log Forwarding
 
