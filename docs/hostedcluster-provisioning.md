@@ -121,9 +121,8 @@ Then bastion into the MC (`make ephemeral-bastion-mc` or `make int-bastion-mc`),
 paste the output above, and run:
 
 ```bash
-# Extract admin kubeconfig — the server URL points to the DNS-resolved API hostname
-# (api.<cluster>.<hash4>.<zone-shard>.<deployment-name>.<domain>).
-oc get secret -n clusters-${CLUSTER_ID}-${CLUSTER_NAME} service-network-admin-kubeconfig \
+# Extract admin kubeconfig
+oc get secret -n clusters-${CLUSTER_ID} ${CLUSTER_NAME}-custom-admin-kubeconfig \
   -o jsonpath='{.data.kubeconfig}' | base64 -d > /tmp/${CLUSTER_NAME}-kubeconfig
 ```
 
