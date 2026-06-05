@@ -214,6 +214,9 @@ resource "aws_ecs_task_definition" "bootstrap" {
               management_clusters: "$MANAGEMENT_CLUSTERS"
               rhobs_api_url: "$RHOBS_API_URL"
               dns_zone_operator_role_arn: "$DNS_ZONE_OPERATOR_ROLE_ARN"
+              zoa_table_name: "$ZOA_TABLE_NAME"
+              zoa_audit_table_name: "$ZOA_AUDIT_TABLE_NAME"
+              zoa_bucket_name: "$ZOA_BUCKET_NAME"
           type: Opaque
           stringData:
             name: in-cluster

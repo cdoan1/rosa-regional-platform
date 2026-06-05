@@ -1,0 +1,24 @@
+output "table_name" {
+  description = "DynamoDB table name for ZOA executions"
+  value       = aws_dynamodb_table.executions.name
+}
+
+output "audit_table_name" {
+  description = "DynamoDB table name for ZOA audit log"
+  value       = aws_dynamodb_table.audit_log.name
+}
+
+output "bucket_name" {
+  description = "S3 bucket name for ZOA outputs"
+  value       = aws_s3_bucket.outputs.id
+}
+
+output "bucket_arn" {
+  description = "S3 bucket ARN for ZOA outputs"
+  value       = aws_s3_bucket.outputs.arn
+}
+
+output "kms_key_arn" {
+  description = "KMS key ARN for ZOA encryption"
+  value       = aws_kms_key.zoa.arn
+}

@@ -101,6 +101,18 @@ variable "maestro_agent_config_file" {
   type        = string
 }
 
+variable "zoa_outputs_bucket_arn" {
+  description = "ARN of the ZOA outputs S3 bucket in the regional account (read from RC terraform state)"
+  type        = string
+  default     = ""
+}
+
+variable "zoa_kms_key_arn" {
+  description = "ARN of the ZOA KMS key in the regional account for S3 SSE-KMS (read from RC terraform state)"
+  type        = string
+  default     = ""
+}
+
 variable "rhobs_api_url" {
   description = "API Gateway URL for Prometheus remote_write (read from RC terraform state)"
   type        = string
