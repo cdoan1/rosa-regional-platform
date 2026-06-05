@@ -103,17 +103,26 @@ resource "aws_ecs_task_definition" "bootstrap" {
           # Configure kubectl for EKS
           aws eks update-kubeconfig --name $CLUSTER_NAME
 
-          # Bootstrap the FIPS NodePool before ArgoCD so ArgoCD pods have nodes
-          # to schedule on. EKS Auto Mode's built-in pools ("system",
-          # "general-purpose") can't be made FIPS-compliant — FIPS requires a
-          # custom NodeClass. Once ArgoCD is running, the eks-nodepool chart
-          # Once ArgoCD is running, the eks-nodepool chart adopts these
-          # resources via Server-Side Apply.
-          echo "Applying FIPS NodeClass and workloads NodePool from chart..."
-          helm template eks-nodepool "$REPO_DIR/argocd/config/$CLUSTER_TYPE/eks-nodepool" \
-            --set global.cluster_name="$CLUSTER_NAME" \
-            | kubectl apply --server-side -f -
-          echo "✓ FIPS NodePool applied"
+          # Seed the FIPS NodePool only on first bootstrap. On subsequent
+          # runs (resync), ArgoCD owns this resource via the eks-nodepool
+          # chart — we must not re-apply it to avoid Server-Side Apply
+          # ownership conflicts. When creating, we pass the environment
+          # values file so the initial NodePool matches what ArgoCD will
+          # enforce, avoiding Karpenter provisioning nodes with default
+          # instance types before ArgoCD syncs.
+          if ! kubectl get nodepool workloads 2>/dev/null; then
+            echo "Applying FIPS NodeClass and workloads NodePool from chart..."
+            _NODEPOOL_VALUES="$REPO_DIR/deploy/$ENVIRONMENT/$REGION_DEPLOYMENT/argocd-values-$CLUSTER_TYPE.yaml"
+            _VALUES_FLAG=""
+            [ -f "$_NODEPOOL_VALUES" ] && _VALUES_FLAG="-f $_NODEPOOL_VALUES"
+            helm template eks-nodepool "$REPO_DIR/argocd/config/$CLUSTER_TYPE/eks-nodepool" \
+              --set global.cluster_name="$CLUSTER_NAME" \
+              $_VALUES_FLAG \
+              | kubectl apply --server-side -f -
+            echo "✓ FIPS NodePool applied"
+          else
+            echo "✓ FIPS NodePool already exists, skipping (managed by ArgoCD)"
+          fi
 
           # Wait for coredns and metrics-server (managed by the built-in system pool)
           # to be active before installing ArgoCD.
