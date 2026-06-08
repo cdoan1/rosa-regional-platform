@@ -14,6 +14,9 @@ spec:
     metadata:
       labels:
         app: {{ .Values.platformApi.app.name }}
+      annotations:
+        checksum/zoa-job-config: {{ include (print $.Template.BasePath "/zoa-job-config-configmap.yaml") . | sha256sum }}
+        checksum/zoa-ta-templates: {{ include (print $.Template.BasePath "/zoa-templates-configmap.yaml") . | sha256sum }}
     spec:
       serviceAccountName: {{ .Values.platformApi.serviceAccount.name }}
       topologySpreadConstraints:
@@ -44,6 +47,28 @@ spec:
             - --metrics-port={{ .Values.platformApi.app.args.metricsPort }}
             - --dynamodb-region={{ .Values.platformApi.app.args.dynamodbRegion }}
             - --dynamodb-prefix={{ .Values.platformApi.app.args.dynamodbPrefix }}
+          {{- if .Values.platformApi.zoa.enabled }}
+          env:
+            - name: ZOA_ENABLED
+              value: "true"
+            - name: ZOA_TABLE_NAME
+              value: {{ .Values.platformApi.zoa.tableName | quote }}
+            - name: ZOA_BUCKET_NAME
+              value: {{ .Values.platformApi.zoa.bucketName | quote }}
+            - name: ZOA_AUDIT_TABLE_NAME
+              value: {{ .Values.platformApi.zoa.auditTableName | quote }}
+            - name: ZOA_TEMPLATES_DIR
+              value: /etc/zoa/templates
+            - name: ZOA_JOB_CONFIG_DIR
+              value: /etc/zoa/job-config
+          volumeMounts:
+            - name: zoa-templates
+              mountPath: /etc/zoa/templates
+              readOnly: true
+            - name: zoa-job-config
+              mountPath: /etc/zoa/job-config
+              readOnly: true
+          {{- end }}
           ports:
             - name: api
               containerPort: {{ .Values.platformApi.app.args.apiPort }}
@@ -116,3 +141,11 @@ spec:
         - name: envoy-config
           configMap:
             name: envoy-config
+        {{- if .Values.platformApi.zoa.enabled }}
+        - name: zoa-templates
+          configMap:
+            name: zoa-ta-templates
+        - name: zoa-job-config
+          configMap:
+            name: zoa-job-config
+        {{- end }}
