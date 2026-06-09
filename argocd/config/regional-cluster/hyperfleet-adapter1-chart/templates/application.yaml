@@ -15,9 +15,9 @@ spec:
     helm:
       valuesObject:
         image:
-          registry: quay.io/openshift-hyperfleet
+          registry: quay.io/redhat-services-prod/hyperfleet-tenant/hyperfleet
           repository: hyperfleet-adapter
-          tag: v0.2.1
+          tag: latest
           pullPolicy: Always
         replicaCount: 1
 

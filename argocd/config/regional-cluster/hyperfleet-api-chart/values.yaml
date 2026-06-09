@@ -36,9 +36,9 @@ hyperfleet-api-chart:
   helmValues:
 
     image:
-      registry: quay.io/cdoan0
+      registry: quay.io/redhat-services-prod/hyperfleet-tenant/hyperfleet
       repository: hyperfleet-api
-      tag: v0.2.1-1-g153ec89-dirty
+      tag: latest
       pullPolicy: Always
     replicaCount: 2
 
