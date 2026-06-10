@@ -17,7 +17,7 @@ spec:
         image:
           registry: quay.io/redhat-services-prod/hyperfleet-tenant/hyperfleet
           repository: hyperfleet-adapter
-          tag: latest
+          tag: dev-1780992904
           pullPolicy: Always
         replicaCount: 1
 
