@@ -962,10 +962,10 @@ cmd_bastion_port_forward() {
         local broker_id
         broker_id=$(aws mq list-brokers --query "BrokerSummaries[?BrokerName=='${broker_name}'].BrokerId | [0]" --output text 2>/dev/null || true)
 
-        local broker_endpoint
+        local broker_endpoint=""
         if [[ -n "$broker_id" && "$broker_id" != "None" ]]; then
             # Get the console (HTTPS) endpoint from broker details
-            broker_endpoint=$(aws mq describe-broker --broker-id "$broker_id" --query 'BrokerInstances[0].ConsoleURL' --output text 2>/dev/null | sed 's|https://||' | sed 's|/.*||')
+            broker_endpoint=$(aws mq describe-broker --broker-id "$broker_id" --query 'BrokerInstances[0].ConsoleURL' --output text 2>/dev/null | sed 's|https://||' | sed 's|/.*||' || true)
         fi
 
         if [[ -z "$broker_endpoint" ]]; then
