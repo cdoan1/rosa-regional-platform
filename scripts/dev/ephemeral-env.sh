@@ -958,7 +958,7 @@ cmd_bastion_port_forward() {
 
         # Find the broker for this environment
         # Broker name format: eph-<BUILD_ID>-regional-hyperfleet
-        local broker_name="${BUILD_ID}-regional-hyperfleet"
+        local broker_name="eph-${BUILD_ID}-regional-hyperfleet"
         echo "    Looking for broker: ${broker_name}"
 
         local broker_id
