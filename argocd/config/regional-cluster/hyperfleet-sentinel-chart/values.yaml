@@ -58,6 +58,7 @@ hyperfleetSentinelChart:
         # AWS MQ requires TLS (amqps://)
         url: "amqps://placeholder:placeholder@localhost:5671/"
         exchangeType: topic
+        queue: "clusters"
         exchange: "hyperfleet"
         routingKey: "clusters"
         # Prefetch settings for performance tuning
