@@ -57,6 +57,21 @@ export AWS_PROFILE="rrp-rc"
 export AWS_DEFAULT_REGION="${AWS_REGION:-us-east-1}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Compute CLUSTER_PREFIX early so it's available for pre-cleanup hooks (log
+# collection while HCPs still exist), not just in the post-test failure handler.
+if [[ -r "${CREDS_DIR}/api_url" ]]; then
+    export CLUSTER_PREFIX=""
+elif [[ -n "${BUILD_ID:-}" ]]; then
+    _hash="$(echo -n "${BUILD_ID}" | sha256sum | cut -c1-6)" \
+        || { echo "WARNING: sha256sum failed — CLUSTER_PREFIX not set"; _hash=""; }
+    if [[ -n "$_hash" ]]; then
+        export CLUSTER_PREFIX="eph-${_hash}-"
+    fi
+else
+    echo "WARNING: no ${CREDS_DIR}/api_url and BUILD_ID not set — CLUSTER_PREFIX unset, log collection disabled" >&2
+fi
+
 E2E_REF="${E2E_REF:-main}"
 E2E_REPO="${E2E_REPO:-https://github.com/openshift-online/rosa-regional-platform-api.git}"
 CLI_REF="${CLI_REF:-main}"
@@ -134,6 +149,11 @@ if [[ "$_have_customer_creds" == "true" ]]; then
     "${ROSACTL_BIN}" login --url "${BASE_URL}"
     echo "Creating HCP cluster: ${HCP_CLUSTER_NAME}"
 
+    # Collect cluster logs before HCP cleanup so the HCP namespace is captured.
+    if [[ -n "${CLUSTER_PREFIX+set}" ]]; then
+        export PRE_CLEANUP_HOOK="S3_ONLY=true ${REPO_ROOT}/scripts/dev/collect-cluster-logs.sh"
+    fi
+
     export GINKGO_NO_COLOR=TRUE
     make test-e2e-cli || return $?
 
@@ -148,36 +168,20 @@ if [[ "$_have_customer_creds" == "true" ]]; then
   make test-e2e-platform-monitoring || monitoring_rc=$?
 fi
 
-if [[ $platform_rc -ne 0 ]] || [[ $hcp_rc -ne 0 ]] || [[ $monitoring_rc -ne 0 ]]; then
-    echo ""
-    if [[ $hcp_rc -ne 0 ]]; then
-        echo "HCP E2E tests failed (exit code: $hcp_rc)."
-    fi
-    if [[ $monitoring_rc -ne 0 ]]; then
-        echo "Monitoring E2E tests failed (exit code: $monitoring_rc)."
-    fi
-    echo "Collecting cluster logs..."
-
-    # Pre-existing environment (integration): bare cluster names (regional, mc01)
-    # Ephemeral environment: ci_prefix-based names derived from BUILD_ID
-    if [[ -r "${CREDS_DIR}/api_url" ]]; then
-        export CLUSTER_PREFIX=""
-    elif [[ -n "${BUILD_ID:-}" ]]; then
-        hash="$(echo -n "${BUILD_ID}" | sha256sum | cut -c1-6)" \
-            || { echo "WARNING: sha256sum failed — skipping log collection"; hash=""; }
-        if [[ -n "$hash" ]]; then
-            export CLUSTER_PREFIX="eph-${hash}-"
-        fi
-    else
-        echo "WARNING: BUILD_ID not set — skipping log collection"
-    fi
-
+# HCP test failures collect logs via PRE_CLEANUP_HOOK in the test's DeferCleanup
+# (before HCP deletion). Only collect here for non-HCP failures.
+if [[ $platform_rc -ne 0 ]] || [[ $monitoring_rc -ne 0 ]]; then
+    # Logs are left in S3 rather than added to public CI artifacts because
+    # they may contain sensitive data (e.g. maestro secrets) that cannot be
+    # reliably redacted. The S3 URIs are printed below for manual retrieval.
     if [[ -n "${CLUSTER_PREFIX+set}" ]]; then
-        # Logs are left in S3 rather than added to public CI artifacts because
-        # they may contain sensitive data (e.g. maestro secrets) that cannot be
-        # reliably redacted. The S3 URIs are printed below for manual retrieval.
         S3_ONLY=true \
             "${REPO_ROOT}/scripts/dev/collect-cluster-logs.sh" || true
     fi
+fi
+
+echo ""
+echo "E2E results: platform=$platform_rc hcp=$hcp_rc monitoring=$monitoring_rc"
+if [[ $platform_rc -ne 0 ]] || [[ $hcp_rc -ne 0 ]] || [[ $monitoring_rc -ne 0 ]]; then
     exit 1
 fi
