@@ -16,8 +16,8 @@ platformApi:
     image:
       # TODO: revert to quay.io/cdoan0/rosa-regional-platform-api:latest once
       # rosa-regional-platform-api#99 (creatorARN injection) is merged and released.
-      repository: quay.io/cbusse_openshift/rosa-regional-platform-api
-      tag: aws-iam-auth
+      repository: quay.io/cdoan0/rosa-regional-platform-api
+      tag: delete
       pullPolicy: Always
 
     # Application arguments
