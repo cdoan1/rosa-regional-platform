@@ -173,15 +173,6 @@ resources:
         discovery:
           by_name: "cluster-config"
           namespace: "{{ .clusterId }}"
-    lifecycle:
-      delete:
-        # propagationPolicy is ignored for Maestro transport — ManifestWork's
-        # spec.deleteOption.propagationPolicy governs sub-resource cleanup.
-        propagationPolicy: Background
-        when:
-          # Delete the ManifestWork when the cluster is marked for deletion.
-          # Maestro will clean up the Namespace and sub-resources asynchronously.
-          expression: "is_deleting"
 
 post:
   payloads:
