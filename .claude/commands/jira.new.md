@@ -14,6 +14,18 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 Create a new Jira issue in the ROSAENG project with the correct Component pre-filled for the ROSA Regional Platform team.
 
+## Repo Detection
+
+Detect the current repository from the working directory or `git remote get-url origin`. Map it to a short label:
+
+| Remote contains              | Repo label                   |
+| ---------------------------- | ---------------------------- |
+| `rosa-regional-platform-cli` | `rosa-regional-platform-cli` |
+| `rosa-regional-platform-api` | `rosa-regional-platform-api` |
+| `rosa-regional-platform`     | `rosa-regional-platform`     |
+
+Use this label as the default **Repo** field in the description. If detection fails, ask the user.
+
 ## Execution Steps
 
 ### 1. Parse User Input
@@ -34,13 +46,13 @@ If the user provides a simple sentence, use it as the summary. If they provide m
 
 - What is the goal?
 - What are the acceptance criteria? (How do we know it's done)
-- Which area of the codebase? (e.g., `terraform/`, `argocd/config/regional-cluster/`, `argocd/config/management-cluster/`)
+- Which area of the codebase?
 
 **Required for Bugs:**
 
 - Steps to reproduce
 - Expected vs actual behaviour
-- Environment info if relevant
+- Environment info if relevant (cluster name, region, `rosactl` version, etc.)
 
 **Helpful for all types:**
 
@@ -60,7 +72,7 @@ Format the description using this template:
 
 ## Technical Context
 
-**Area**: [e.g., ArgoCD MC config, Terraform modules, RC services]
+**Repo**: [detected repo label]
 **Relevant Paths**:
 
 - `path/to/relevant/file`
@@ -80,7 +92,7 @@ Format the description using this template:
 
 **Expected**: [what should happen]
 **Actual**: [what actually happens]
-**Environment**: [cluster/region if relevant]
+**Environment**: [cluster/region/CLI version if relevant]
 
 ## Acceptance Criteria (for Stories only)
 
@@ -188,7 +200,7 @@ Assignee: [name]
 ### Quick Story (will prompt for more context)
 
 ```text
-/jira.log Add remote write configuration for RHOBS
+/jira.new Add remote write configuration for RHOBS
 ```
 
 The command will then ask for acceptance criteria, relevant paths, and which epic to link to.
@@ -196,7 +208,7 @@ The command will then ask for acceptance criteria, relevant paths, and which epi
 ### Detailed Story
 
 ```text
-/jira.log Add ServiceMonitors for all MC services
+/jira.new Add ServiceMonitors for all MC services
 
 All services deployed to management clusters need ServiceMonitors so Prometheus can scrape their metrics.
 
@@ -209,20 +221,36 @@ Area: argocd/config/management-cluster/
 Related: ROSAENG-147
 ```
 
-### Bug Report
+### Bug Report (from CLI repo)
 
 ```text
-/jira.log [Bug] Prometheus not scraping cross-namespace ServiceMonitors
+/jira.new [Bug] rosactl cluster create fails with invalid OIDC URL
 
 Steps:
-1. Deploy a ServiceMonitor in the hypershift namespace
-2. Check Prometheus targets
-3. ServiceMonitor not listed
+1. rosactl login --url $API_URL
+2. rosactl cluster create mycluster --region us-east-1
+3. Observe error: "invalid OIDC issuer URL"
 
-Expected: ServiceMonitor appears in Prometheus targets
-Actual: ServiceMonitor is not discovered
+Expected: Cluster creation proceeds
+Actual: Command exits with error
 
-Fix: Set serviceMonitorNamespaceSelector and serviceMonitorSelectorNilUsesHelmValues in Prometheus config
+rosactl version: v0.3.1
+```
+
+### Bug Report (from platform repo)
+
+```text
+/jira.new [Bug] Hosted cluster stuck in Provisioning after 30 minutes
+
+Steps:
+1. Create a cluster via rosactl cluster create
+2. Wait for provisioning
+3. Cluster stays in Provisioning state
+
+Expected: Cluster reaches Ready within ~15 minutes
+Actual: Cluster stuck in Provisioning indefinitely
+
+Environment: integration, us-east-1
 ```
 
 ## JIRA Hygiene Reminders
