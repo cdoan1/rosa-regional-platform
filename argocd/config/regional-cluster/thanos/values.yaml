@@ -36,7 +36,6 @@ receive:
     replicas: 1
     additionalArgs:
       - "--receive.default-tenant-id=default-tenant"
-      - "--receive.write-request-limits.max-concurrency=20"
     resources:
       requests:
         cpu: 250m
