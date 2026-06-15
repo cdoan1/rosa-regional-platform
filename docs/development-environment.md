@@ -142,6 +142,27 @@ ID           REPO                                          BRANCH               
 To clear list: rm .ephemeral-envs
 ```
 
+## Check Status
+
+Shows the status of CodePipeline executions for an ephemeral environment. This displays the most recent pipeline runs for the central provisioner, regional cluster (RC), and management cluster (MC) pipelines.
+
+If no pipeline executions are found, it automatically falls back to showing the most recent CodeBuild logs (last 20 lines) from each build project, which is helpful for diagnosing early provisioning failures.
+
+```bash
+# Interactive — fzf picker for environment selection
+make ephemeral-status
+
+# Explicit
+make ephemeral-status ID=6bd2d3d7
+```
+
+Use this to:
+
+- Monitor pipeline progress during provisioning
+- Debug pipeline failures
+- Check if pipelines are stuck or completed
+- View recent build logs when pipelines haven't started yet
+
 ## Shell Access
 
 Opens an interactive shell pre-configured with regional AWS credentials to interact directly with the API Gateway.
@@ -332,6 +353,52 @@ make ephemeral-teardown
 # Explicit
 make ephemeral-teardown ID=6bd2d3d7
 ```
+
+## Troubleshooting
+
+### Provisioning Failed - Pipeline Timeout
+
+If `make ephemeral-provision` fails with pipeline timeout errors like:
+
+```
+Pipeline 'eph-xxxxx-regional-pipe' did not complete within 3600s
+```
+
+The RC and MC infrastructure may still be partially up. You can:
+
+1. **Check pipeline status** - See the current state of all pipeline executions:
+
+   ```bash
+   make ephemeral-status ID=<your-id>
+   ```
+
+   This shows the status of the central provisioner, RC, and MC pipelines to help diagnose what failed.
+
+2. **Retry the pipeline** - Force a resync to trigger new pipeline executions:
+
+   ```bash
+   make ephemeral-resync ID=<your-id>
+   ```
+
+   This rebases the ephemeral branch and triggers ArgoCD to create fresh pipeline runs.
+
+3. **Connect to investigate** - Even with state `provisioning-failed`, you can connect to the bastion to debug:
+
+   ```bash
+   # Connect to RC bastion
+   make ephemeral-bastion-rc ID=<your-id>
+
+   # Port-forward to services
+   make ephemeral-port-forward-rc ID=<your-id>
+   ```
+
+   A warning will display if the environment state is `provisioning-failed`, but the connection will proceed if the bastion infrastructure was created.
+
+4. **Tear down and start over** - If the environment is too broken to recover:
+   ```bash
+   make ephemeral-teardown ID=<your-id>
+   make ephemeral-provision  # Start fresh
+   ```
 
 ## Further Reading
 

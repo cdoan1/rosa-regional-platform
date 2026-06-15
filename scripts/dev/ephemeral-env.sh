@@ -39,6 +39,7 @@ usage() {
     echo "  resync          Resync an ephemeral environment to your branch"
     echo "  swap-branch     Swap an ephemeral environment to a different branch"
     echo "  list            List ephemeral environments"
+    echo "  status          Show pipeline execution status for an ephemeral env"
     echo "  shell           Interactive shell for Platform API access"
     echo "  bastion         Connect to RC/MC bastion in an ephemeral env"
     echo "  port-forward    Forward ports through RC/MC bastion in an ephemeral env"
@@ -287,16 +288,25 @@ profile_for() {
 bastion_setup() {
     local cluster_type="${1:-}"
 
-    # Select environment (ready only)
-    select_env "STATE=ready" \
+    # Select environment (ready or provisioning-failed)
+    # Allow bastion access even if provisioning failed, since RC may be partially up
+    select_env "STATE=(ready|provisioning-failed)" \
         "Select environment for bastion access:" \
-        "No ready environments found." \
+        "No ready or provisioning-failed environments found." \
         true
 
-    local region
+    local region state
     region=$(get_field "$ENV_LINE" REGION)
+    state=$(get_field "$ENV_LINE" STATE)
     [[ -n "$region" ]] \
         || die "No REGION found for ID $BUILD_ID. Was it captured during provision?"
+
+    # Warn if connecting to a provisioning-failed environment
+    if [[ "$state" == "provisioning-failed" ]]; then
+        echo "WARNING: Environment state is 'provisioning-failed'."
+        echo "         Bastion may work if RC infrastructure was created, but some services may be unavailable."
+        echo ""
+    fi
 
     # Compute eph_prefix from BUILD_ID (must match ci/ephemeral-provider/main.py)
     local eph_prefix="eph-${BUILD_ID}"
@@ -636,6 +646,200 @@ cmd_list() {
 
     echo ""
     echo "To clear list: rm $ENVS_FILE"
+}
+
+cmd_status() {
+    # Select environment
+    select_env "STATE=(provisioning|ready|provisioning-failed|deprovisioning|deprovisioning-failed)" \
+        "Select environment to check status:" \
+        "No active environments found."
+
+    local region
+    region=$(get_field "$ENV_LINE" REGION)
+    [[ -n "$region" ]] \
+        || die "No REGION found for ID $BUILD_ID. Was it captured during provision?"
+
+    # Compute eph_prefix from BUILD_ID (must match ci/ephemeral-provider/main.py)
+    local eph_prefix="eph-${BUILD_ID}"
+
+    setup_aws_config
+
+    echo ""
+    echo "==> Ephemeral Environment Status"
+    echo "    ID:         $BUILD_ID"
+    echo "    Eph prefix: $eph_prefix"
+    echo "    Region:     $region"
+    echo ""
+
+    # Check central pipeline (provisioner)
+    echo "==> Central Pipeline (pipeline-provisioner)"
+    echo ""
+    export AWS_PROFILE="rrp-central"
+    export AWS_DEFAULT_REGION="$region"
+    export AWS_REGION="$region"
+
+    local provisioner_name="${eph_prefix}-pipeline-provisioner"
+    aws codepipeline list-pipeline-executions \
+        --pipeline-name "$provisioner_name" \
+        --max-results 3 \
+        --query 'pipelineExecutionSummaries[].[pipelineExecutionId,status,startTime,lastUpdateTime]' \
+        --output table 2>/dev/null || {
+        echo "  Pipeline not found or no executions yet."
+    }
+    echo ""
+
+    # Check target pipelines (RC and MC)
+    echo "==> Target Pipelines (RC and MC)"
+    echo ""
+
+    # Determine which profile to use for target account
+    local target_profile
+    target_profile=$(profile_for "regional")
+    export AWS_PROFILE="$target_profile"
+
+    # RC pipeline
+    local rc_pipeline="${eph_prefix}-regional-pipe"
+    echo "Regional Cluster Pipeline: $rc_pipeline"
+    aws codepipeline list-pipeline-executions \
+        --pipeline-name "$rc_pipeline" \
+        --max-results 3 \
+        --query 'pipelineExecutionSummaries[].[pipelineExecutionId,status,startTime,lastUpdateTime]' \
+        --output table 2>/dev/null || {
+        echo "  Pipeline not found or no executions yet."
+    }
+    echo ""
+
+    # MC pipeline
+    local mc_pipeline="${eph_prefix}-mc01-pipe"
+    echo "Management Cluster Pipeline: $mc_pipeline"
+    aws codepipeline list-pipeline-executions \
+        --pipeline-name "$mc_pipeline" \
+        --max-results 3 \
+        --query 'pipelineExecutionSummaries[].[pipelineExecutionId,status,startTime,lastUpdateTime]' \
+        --output table 2>/dev/null || {
+        echo "  Pipeline not found or no executions yet."
+    }
+    echo ""
+
+    # Show detailed status of most recent execution for each pipeline
+    echo "==> Most Recent Execution Details"
+    echo ""
+
+    # RC pipeline details
+    local rc_exec_id
+    rc_exec_id=$(aws codepipeline list-pipeline-executions \
+        --pipeline-name "$rc_pipeline" \
+        --max-results 1 \
+        --query 'pipelineExecutionSummaries[0].pipelineExecutionId' \
+        --output text 2>/dev/null || true)
+
+    if [[ -n "$rc_exec_id" && "$rc_exec_id" != "None" ]]; then
+        echo "Regional Cluster Pipeline (latest execution: $rc_exec_id):"
+        aws codepipeline get-pipeline-execution \
+            --pipeline-name "$rc_pipeline" \
+            --pipeline-execution-id "$rc_exec_id" \
+            --query 'pipelineExecution.[status,statusSummary]' \
+            --output table 2>/dev/null || echo "  Failed to get execution details"
+        echo ""
+    else
+        echo "No recent RC pipeline executions found."
+        echo ""
+    fi
+
+    # MC pipeline details
+    local mc_exec_id
+    mc_exec_id=$(aws codepipeline list-pipeline-executions \
+        --pipeline-name "$mc_pipeline" \
+        --max-results 1 \
+        --query 'pipelineExecutionSummaries[0].pipelineExecutionId' \
+        --output text 2>/dev/null || true)
+
+    if [[ -n "$mc_exec_id" && "$mc_exec_id" != "None" ]]; then
+        echo "Management Cluster Pipeline (latest execution: $mc_exec_id):"
+        aws codepipeline get-pipeline-execution \
+            --pipeline-name "$mc_pipeline" \
+            --pipeline-execution-id "$mc_exec_id" \
+            --query 'pipelineExecution.[status,statusSummary]' \
+            --output table 2>/dev/null || echo "  Failed to get execution details"
+        echo ""
+    else
+        echo "No recent MC pipeline executions found."
+        echo ""
+    fi
+
+    # If no pipeline executions found, check for CodeBuild logs
+    if [[ -z "$rc_exec_id" || "$rc_exec_id" == "None" ]] && [[ -z "$mc_exec_id" || "$mc_exec_id" == "None" ]]; then
+        echo ""
+        echo "==> CodeBuild Logs (most recent builds)"
+        echo ""
+        echo "Checking for CodeBuild logs for prefix: $eph_prefix"
+        echo ""
+
+        # List CodeBuild log groups
+        local log_groups
+        log_groups=$(aws logs describe-log-groups \
+            --log-group-name-prefix "/aws/codebuild/${eph_prefix}-" \
+            --query 'logGroups[].logGroupName' \
+            --output text 2>/dev/null || true)
+
+        if [[ -z "$log_groups" ]]; then
+            echo "  No CodeBuild log groups found."
+            echo ""
+            echo "NOTE: Pipelines may not exist if:"
+            echo "  - Environment was recently provisioned and pipelines haven't been discovered yet"
+            echo "  - Pipelines completed successfully and were cleaned up"
+            echo "  - Environment is in provisioning-failed state and pipelines were never created"
+        else
+            for log_group in $log_groups; do
+                local project_name="${log_group##*/}"
+                echo "Build Project: $project_name"
+
+                # Get the most recent log stream
+                local stream_info
+                stream_info=$(aws logs describe-log-streams \
+                    --log-group-name "$log_group" \
+                    --order-by LastEventTime \
+                    --descending \
+                    --max-items 1 \
+                    --query 'logStreams[0].[logStreamName,lastEventTime]' \
+                    --output text 2>/dev/null || true)
+
+                if [[ -n "$stream_info" ]]; then
+                    local stream_name timestamp
+                    stream_name=$(echo "$stream_info" | awk '{print $1}')
+                    timestamp=$(echo "$stream_info" | awk '{print $2}')
+
+                    # Convert timestamp to human readable
+                    local human_time
+                    human_time=$(date -r $((timestamp / 1000)) "+%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "unknown")
+
+                    echo "  Latest build: $human_time"
+                    echo "  Last 20 lines:"
+                    echo ""
+
+                    # Fetch and display last 20 lines
+                    aws logs get-log-events \
+                        --log-group-name "$log_group" \
+                        --log-stream-name "$stream_name" \
+                        --limit 20 \
+                        --start-from-head false \
+                        --query 'events[].message' \
+                        --output text 2>/dev/null | sed 's/^/    /' || echo "    Failed to fetch logs"
+                    echo ""
+                else
+                    echo "  No log streams found"
+                    echo ""
+                fi
+            done
+
+            echo ""
+            echo "TIP: To download full logs, use:"
+            echo "  make ephemeral-collect-logs ID=$BUILD_ID CLUSTER=rc"
+        fi
+    else
+        echo ""
+        echo "NOTE: Pipeline executions found. Use 'make ephemeral-collect-logs' for detailed CodeBuild logs."
+    fi
 }
 
 cmd_shell() {
@@ -1086,7 +1290,7 @@ case "${1:-help}" in
 esac
 
 case "${1:-help}" in
-    bastion|collect-logs)
+    bastion|collect-logs|status)
         for tool in jq uv aws; do
             command -v "$tool" >/dev/null 2>&1 || die "Missing required tool: $tool"
         done
@@ -1112,6 +1316,7 @@ case "${1:-help}" in
     teardown)       cmd_teardown ;;
     resync)         cmd_resync ;;
     swap-branch)    cmd_swap_branch ;;
+    status)         cmd_status ;;
     shell)          cmd_shell ;;
     bastion)        shift; cmd_bastion_interactive "$@" ;;
     port-forward)   shift; cmd_bastion_port_forward "$@" ;;
