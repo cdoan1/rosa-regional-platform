@@ -134,6 +134,55 @@ hyperfleetSentinelChart:
         mountPath: /mnt/secrets-store
         readOnly: true
 
+    # -- Monitoring and metrics configuration
+    monitoring:
+      # -- PodMonitoring for Google Cloud Managed Prometheus (GMP)
+      # podMonitoring:
+      #   # -- Create a PodMonitoring resource
+      #   enabled: true
+      #   # -- Scrape interval
+      #   interval: 30s
+      #   # -- Additional labels for PodMonitoring discovery
+      #   additionalLabels: {}
+      #   # -- Metric relabel configs applied before ingestion
+      #   metricRelabeling: []
+
+      # -- ServiceMonitor for Prometheus Operator environments
+      serviceMonitor:
+        # -- Create a ServiceMonitor resource
+        enabled: true
+        # -- Scrape interval
+        interval: 30s
+        # -- Scrape timeout (must be less than interval)
+        scrapeTimeout: 10s
+        # -- Additional labels for ServiceMonitor discovery
+        additionalLabels: {}
+        # -- Namespace selector for cross-namespace monitoring
+        namespaceSelector: {}
+        # -- Honor labels from the target to avoid overwriting
+        honorLabels: true
+        # -- Metric relabel configs applied before ingestion
+        metricRelabeling: []
+        # -- Override the namespace where ServiceMonitor is created (defaults to release namespace)
+        namespace: ""
+
+      # -- PrometheusRule for alerting (requires Prometheus Operator)
+      prometheusRule:
+        # -- Create PrometheusRule resources
+        enabled: true
+        # -- Namespace to create the PrometheusRule in (defaults to release namespace)
+        namespace: ""
+        # -- Additional labels for PrometheusRule discovery
+        additionalLabels: {}
+        # -- Alert rule configuration
+        alerts:
+          # -- Poll staleness alert
+          sentinelPollStale:
+            # -- Seconds after which a poll is considered stale
+            staleAfterSeconds: 60
+            # -- Duration before the alert fires
+            for: 1m
+
 # SecretProviderClass configuration for AWS Secrets Manager
 secretProvider:
   # Enable SecretProviderClass creation

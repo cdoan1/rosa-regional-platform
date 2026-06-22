@@ -80,6 +80,44 @@ hyperfleet-api-chart:
         mountPath: /mnt/secrets-store
         readOnly: true
 
+    # -- Monitoring and alerting configuration
+    monitoring:
+      # -- PrometheusRule for alerting
+      prometheusRule:
+        # -- Create PrometheusRule resources
+        enabled: true
+        # -- Additional labels for PrometheusRule discovery
+        additionalLabels: {}
+        # -- Namespace to create the PrometheusRule in (defaults to release namespace)
+        namespace: "hyperfleet-system"
+        # -- Alert rule configuration
+        rules:
+          # -- Alert when a deletion is stuck
+          deletionStuck:
+            # -- Duration before the alert fires
+            for: "5m"
+            # -- Runbook URL included in the alert
+            runbookUrl: ""
+          # -- Alert when a deletion times out
+          deletionTimeout:
+            # -- Duration before the alert fires
+            for: "30m"
+            # -- Runbook URL included in the alert
+            runbookUrl: ""
+
+    # -- ServiceMonitor for Prometheus Operator scrape configuration
+    serviceMonitor:
+      # -- Create a ServiceMonitor resource
+      enabled: true
+      # -- Scrape interval
+      interval: 30s
+      # -- Scrape timeout
+      scrapeTimeout: 10s
+      # -- Additional labels for ServiceMonitor discovery
+      labels: {}
+      # -- Namespace to create the ServiceMonitor in (defaults to release namespace)
+      namespace: "hyperfleet-system"
+
 # SecretProviderClass configuration for AWS Pod Identity
 secretProviderClass:
   # Enable SecretProviderClass creation
