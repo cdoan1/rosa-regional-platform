@@ -10,6 +10,6 @@ keywords:
   - trusted-actions
   - zero-operator-access
 maintainers:
-  - name: ROSA Regional Platform Team
+  - name: ROSA HyperFleet Team
 sources:
-  - https://github.com/openshift-online/rosa-regional-platform
+  - https://github.com/openshift-online/rosa-hyperfleet

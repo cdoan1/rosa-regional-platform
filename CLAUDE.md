@@ -1,8 +1,8 @@
-# Rosa Regional Platform - Claude Instructions
+# Rosa HyperFleet - Claude Instructions
 
 ## Project Overview
 
-The **ROSA Regional Platform** is a strategic redesign of Red Hat OpenShift Service on AWS (ROSA) with Hosted Control Planes (HCP). This project transforms ROSA from a globally-centralized management model to a **regionally-distributed architecture** where each AWS region operates independently with its own control plane infrastructure.
+The **ROSA HyperFleet** is a strategic redesign of Red Hat OpenShift Service on AWS (ROSA) with Hosted Control Planes (HCP). This project transforms ROSA from a globally-centralized management model to a **regionally-distributed architecture** where each AWS region operates independently with its own control plane infrastructure.
 
 **Key Goals:**
 
@@ -43,7 +43,7 @@ The **ROSA Regional Platform** is a strategic redesign of Red Hat OpenShift Serv
 
 ## Project Tracking
 
-Work for the ROSA Regional Platform is tracked in Jira under two parent Outcomes:
+Work for the ROSA HyperFleet is tracked in Jira under two parent Outcomes:
 
 - **[HPSTRAT-62](https://redhat.atlassian.net/browse/HPSTRAT-62)** ("Red Hat Cloud Data Sovereignty"): Feature-driven work covering the regional platform build-out (architecture, infrastructure, services, tooling).
 - **[HPSTRAT-11](https://redhat.atlassian.net/browse/HPSTRAT-11)** ("FedRAMP Moderate Technical Delivery"): Compliance work covering FedRAMP security controls, audit requirements, and certification readiness.

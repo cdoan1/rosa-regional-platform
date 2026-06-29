@@ -1,10 +1,10 @@
 # Milestone 4: Building a Regional Observability Platform
 
-_ROSA Regional Platform — Observability and Alerting_
+_ROSA HyperFleet — Observability and Alerting_
 
 ## Introduction
 
-When we set out to build observability for the ROSA Regional Platform, we faced a fundamental constraint: each AWS region operates independently with its own EKS-based Regional Cluster (RC) and a fleet of Management Clusters (MCs) running across separate AWS accounts. There is no shared network, no centralized Prometheus, and no global control plane to lean on. Metrics, logs, and alerts all had to be solved regionally — from scratch.
+When we set out to build observability for the ROSA HyperFleet, we faced a fundamental constraint: each AWS region operates independently with its own EKS-based Regional Cluster (RC) and a fleet of Management Clusters (MCs) running across separate AWS accounts. There is no shared network, no centralized Prometheus, and no global control plane to lean on. Metrics, logs, and alerts all had to be solved regionally — from scratch.
 
 We are pleased to announce that we have successfully completed Milestone 4 ([ROSA-669](https://redhat.atlassian.net/browse/ROSA-669)), which lays the foundation for our observability stack. This post covers the key areas we think are worth sharing more broadly: the **metrics and logging architecture** spanning both cluster types with secure cross-account transit, an **alerting architecture designed for multiple consumers**, and how we **validate the full pipeline end-to-end** in CI.
 
@@ -189,4 +189,4 @@ We're also working with the RHOBS team to consume RHOBS-maintained images and pa
 
 ---
 
-_For questions or feedback, reach out in #team-rosa-regional-platform on Slack._
+_For questions or feedback, reach out in #team-rosa-hyperfleet on Slack._

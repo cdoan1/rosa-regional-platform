@@ -544,7 +544,7 @@ Implementation: `hack/zoa.sh` (source in `.zshrc`). This is a temporary shell wr
 
 ```bash
 # Add to .zshrc
-source /path/to/rosa-regional-platform/hack/zoa.sh
+source /path/to/rosa-hyperfleet/hack/zoa.sh
 export ZOA_API="https://<api-gateway-id>.execute-api.<region>.amazonaws.com/prod"
 ```
 
@@ -822,7 +822,7 @@ Platform API Reconciler (5s loop):                                              
 ## Design Rationale
 
 - **Justification**: The split SA model (per-execution runner + static uploader/AWS SAs) balances auditability, operational simplicity, and Pod Identity constraints. Separating TA authoring (script + RBAC) from execution boilerplate (image, wrapper, resources) enables independent evolution of each concern.
-- **Evidence**: Maestro is the current transport layer for ManifestWork dispatch across ROSA HCP v2 (regionality), ARO-HCP, and GCP-HCP — a proven mechanism at scale. The `openshift/managed-scripts` project validates the "swiss knife image + script" pattern for OSD/ROSA operations.
+- **Evidence**: Maestro is the current transport layer for ManifestWork dispatch across ROSA HCP v2 (hyperfleet), ARO-HCP, and GCP-HCP — a proven mechanism at scale. The `openshift/managed-scripts` project validates the "swiss knife image + script" pattern for OSD/ROSA operations.
 - **Comparison**: Per-execution runner SAs provide execution-level K8s audit attribution. Static AWS and uploader SAs satisfy Pod Identity constraints while keeping IAM association count bounded. Rich labels on all resources enable correlation via kube audit logs.
 
 ## Consequences

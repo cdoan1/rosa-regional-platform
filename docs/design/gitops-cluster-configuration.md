@@ -4,11 +4,11 @@
 
 ## Summary
 
-The ROSA Regional Platform implements a sophisticated GitOps cluster configuration system using ArgoCD ApplicationSets with matrix generators that enables scalable, versioned, and region-aware deployment of applications across multiple clusters while maintaining regional independence and progressive deployment capabilities.
+The ROSA HyperFleet implements a sophisticated GitOps cluster configuration system using ArgoCD ApplicationSets with matrix generators that enables scalable, versioned, and region-aware deployment of applications across multiple clusters while maintaining regional independence and progressive deployment capabilities.
 
 ## Context
 
-The ROSA Regional Platform is architected from the ground up as a regionally-distributed system where each cluster (Regional Clusters and Management Clusters) operates independently with its own ArgoCD instance for self-configuration. Within each region (containing 1 Regional Cluster + 1 to N Management Clusters), the configuration management system must support this cluster independence while sharing common application definitions and enabling coordinated deployments across environments.
+The ROSA HyperFleet is architected from the ground up as a regionally-distributed system where each cluster (Regional Clusters and Management Clusters) operates independently with its own ArgoCD instance for self-configuration. Within each region (containing 1 Regional Cluster + 1 to N Management Clusters), the configuration management system must support this cluster independence while sharing common application definitions and enabling coordinated deployments across environments.
 
 - **Problem Statement**: How to manage application configuration across multiple regions and environments while supporting independent regional operations, progressive deployments, and maintaining audit trails for production safety
 - **Constraints**: Must integrate with fully private EKS clusters, support region-specific customizations, enable version control for production deployments, and scale to hundreds of regions
@@ -16,7 +16,7 @@ The ROSA Regional Platform is architected from the ground up as a regionally-dis
 
 ## Architecture Overview
 
-The ROSA Regional Platform implements a GitOps cluster configuration system using ArgoCD ApplicationSets with hash-based versioning for production-grade deployment controls while maintaining regional independence.
+The ROSA HyperFleet implements a GitOps cluster configuration system using ArgoCD ApplicationSets with hash-based versioning for production-grade deployment controls while maintaining regional independence.
 
 ### Foundation Concepts
 

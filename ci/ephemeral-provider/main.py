@@ -4,7 +4,7 @@
 # dependencies = ["boto3", "PyYAML"]
 # ///
 """
-Ephemeral environment manager for ROSA Regional Platform.
+Ephemeral environment manager for ROSA HyperFleet.
 
 Provisions an ephemeral environment or tears one down. Designed for multi-step
 CI pipelines where provision, tests, and teardown are separate steps:
@@ -60,7 +60,7 @@ def make_eph_prefix(env_id: str, externally_set: bool) -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Ephemeral environment manager for ROSA Regional Platform")
+    parser = argparse.ArgumentParser(description="Ephemeral environment manager for ROSA HyperFleet")
     teardown_group = parser.add_mutually_exclusive_group()
     teardown_group.add_argument(
         "--teardown",
@@ -86,7 +86,7 @@ def main():
     )
     parser.add_argument(
         "--repo",
-        default=os.environ.get("REPOSITORY_URL", "openshift-online/rosa-regional-platform"),
+        default=os.environ.get("REPOSITORY_URL", "openshift-online/rosa-hyperfleet"),
         help="GitHub repository in owner/name format (default: from REPOSITORY_URL env var)",
     )
     parser.add_argument(

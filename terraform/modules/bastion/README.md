@@ -1,6 +1,6 @@
 # Bastion
 
-In ROSA Regionality Platform, the Regional Cluster and the Management Cluster are private. The only access to them will happen through ZOA processes.
+In ROSA HyperFleet, the Regional Cluster and the Management Cluster are private. The only access to them will happen through ZOA processes.
 
 This module creates an **ECS Fargate bastion task definition** that can be used to launch ephemeral bastion containers for accessing private EKS clusters. The bastion shares the ECS cluster created by the `ecs-bootstrap` module. This bastion should only be leveraged in the following scenarios:
 

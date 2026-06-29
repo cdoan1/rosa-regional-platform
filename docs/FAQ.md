@@ -1,6 +1,6 @@
 ### What cluster types does the regional architecture support?
 
-The regional architecture is designed exclusively for **ROSA HCP** (Hosted Control Planes). For the complete scope and architecture overview, see [ROSA Regional Platform](README.md#scope).
+The regional architecture is designed exclusively for **ROSA HCP** (Hosted Control Planes). For the complete scope and architecture overview, see [ROSA HyperFleet](README.md#scope).
 
 ### What is the Regional Cluster and what services run on it?
 

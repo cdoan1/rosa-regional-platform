@@ -42,11 +42,11 @@
 
 This design decision addresses how the Regional Cluster distributes cluster configuration and resources to Management Clusters without direct network connectivity between their Kubernetes APIs.
 
-The solution must work in an environment where Management Clusters have fully private Kubernetes APIs with no network path to the Regional Cluster, enabling maximum security isolation while maintaining operational capability. This document provides comprehensive architecture diagrams, detailed implementation guidance, and operational procedures for the Maestro MQTT-based orchestration system in the ROSA Regional Platform.
+The solution must work in an environment where Management Clusters have fully private Kubernetes APIs with no network path to the Regional Cluster, enabling maximum security isolation while maintaining operational capability. This document provides comprehensive architecture diagrams, detailed implementation guidance, and operational procedures for the Maestro MQTT-based orchestration system in the ROSA HyperFleet.
 
 ## Context
 
-The rosa-regional-platform requires a mechanism to distribute HostedCluster and NodePool resources from the Regional Cluster's CLM (Cluster Lifecycle Manager) to multiple Management Clusters across potentially different AWS accounts.
+The rosa-hyperfleet requires a mechanism to distribute HostedCluster and NodePool resources from the Regional Cluster's CLM (Cluster Lifecycle Manager) to multiple Management Clusters across potentially different AWS accounts.
 
 **Critical Constraint**: Management Clusters MUST have no network path to the Regional Cluster Kubernetes API, and vice versa. This eliminates traditional push mechanisms that rely on direct API access.
 

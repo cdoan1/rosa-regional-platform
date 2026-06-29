@@ -27,7 +27,7 @@ resource "aws_ecs_task_definition" "bastion" {
         <<-EOF
           set -euo pipefail
 
-          echo "=== ROSA Regional Platform Bastion ==="
+          echo "=== ROSA HyperFleet Bastion ==="
           echo "Starting at $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
           echo ""
 

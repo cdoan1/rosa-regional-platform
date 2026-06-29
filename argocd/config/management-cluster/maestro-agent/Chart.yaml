@@ -11,7 +11,7 @@ keywords:
   - agent
   - workload-distribution
 maintainers:
-  - name: ROSA Regional Platform Team
+  - name: ROSA HyperFleet Team
 sources:
-  - https://github.com/openshift-online/rosa-regional-platform
+  - https://github.com/openshift-online/rosa-hyperfleet
   - https://github.com/Azure/ARO-HCP/tree/main/maestro

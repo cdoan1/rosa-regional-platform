@@ -1,4 +1,4 @@
-# aws-nuke configuration for ROSA Regional Platform CI accounts.
+# aws-nuke configuration for ROSA HyperFleet CI accounts.
 #
 # Reference: https://github.com/ekristen/aws-nuke (v3)
 

@@ -1,5 +1,5 @@
 ---
-description: Log a new Jira issue to ROSAENG with Component (ROSA Regionality Platform) pre-filled.
+description: Log a new Jira issue to ROSAENG with Component (ROSA HyperFleet) pre-filled.
 ---
 
 ## User Input
@@ -12,7 +12,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Goal
 
-Create a new Jira issue in the ROSAENG project with the correct Component pre-filled for the ROSA Regional Platform team.
+Create a new Jira issue in the ROSAENG project with the correct Component pre-filled for the ROSA HyperFleet team.
 
 ## Repo Detection
 
@@ -20,9 +20,9 @@ Detect the current repository from the working directory or `git remote get-url 
 
 | Remote contains              | Repo label                   |
 | ---------------------------- | ---------------------------- |
-| `rosa-regional-platform-cli` | `rosa-regional-platform-cli` |
-| `rosa-regional-platform-api` | `rosa-regional-platform-api` |
-| `rosa-regional-platform`     | `rosa-regional-platform`     |
+| `rosa-hyperfleet-cli` | `rosa-hyperfleet-cli` |
+| `rosa-hyperfleet-api` | `rosa-hyperfleet-api` |
+| `rosa-hyperfleet`     | `rosa-hyperfleet`     |
 
 Use this label as the default **Repo** field in the description. If detection fails, ask the user.
 
@@ -105,7 +105,7 @@ Format the description using this template:
 
 Stories and Bugs should almost always be linked to an Epic. Before creating:
 
-- Search for open epics in ROSAENG with component "ROSA Regionality Platform"
+- Search for open epics in ROSAENG with component "ROSA HyperFleet"
 - Suggest the most relevant epic(s) based on the issue context
 - Ask the user which epic to link to
 - Issues should not be linked to closed epics
@@ -119,7 +119,7 @@ About to create ROSAENG Jira:
 
 Summary: [extracted summary]
 Type: [Story/Bug/Task/Epic]
-Component: ROSA Regionality Platform
+Component: ROSA HyperFleet
 Parent Epic: [ROSAENG-XXXX] (if applicable)
 
 Description Preview:
@@ -140,7 +140,7 @@ Use the JIRA MCP tools to create the issue with:
 - **Summary**: [user provided summary]
 - **Issue Type**: [Story/Bug/Task/Epic]
 - **Description**: [structured description from template]
-- **Component**: ROSA Regionality Platform (**always required, never omit**)
+- **Component**: ROSA HyperFleet (**always required, never omit**)
 
 Then link it to the parent epic if applicable.
 
@@ -190,7 +190,7 @@ Link: https://redhat.atlassian.net/browse/[ISSUE_KEY]
 
 Summary: [summary]
 Type: [type]
-Component: ROSA Regionality Platform
+Component: ROSA HyperFleet
 Parent Epic: [ROSAENG-XXXX]
 Assignee: [name]
 ```

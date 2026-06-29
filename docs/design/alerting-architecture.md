@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the alerting architecture for the ROSA Regional Platform. The system routes Prometheus alerts from AlertManager to multiple receivers with selective, label-based filtering. The design is split into two phases:
+This document describes the alerting architecture for the ROSA HyperFleet. The system routes Prometheus alerts from AlertManager to multiple receivers with selective, label-based filtering. The design is split into two phases:
 
 - **Phase 1**: Native AlertManager routing with `continue`-based fan-out
 - **Phase 2**: SNS fan-out for decoupled, durable alert distribution using AlertManager's native SNS receiver

@@ -4,7 +4,7 @@
 
 ## Summary
 
-The ROSA Regional Platform implements a hierarchical, Git-driven pipeline architecture where a central pipeline-provisioner dynamically creates and manages per-cluster CodePipeline pipelines based on declarative configuration files, enabling scalable, auditable, and automated infrastructure lifecycle management across multiple AWS accounts and regions.
+The ROSA HyperFleet implements a hierarchical, Git-driven pipeline architecture where a central pipeline-provisioner dynamically creates and manages per-cluster CodePipeline pipelines based on declarative configuration files, enabling scalable, auditable, and automated infrastructure lifecycle management across multiple AWS accounts and regions.
 
 ## Architecture Overview
 
@@ -155,7 +155,7 @@ The pipeline-provisioner is a "meta-pipeline" that manages other pipelines. It's
 The pipeline-provisioner must be created once manually:
 
 ```bash
-GITHUB_REPOSITORY=openshift-online/rosa-regional-platform \
+GITHUB_REPOSITORY=openshift-online/rosa-hyperfleet \
 GITHUB_BRANCH=main \
 TARGET_ENVIRONMENT=staging \
 ./scripts/bootstrap-central-account.sh

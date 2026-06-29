@@ -4,7 +4,7 @@
 
 ## Summary
 
-The ROSA Regional Platform collects, stores, and visualizes operational metrics across regional and management clusters using Prometheus, Thanos, and Grafana. Management cluster metrics are forwarded to the regional cluster via Prometheus remote_write through a SigV4-authenticated API Gateway, providing a single pane of glass for cross-cluster observability.
+The ROSA HyperFleet collects, stores, and visualizes operational metrics across regional and management clusters using Prometheus, Thanos, and Grafana. Management cluster metrics are forwarded to the regional cluster via Prometheus remote_write through a SigV4-authenticated API Gateway, providing a single pane of glass for cross-cluster observability.
 
 ## Architecture
 

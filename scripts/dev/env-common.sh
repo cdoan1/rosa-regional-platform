@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Shared utilities for ROSA Regional Platform dev environment scripts.
+# Shared utilities for ROSA HyperFleet dev environment scripts.
 #
 # Sourced by ephemeral-env.sh and int-env.sh. Not executable on its own.
 #

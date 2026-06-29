@@ -1,6 +1,6 @@
 # platform-api Helm Chart
 
-Helm chart for the ROSA Regional Platform API with Envoy sidecar proxy.
+Helm chart for the ROSA HyperFleet API with Envoy sidecar proxy.
 
 ## Overview
 
@@ -47,13 +47,13 @@ platformApi:
 ### Basic Installation
 
 ```bash
-helm install platform-api ./deployment/helm/rosa-regional-platform
+helm install platform-api ./deployment/helm/rosa-hyperfleet
 ```
 
 ### Production Installation with Custom Values
 
 ```bash
-helm install platform-api ./deployment/helm/rosa-regional-platform \
+helm install platform-api ./deployment/helm/rosa-hyperfleet \
   --set platformApi.targetGroup.arn="arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/platform-api/abc123def456" \
   --set platformApi.app.args.allowedAccounts="111111111111,222222222222,333333333333"
 ```
@@ -91,14 +91,14 @@ platformApi:
 Install with custom values:
 
 ```bash
-helm install platform-api ./deployment/helm/rosa-regional-platform \
+helm install platform-api ./deployment/helm/rosa-hyperfleet \
   -f custom-values.yaml
 ```
 
 ## Upgrading
 
 ```bash
-helm upgrade platform-api ./deployment/helm/rosa-regional-platform \
+helm upgrade platform-api ./deployment/helm/rosa-hyperfleet \
   --set platformApi.targetGroup.arn="arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/platform-api/abc123def456" \
   --set platformApi.app.args.allowedAccounts="111111111111,222222222222"
 ```

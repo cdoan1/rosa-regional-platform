@@ -94,7 +94,7 @@ variable "stage_name" {
 variable "api_description" {
   description = "Description for the API Gateway REST API"
   type        = string
-  default     = "ROSA Regional Platform API"
+  default     = "ROSA HyperFleet API"
 }
 
 # =============================================================================

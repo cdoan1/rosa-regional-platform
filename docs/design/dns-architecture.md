@@ -1,10 +1,10 @@
-# DNS Architecture for ROSA Regional Platform
+# DNS Architecture for ROSA HyperFleet
 
 **Last Updated Date**: 2026-05-11
 
 ## Summary
 
-ROSA Regional Platform uses a hierarchical DNS architecture built on AWS Route 53, with DNSSEC throughout, that distributes records across per-region zone shards to scale beyond 10k records. Each regional deployment is uniquely identified by a `deployment_name` — which defaults to the AWS region name but can be suffixed to support multiple deployments per region within the same environment.
+ROSA HyperFleet uses a hierarchical DNS architecture built on AWS Route 53, with DNSSEC throughout, that distributes records across per-region zone shards to scale beyond 10k records. Each regional deployment is uniquely identified by a `deployment_name` — which defaults to the AWS region name but can be suffixed to support multiple deployments per region within the same environment.
 
 ## Context
 

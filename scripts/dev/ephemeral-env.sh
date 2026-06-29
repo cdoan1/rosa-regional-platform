@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Ephemeral environment CLI for ROSA Regional Platform.
+# Ephemeral environment CLI for ROSA HyperFleet.
 #
 # Manages ephemeral developer environments in shared dev AWS accounts.
 # Wraps the ephemeral provider (ci/ephemeral-provider/) with credential
@@ -211,10 +211,10 @@ setup_aws_config() {
         return 0
     fi
 
-    local accounts_file="${RRP_ACCOUNTS_DEV:-${REPO_ROOT}/../rosa-regional-platform-internal/infra/accounts/dev/accounts.json}"
+    local accounts_file="${RRP_ACCOUNTS_DEV:-${REPO_ROOT}/../rosa-hyperfleet-internal/infra/accounts/dev/accounts.json}"
     [[ -f "$accounts_file" ]] \
         || die "Account IDs file not found: $accounts_file
-    Either clone rosa-regional-platform-internal as a sibling directory,
+    Either clone rosa-hyperfleet-internal as a sibling directory,
     or set RRP_ACCOUNTS_DEV to point to your accounts JSON file.
     See docs/development-environment.md for details."
     load_accounts "$accounts_file" admin central rc mc customer
@@ -348,7 +348,7 @@ preflight() {
 # =============================================================================
 
 cmd_provision() {
-    local repo="${REPO:-openshift-online/rosa-regional-platform}"
+    local repo="${REPO:-openshift-online/rosa-hyperfleet}"
     local branch="${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}"
 
     # Generate an ID if not provided
@@ -664,7 +664,7 @@ cmd_shell() {
         "$CI_IMAGE" \
         bash -c '
             echo ""
-            echo "ROSA Regional Platform shell"
+            echo "ROSA HyperFleet shell"
             echo ""
             echo "API Gateway: $API_URL"
             echo "Region:      $AWS_DEFAULT_REGION"
@@ -994,7 +994,7 @@ cmd_bastion_port_forward() {
 
 cmd_e2e() {
     local e2e_ref="${E2E_REF:-main}"
-    local e2e_repo="${E2E_REPO:-https://github.com/openshift-online/rosa-regional-platform-api.git}"
+    local e2e_repo="${E2E_REPO:-https://github.com/openshift-online/rosa-hyperfleet-api.git}"
 
     # Select environment (ready only)
     select_env "STATE=ready" \

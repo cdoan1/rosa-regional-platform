@@ -1,8 +1,8 @@
-# ROSA Regional Platform
+# ROSA HyperFleet
 
 ## Overview
 
-The ROSA Regional Platform project is a strategic initiative to redesign the architecture of Red Hat OpenShift Service on AWS (ROSA) with Hosted Control Planes (HCP). This new architecture moves away from a globally-centralized management model to a regionally-distributed approach, where each AWS region operates independently with its own control plane infrastructure.
+The ROSA HyperFleet project is a strategic initiative to redesign the architecture of Red Hat OpenShift Service on AWS (ROSA) with Hosted Control Planes (HCP). This new architecture moves away from a globally-centralized management model to a regionally-distributed approach, where each AWS region operates independently with its own control plane infrastructure.
 
 The goal is to improve reliability, reduce dependencies on global services, and provide customers with lower-latency access to cluster management through regional API endpoints.
 
@@ -86,7 +86,7 @@ Each module has its own README with usage, inputs, outputs, and architecture:
 
 Slidev-based presentations for project overview and milestones:
 
-- [Project Overview](presentations/project/README.md) - ROSA Regional Platform project presentation
+- [Project Overview](presentations/project/README.md) - ROSA HyperFleet project presentation
 - [Milestone 1](presentations/milestone-1/README.md) - Full region provisioning demonstration
 
 ## Scope

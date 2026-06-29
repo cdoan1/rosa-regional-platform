@@ -1,6 +1,6 @@
 ---
 name: add-pre-merge
-description: Generate the openshift/release CI config to onboard a component repository for cross-component pre-merge e2e testing against an ephemeral environment. Use when a user wants to add pre-merge testing, cross-component e2e, or regionality compatibility tests to a component repo.
+description: Generate the openshift/release CI config to onboard a component repository for cross-component pre-merge e2e testing against an ephemeral environment. Use when a user wants to add pre-merge testing, cross-component e2e, or hyperfleet compatibility tests to a component repo.
 argument-hint: "[component-name]"
 ---
 
@@ -11,7 +11,7 @@ You are helping the user onboard a new component repository for cross-component 
 If not provided via `$ARGUMENTS`, ask the user for:
 
 1. **Component name** — the directory name under `argocd/config/regional-cluster/` or `argocd/config/management-cluster/` in this repo (e.g., `platform-api`, `maestro-server`). Validate it exists.
-2. **Org and repo** — the GitHub org/repo for the component (e.g., `openshift-online/rosa-regional-platform-api`). This determines the CI config path in openshift/release.
+2. **Org and repo** — the GitHub org/repo for the component (e.g., `openshift-online/rosa-hyperfleet-api`). This determines the CI config path in openshift/release.
 3. **Branch** — the branch to configure (default: `main`).
 4. **Dockerfile path** — path to the Dockerfile in the component repo (default: `Dockerfile`).
 5. **Pipeline image name** — the `to` field for the built image in ci-operator (default: component name with hyphens, e.g., `platform-api`).
@@ -51,7 +51,7 @@ images:
 tests:
   # ... existing tests ...
   - always_run: false
-    as: rosa-regionality-compatibility-e2e
+    as: rosa-hyperfleet-compatibility-e2e
     steps:
       dependencies:
         CI_COMPONENT_IMAGE: <pipeline-image-name>
@@ -61,7 +61,7 @@ tests:
           <generated-override-yaml>
         ROSA_REGIONAL_HELM_VALUES_FILE: "argocd/config/<cluster-type>/<component-name>/values.yaml"
         ROSA_REGIONAL_QUAY_DEST_REPO: "quay.io/rrp-dev-ci/<quay-repo-name>"
-      workflow: rosa-regional-platform-ephemeral-e2e
+      workflow: rosa-hyperfleet-ephemeral-e2e
 ```
 
 ## Output
@@ -74,6 +74,6 @@ Present the user with:
    - [ ] Add the snippet to `ci-operator/config/<org>/<org>-<repo>-<branch>.yaml` in openshift/release (note: merge with existing `images` and `tests` sections if they exist)
    - [ ] Run `make update && make checkconfig` in the openshift/release repo
    - [ ] Open PR in openshift/release
-   - [ ] Once merged, trigger with `/test rosa-regionality-compatibility-e2e` on any PR in the component repo
+   - [ ] Once merged, trigger with `/test rosa-hyperfleet-compatibility-e2e` on any PR in the component repo
 
 Do NOT attempt to clone or modify the openshift/release repo — just generate the config for the user to apply.

@@ -1,10 +1,10 @@
-# ROSA Regional Platform IC
+# ROSA HyperFleet IC
 
-This document describes the ROSA Regional Platform IC (Interrupt Catcher) process.
+This document describes the ROSA HyperFleet IC (Interrupt Catcher) process.
 
 ## Overview
 
-The IC is the weekly point person for operational interrupts on the ROSA Regional Platform team. The role aims to keep the underlying infrastructure stable and prevent the team from accruing technical debt.
+The IC is the weekly point person for operational interrupts on the ROSA HyperFleet team. The role aims to keep the underlying infrastructure stable and prevent the team from accruing technical debt.
 
 There is no expectation for the IC to be available outside of Business Hours. The IC should review and address their responsibilities at the start of each day.
 
@@ -19,13 +19,13 @@ The IC is expected to use AI and write automation to reduce the burden on themse
 The IC is responsible for the following tasks:
 
 - Ensure that the CI jobs are running correctly, in particular:
-  - [Nightly Ephemeral](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-ephemeral)
-  - [Nightly Integration](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-integration)
-  - [On-demand E2E](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-on-demand-e2e)
+  - [Nightly Ephemeral](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-hyperfleet-main-nightly-ephemeral)
+  - [Nightly Integration](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-hyperfleet-main-nightly-integration)
+  - [On-demand E2E](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-hyperfleet-main-on-demand-e2e)
     - Note that only consistent, platform-level failures are the IC's responsibility, as opposed to one-off failures caused by the PRs being tested
-- Monitor the PR queue via the [PR Dashboard](https://openshift-online.github.io/rosa-regional-platform/pr-dashboard):
+- Monitor the PR queue via the [PR Dashboard](https://openshift-online.github.io/rosa-hyperfleet/pr-dashboard):
   - Ensure all review-ready PRs have assigned reviewers
-  - Run `/ok-to-test` on bot PRs (dependabot, rosa-regional-platform-ci, rrp-bot) after verifying they are safe
+  - Run `/ok-to-test` on bot PRs (dependabot, rosa-hyperfleet-ci, rrp-bot) after verifying they are safe
 - Work on items in the [ROSA HyperFleet IC Queue](https://redhat.atlassian.net/issues?filter=112523).
   - Items on this queue should always be down to zero.
 

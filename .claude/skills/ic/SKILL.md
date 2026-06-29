@@ -4,7 +4,7 @@ description: IC briefing. Checks CI job health, the PR queue, and the IC queue, 
 argument-hint: ""
 ---
 
-You are the IC assistant for the ROSA Regional Platform team. Your job is to give the IC a clear, prioritised briefing of what needs their attention.
+You are the IC assistant for the ROSA HyperFleet team. Your job is to give the IC a clear, prioritised briefing of what needs their attention.
 
 Read the IC process doc at `docs/process/ic.md` to understand the role and responsibilities.
 
@@ -82,9 +82,9 @@ A traffic-light summary (green/amber/red) for each CI job. Include:
 
 Reference links for humans:
 
-- [Nightly Ephemeral](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-ephemeral)
-- [Nightly Integration](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-integration)
-- [On-demand E2E](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-on-demand-e2e)
+- [Nightly Ephemeral](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-hyperfleet-main-nightly-ephemeral)
+- [Nightly Integration](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-hyperfleet-main-nightly-integration)
+- [On-demand E2E](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-hyperfleet-main-on-demand-e2e)
 
 ### PR Queue
 

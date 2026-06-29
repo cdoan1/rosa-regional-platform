@@ -1,6 +1,6 @@
 # ci/ephemeral-provider
 
-Python package for provisioning, resyncing, and tearing down ephemeral CI environments for ROSA Regional Platform.
+Python package for provisioning, resyncing, and tearing down ephemeral CI environments for ROSA HyperFleet.
 
 For local development usage via Make targets, see [Provisioning a Development Environment](../../docs/development-environment.md).
 

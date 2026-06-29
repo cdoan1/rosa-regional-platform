@@ -4,7 +4,7 @@
 
 ## Summary
 
-The ROSA Regional Platform uses a pipeline pre-step import framework to adopt pre-existing AWS resources into Terraform state. This enables full lifecycle management of resources that were originally auto-created by AWS services, created by imperative scripts, or provisioned outside of Terraform for any reason. The framework is generic — it works for any AWS resource type — and is fully idempotent.
+The ROSA HyperFleet uses a pipeline pre-step import framework to adopt pre-existing AWS resources into Terraform state. This enables full lifecycle management of resources that were originally auto-created by AWS services, created by imperative scripts, or provisioned outside of Terraform for any reason. The framework is generic — it works for any AWS resource type — and is fully idempotent.
 
 ## Context
 

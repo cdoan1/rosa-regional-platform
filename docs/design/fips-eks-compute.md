@@ -4,7 +4,7 @@
 
 ## Summary
 
-All EKS clusters in the ROSA Regional Platform use a custom Karpenter NodePool referencing a
+All EKS clusters in the ROSA HyperFleet use a custom Karpenter NodePool referencing a
 FIPS-validated NodeClass for platform and application workloads. The built-in EKS Auto Mode
 `system` node pool is retained to provide nodes for CoreDNS and metrics-server. The built-in
 `general-purpose` pool is disabled so that non-system workloads land on the FIPS NodePool rather

@@ -1,6 +1,6 @@
 # HyperFleet Infrastructure Module
 
-This Terraform module provisions AWS managed services for the HyperFleet cluster lifecycle management system in the ROSA Regional Platform.
+This Terraform module provisions AWS managed services for the HyperFleet cluster lifecycle management system in the ROSA HyperFleet.
 
 ## Overview
 
@@ -347,7 +347,7 @@ If issues occur, revert to in-cluster services:
 ## Related Documentation
 
 - [HyperFleet Adapter1 Chart](../../../argocd/config/regional-cluster/hyperfleet-adapter1-chart/README.md) - Cluster status reporting and adapter architecture
-- [Architecture Overview](../../../docs/README.md) - ROSA Regional Platform three-layer architecture
+- [Architecture Overview](../../../docs/README.md) - ROSA HyperFleet three-layer architecture
 - [AWS RDS Documentation](https://docs.aws.amazon.com/rds/)
 - [Amazon MQ Documentation](https://docs.aws.amazon.com/amazon-mq/)
 - [EKS Pod Identity](https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html)
@@ -359,4 +359,4 @@ For issues or questions:
 1. Check CloudWatch logs and metrics
 2. Review this documentation
 3. Consult the troubleshooting section
-4. Contact the platform team via Slack #rosa-regional-platform
+4. Contact the platform team via Slack #rosa-hyperfleet
