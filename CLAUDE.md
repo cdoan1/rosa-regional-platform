@@ -98,7 +98,7 @@ argocd/
 │   └── shared/              # Shared configurations
 └── README.md
 
-.chai-bot/                    # Chai Bot scheduled tasks (Slack notifications)
+.chai-bot/                    # Chai Bot scheduled tasks
 ├── rosa_hyperfleet_ci_daily_health_report.md   # Daily CI health report
 ├── rosa_hyperfleet_ci_weekly_status.md          # Weekly Jira epic progress + PR stats
 └── rosa_hyperfleet_docs_update.md               # Weekly doc staleness detection & update PRs

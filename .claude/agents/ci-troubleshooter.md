@@ -226,7 +226,7 @@ Present findings in this format:
 **Job:** `<job name and URL>`
 **Type:** `<job type>`
 **Failed Phase:** `<phase name>` (failed after `<duration>`)
-**Phase Durations:** `provision: <time>` | `e2e: <time>` | `teardown: <time>`
+**Phase Durations:** `provision-ephemeral: <time>` | `e2e-tests: <time>` | `teardown-ephemeral: <time>`
 **Scope:** `<RC / MC / RC↔MC interaction>`
 
 **Root Cause:**

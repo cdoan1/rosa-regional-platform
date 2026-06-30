@@ -51,9 +51,9 @@ Post the report as a single Slack message. Keep it scannable — no trend tables
 ...
 
 *PRs (7d):*
-rosa-hyperfleet: %MERGED% merged, %OPEN% open
-rosa-hyperfleet-api: %MERGED% merged, %OPEN% open
-rosa-hyperfleet-cli: %MERGED% merged, %OPEN% open
+<https://github.com/openshift-online/rosa-hyperfleet/pulls|rosa-hyperfleet>: %MERGED% merged, %OPEN% open
+<https://github.com/openshift-online/rosa-hyperfleet-api/pulls|rosa-hyperfleet-api>: %MERGED% merged, %OPEN% open
+<https://github.com/openshift-online/rosa-hyperfleet-cli/pulls|rosa-hyperfleet-cli>: %MERGED% merged, %OPEN% open
 ```
 
 - Group epics by status: In Progress (with progress badge), To Do, Done
